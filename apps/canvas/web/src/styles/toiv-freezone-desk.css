@@ -1,0 +1,212 @@
+/* Shared Freezone dense-desk surfaces for home / lists / settings (no second shell) */
+.app-user-workspace .fz-desk,
+.fz-desk {
+  --fz-canvas: #0a0c12;
+  --fz-surface: #15161d;
+  --fz-raised: #1b1c23;
+  --fz-border: #22232c;
+  --fz-border-strong: #2f3036;
+  --fz-ink: #e8eaf0;
+  --fz-muted: #6f7079;
+  --fz-primary: #00bdcf;
+  --fz-accent: #5ba0ff;
+  color: var(--fz-ink);
+  background: var(--fz-canvas);
+}
+
+.fz-desk-page {
+  min-height: 100%;
+  padding: 16px 20px 28px;
+  background: var(--fz-canvas, #0a0c12);
+  color: var(--fz-ink, #e8eaf0);
+}
+
+.fz-desk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 36px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--fz-border, #22232c);
+}
+
+.fz-desk-toolbar h1 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 22px;
+}
+
+.fz-desk-toolbar p {
+  margin: 0;
+  width: 100%;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--fz-muted, #6f7079);
+}
+
+.fz-desk-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.fz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--fz-border, #22232c);
+  background: transparent;
+  color: var(--fz-ink, #e8eaf0);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.fz-btn:hover { background: color-mix(in srgb, var(--fz-raised, #1b1c23) 90%, transparent); }
+.fz-btn:disabled { opacity: 0.55; cursor: wait; }
+.fz-btn.is-primary {
+  border-color: color-mix(in srgb, var(--fz-primary, #00bdcf) 45%, var(--fz-border));
+  background: color-mix(in srgb, var(--fz-primary, #00bdcf) 16%, transparent);
+  color: #eafcff;
+}
+.fz-btn.is-primary:hover {
+  background: color-mix(in srgb, var(--fz-primary, #00bdcf) 24%, transparent);
+}
+.fz-btn svg { width: 14px; height: 14px; }
+
+.fz-panel {
+  border: 1px solid var(--fz-border, #22232c);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--fz-surface, #15161d) 94%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.fz-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  margin: 0 0 8px;
+}
+.fz-section-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.fz-section-head a {
+  font-size: 12px;
+  color: var(--fz-accent, #5ba0ff);
+  text-decoration: none;
+}
+
+.fz-dense-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.fz-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--fz-border, #22232c);
+  border-radius: 10px;
+  background: var(--fz-surface, #15161d);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.fz-card:hover {
+  border-color: color-mix(in srgb, var(--fz-primary, #00bdcf) 35%, var(--fz-border));
+  background: var(--fz-raised, #1b1c23);
+}
+.fz-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fz-card-meta {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--fz-muted, #6f7079);
+}
+.fz-phase-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.fz-phase-pip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--fz-border, #22232c);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fz-muted, #6f7079);
+  letter-spacing: 0.02em;
+}
+.fz-phase-pip.is-done {
+  border-color: color-mix(in srgb, var(--fz-primary) 40%, var(--fz-border));
+  color: var(--fz-primary);
+  background: color-mix(in srgb, var(--fz-primary) 10%, transparent);
+}
+
+.fz-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--fz-border, #22232c);
+  background: transparent;
+  color: var(--fz-ink);
+  font-size: 12px;
+  text-decoration: none;
+}
+.fz-chip:hover {
+  border-color: color-mix(in srgb, var(--fz-accent) 40%, var(--fz-border));
+  background: color-mix(in srgb, var(--fz-accent) 8%, transparent);
+}
+.fz-chip svg { width: 12px; height: 12px; color: var(--fz-primary); }
+
+/* Force Freezone dark chrome on product workspace sidebar (login-after) */
+html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar,
+html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
+.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar,
+.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav {
+  --user-page-bg: #0a0c12;
+  --user-surface: #15161d;
+  --user-border: #22232c;
+  background: #0a0c12 !important;
+  border-color: #22232c;
+}

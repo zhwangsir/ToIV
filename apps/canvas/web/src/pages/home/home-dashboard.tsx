@@ -5,6 +5,8 @@ import { useCallback, useState } from "react";
 import { beefTVCapabilityItems, homeIntentBarItems } from "./home-data";
 import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
 import { createStudioProject, seedRainNightSample, type ToivDramaProject } from "@/services/toiv/client";
+import "@/styles/toiv-freezone-desk.css";
+import "./home-dashboard.css";
 
 function formatDate(value?: string) {
     if (!value) return "刚刚更新";
@@ -12,6 +14,8 @@ function formatDate(value?: string) {
     if (Number.isNaN(date.getTime())) return "刚刚更新";
     return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replaceAll("/", "-");
 }
+
+const PHASE_PIPS = ["剧本", "资产", "分镜", "成片"] as const;
 
 export function HomeDashboard({
     projects,
@@ -58,28 +62,22 @@ export function HomeDashboard({
     }, [navigate, seeding]);
 
     return (
-        <main className="toiv-home" aria-label="ToIV 首页">
-            <section className="toiv-home-hero" aria-label="开始创作">
-                <span className="toiv-home-glow" aria-hidden />
-                <span className="toiv-home-glow toiv-home-glow-delay" aria-hidden />
-                <div className="toiv-home-hero-actions">
-                    <button type="button" className="toiv-home-create" onClick={() => void createDrama()} disabled={creating} aria-label="新建短剧">
-                        <span className="toiv-home-create-icon">{creating ? <Loader2 className="animate-spin" /> : <Plus />}</span>
-                        <span className="toiv-home-create-title">新建短剧</span>
+        <main className="toiv-home fz-desk fz-desk-page" aria-label="ToIV 首页">
+            <header className="fz-desk-toolbar" aria-label="工作台工具条">
+                <h1>工作台</h1>
+                <div className="fz-desk-actions">
+                    <button type="button" className="fz-btn is-primary" onClick={() => void createDrama()} disabled={creating} aria-label="新建短剧">
+                        {creating ? <Loader2 className="animate-spin" /> : <Plus />}
+                        新建短剧
                     </button>
-                    <button
-                        type="button"
-                        className="toiv-home-secondary"
-                        onClick={() => void openRainNight()}
-                        disabled={seeding}
-                        aria-label="打开雨夜示例"
-                    >
-                        {seeding ? <Loader2 className="size-4 animate-spin" /> : <Clapperboard className="size-4" />}
-                        <span>打开雨夜示例</span>
-                        <small>约 1 集示范 · 可对照学习</small>
+                    <button type="button" className="fz-btn" onClick={() => void openRainNight()} disabled={seeding} aria-label="打开雨夜示例">
+                        {seeding ? <Loader2 className="animate-spin" /> : <Clapperboard />}
+                        雨夜示例
                     </button>
+                    <Link to="/create" className="fz-btn">去创作</Link>
                 </div>
-            </section>
+                <p>密台 · 最近项目优先 · Freezone 暗壳</p>
+            </header>
 
             <ComputeStatusStrip variant="full" className="toiv-home-fleet-hint" />
 
@@ -89,64 +87,71 @@ export function HomeDashboard({
                 </button>
             ) : null}
 
-            <details className="toiv-home-more">
-                <summary>更多能力</summary>
-                <nav className="toiv-capabilities" aria-label="创作能力">
-                    {beefTVCapabilityItems.map(({ id, label, detail, to, icon: Icon, disabled, external }) => (
-                        disabled ? (
-                            <span key={id} className="toiv-capability is-disabled" aria-disabled="true" title={`${label}：${detail}`}>
-                                <span className="toiv-capability-icon"><Icon /></span>
-                                <strong>{label}</strong>
-                            </span>
-                        ) : external ? (
-                            <a key={id} href={to} className="toiv-capability">
-                                <span className="toiv-capability-icon"><Icon /></span>
-                                <strong>{label}</strong>
-                            </a>
-                        ) : (
-                            <Link key={id} to={to} className="toiv-capability">
-                                <span className="toiv-capability-icon"><Icon /></span>
-                                <strong>{label}</strong>
-                            </Link>
-                        )
-                    ))}
-                </nav>
-                <nav className="toiv-intent-bar" aria-label="意图">
-                    {homeIntentBarItems.map(({ id, label, detail, to, icon: Icon }) => (
-                        <Link key={id} to={to} className="toiv-intent-chip" title={detail}>
-                            <Icon aria-hidden />
-                            <span>{label}</span>
-                        </Link>
-                    ))}
-                </nav>
-            </details>
-
-            <section className="toiv-home-section toiv-recents">
-                <header className="toiv-section-heading">
+            <section className="toiv-home-section toiv-recents" aria-label="最近短剧">
+                <header className="fz-section-head">
                     <h2>最近短剧</h2>
-                    <Link to="/toiv/drama">查看全部 <ArrowRight /></Link>
+                    <Link to="/toiv/drama">全部 <ArrowRight className="inline size-3.5" /></Link>
                 </header>
                 {error ? (
-                    <button className="toiv-home-error" type="button" onClick={onRetry}><RefreshCw />短剧列表读取失败，点击重试</button>
+                    <button className="toiv-home-error" type="button" onClick={onRetry}>
+                        <RefreshCw />短剧列表读取失败，点击重试
+                    </button>
                 ) : (
-                    <div className="toiv-recent-grid">
-                        {loading ? Array.from({ length: 4 }, (_, index) => <div className="toiv-recent-card is-loading" key={index} />) : projects.length ? projects.map((project) => (
-                            <Link to={`/create?project=${encodeURIComponent(project.id)}`} className="toiv-recent-card" key={project.id}>
-                                <span className="toiv-recent-preview"><Clapperboard /></span>
-                                <span className="toiv-recent-copy">
-                                    <strong>{project.title || project.premise?.slice(0, 24) || "未命名短剧"}</strong>
-                                    <small>{formatDate(project.updated_at)}</small>
-                                </span>
-                                <ArrowRight className="toiv-recent-arrow" />
-                            </Link>
-                        )) : (
-                            <button type="button" className="toiv-recent-card is-empty" onClick={() => void createDrama()} disabled={creating}>
-                                <span className="toiv-recent-preview"><Plus /></span>
-                                <span className="toiv-recent-copy"><strong>创建第一个短剧</strong></span>
-                            </button>
-                        )}
+                    <div className="fz-dense-grid">
+                        {loading
+                            ? Array.from({ length: 6 }, (_, index) => <div className="fz-card is-loading toiv-recent-card is-loading" key={index} />)
+                            : projects.length
+                              ? projects.map((project) => (
+                                    <Link to={`/create?project=${encodeURIComponent(project.id)}`} className="fz-card" key={project.id}>
+                                        <p className="fz-card-title">{project.title || project.premise?.slice(0, 24) || "未命名短剧"}</p>
+                                        <p className="fz-card-meta">{formatDate(project.updated_at)}</p>
+                                        <div className="fz-phase-row" aria-hidden>
+                                            {PHASE_PIPS.map((label, i) => (
+                                                <span key={label} className={i === 0 ? "fz-phase-pip is-done" : "fz-phase-pip"}>
+                                                    {label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </Link>
+                                ))
+                              : (
+                                    <button type="button" className="fz-card" onClick={() => void createDrama()} disabled={creating}>
+                                        <p className="fz-card-title">创建第一个短剧</p>
+                                        <p className="fz-card-meta">进入六段工作区</p>
+                                    </button>
+                                )}
                     </div>
                 )}
+            </section>
+
+            <section className="toiv-home-section" aria-label="快捷入口">
+                <header className="fz-section-head">
+                    <h2>快捷</h2>
+                </header>
+                <div className="fz-chip-row">
+                    {homeIntentBarItems.map(({ id, label, detail, to, icon: Icon }) => (
+                        <Link key={id} to={to} className="fz-chip" title={detail}>
+                            <Icon aria-hidden />
+                            {label}
+                        </Link>
+                    ))}
+                    {beefTVCapabilityItems
+                        .filter((x) => !x.disabled)
+                        .slice(0, 6)
+                        .map(({ id, label, to, icon: Icon, external }) =>
+                            external ? (
+                                <a key={id} href={to} className="fz-chip">
+                                    <Icon aria-hidden />
+                                    {label}
+                                </a>
+                            ) : (
+                                <Link key={id} to={to} className="fz-chip">
+                                    <Icon aria-hidden />
+                                    {label}
+                                </Link>
+                            ),
+                        )}
+                </div>
             </section>
         </main>
     );
