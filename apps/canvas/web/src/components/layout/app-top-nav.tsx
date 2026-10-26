@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { PanelLeftOpen } from "lucide-react";
 
+import { ContentModeStageHost } from "@/components/content-mode/content-mode-stage-host";
 import { ModelSetupGuide } from "@/components/layout/model-setup-guide";
 import { WorkspaceSidebarNav } from "@/components/layout/workspace-sidebar-nav";
 import { readWorkspaceSidebarCollapsed, writeWorkspaceSidebarCollapsed } from "@/components/layout/workspace-sidebar-state";
@@ -110,7 +111,10 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
                                 <PanelLeftOpen className="size-4" strokeWidth={1.7} />
                             </button>
                         ) : null}
-                        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
+                        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                            {!hideChrome ? <ContentModeStageHost /> : null}
+                            {children}
+                        </div>
                     </div>
                 </div>
 

@@ -205,3 +205,15 @@
         transition: none;
     }
 }
+
+/* Content-mode prototype block above account utility */
+.app-workspace-sidebar-content-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+    min-width: 0;
+}
+.app-workspace-sidebar-content-mode.is-collapsed {
+    align-items: center;
+}

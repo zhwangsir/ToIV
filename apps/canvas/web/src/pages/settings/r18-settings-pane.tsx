@@ -1,10 +1,10 @@
 /**
  * 普通/成人内容模式设置（死令 2026-10-26）。
- * focus=r18 深链：滚动到本 pane 并打开既有 confirming 两步闸。
- * 账号全局：对此账号所有设备生效；≤30s 他端同步；切模式不中断在途。
+ * 主切换已迁至舞台道具原型 A/B/C；本页仅状态说明 + 原型切换 + 确认闸深链兼容。
+ * 账号全局：GET/PATCH /api/me/mode；≤30s 他端同步。
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { Film, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import {
     COPY_ACCOUNT_GLOBAL,
@@ -21,9 +21,13 @@ import {
 } from "@/redline";
 import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
+import { ContentModePrototypeSwitcher } from "@/components/content-mode/prototype-switcher";
+import { PROTOTYPE_META, getContentModePrototypeSnapshot, getServerContentModePrototypeSnapshot, subscribeContentModePrototype } from "@/lib/content-mode-prototype";
+import "@/components/content-mode/content-mode-prototypes.css";
 
 export function R18SettingsPane() {
     const enabled = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
+    const proto = useSyncExternalStore(subscribeContentModePrototype, getContentModePrototypeSnapshot, getServerContentModePrototypeSnapshot);
     const [confirming, setConfirming] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const paneRef = useRef<HTMLElement | null>(null);
@@ -48,53 +52,48 @@ export function R18SettingsPane() {
         setR18Mode(true);
         setConfirming(false);
     };
-    const disable = () => {
-        setR18Mode(false);
-        setConfirming(false);
-    };
+
+    const meta = PROTOTYPE_META[proto];
 
     return (
         <section ref={paneRef} className="settings-section" data-testid="r18-settings-pane" id="r18-settings-pane">
             <div className="settings-r18-row">
                 <div className="flex min-w-0 items-start gap-2">
                     {enabled ? (
-                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--workspace-accent,#c4a265)]" aria-hidden />
+                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--cm-adult,#8b7cff)]" aria-hidden />
                     ) : (
-                        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--cm-primary,#00bdcf)]" aria-hidden />
                     )}
                     <div className="min-w-0">
                         <h3>内容模式</h3>
                         <p>
-                            {enabled ? `${COPY_MODE_ADULT} · 成人内容可见` : `${COPY_MODE_NORMAL} · 默认`}
+                            当前：{enabled ? COPY_MODE_ADULT : COPY_MODE_NORMAL}
                             <span className="mx-1 text-foreground/30">·</span>
                             <span className="text-foreground/70">{COPY_ACCOUNT_GLOBAL}</span>
                         </p>
                     </div>
                 </div>
-                {enabled ? (
-                    <button
-                        type="button"
-                        onClick={disable}
-                        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
-                        data-testid="r18-settings-disable"
-                    >
-                        切回{COPY_MODE_NORMAL}
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={() => setConfirming(true)}
-                        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
-                        data-testid="r18-settings-open"
-                    >
-                        切换到{COPY_MODE_ADULT}
-                    </button>
-                )}
+                <span
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted-foreground)]"
+                    data-testid="r18-settings-status"
+                    aria-label={`内容模式：${enabled ? COPY_MODE_ADULT : COPY_MODE_NORMAL}`}
+                >
+                    <Film className="size-3.5" aria-hidden />
+                    {enabled ? COPY_MODE_ADULT : COPY_MODE_NORMAL}
+                </span>
             </div>
 
             <p className="mt-2 text-[11px] leading-5 text-[var(--muted-foreground)]" data-testid="r18-account-global-hint">
-                {COPY_ACCOUNT_GLOBAL}。{COPY_ACCOUNT_SYNC_HINT}。{COPY_IN_FLIGHT_SAFE}。
+                主切换在「{meta.label}」（{meta.placement}），非本页灰按钮。侧栏脚可切原型 A / B / C 对比。{COPY_ACCOUNT_GLOBAL}。{COPY_ACCOUNT_SYNC_HINT}。{COPY_IN_FLIGHT_SAFE}。
             </p>
+
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-[color-mix(in srgb, var(--card) 88%, transparent)] p-3" data-testid="r18-prototype-panel">
+                <p className="mb-2 text-[11px] font-semibold tracking-wide text-foreground">控件原型（临时对比）</p>
+                <ContentModePrototypeSwitcher block />
+                <p className="mt-2 text-[11px] leading-5 text-[var(--muted-foreground)]">
+                    A 顶栏光幕拨片 · B 侧栏胶片双轨 · C 右下相位环。均绑定账号 me/mode；色弱场景另有图标/纹理/「普通|成人」文案。
+                </p>
+            </div>
 
             <ContentModeFallbackTip />
 
@@ -116,7 +115,7 @@ export function R18SettingsPane() {
             {enabled && (
                 <div className="mt-2 rounded-lg border border-[var(--border)] px-3 py-2.5 text-xs leading-5 text-[var(--muted-foreground)]">
                     <p className="font-medium text-foreground">入口</p>
-                    <p className="mt-1">应用市场 →「成人」筛选，或孪生父卡切内容模式。</p>
+                    <p className="mt-1">应用市场 →「成人」筛选，或孪生父卡切内容模式。切回普通后 NSFW 项灰化锁标「NSFW」。</p>
                     <p className="mt-2 flex flex-wrap gap-2">
                         <Link to="/toiv/market" className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-foreground hover:bg-muted/50">
                             应用市场
