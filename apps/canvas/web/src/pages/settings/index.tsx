@@ -13,6 +13,7 @@ import { LlmMutexBanner } from "./llm-mutex-banner";
 import { LocalComputePane } from "./local-compute-pane";
 import { ModelMixPresetsBar } from "./model-mix-presets-bar";
 import { ModelSlotTable } from "./model-slot-table";
+import { SettingsModelInventory } from "./settings-model-inventory";
 import { PromptPreferencesPane } from "./prompt-preferences-pane";
 import { R18SettingsPane } from "./r18-settings-pane";
 import { RunningHubSettingsPane } from "./runninghub-settings-pane";
@@ -141,6 +142,11 @@ export default function SettingsPage() {
                     </section>
                     <ModelMixPresetsBar onApplied={() => setSlotEpoch((n) => n + 1)} />
                     <LlmMutexBanner config={effectiveConfig} />
+                    <SettingsModelInventory
+                        config={effectiveConfig}
+                        onChange={(key, model) => updateConfig(key, model)}
+                        onOpenCompute={() => selectSection("compute")}
+                    />
                     <section className="settings-section" data-testid="settings-content-mode-note">
                         <p className="settings-block-label">内容模式说明</p>
                         <R18SettingsPane />

@@ -571,6 +571,37 @@
   --toiv-glow-opacity: 0.55;
   --toiv-motion-adult-geometry: unchanged;
 
+  /* ── Settings / models R10 (`--toiv-settings-*` / `--toiv-model-*`) ──
+     Vercel 极简：列表 + 抽屉表单；主 content_mode 开关只在顶栏光幕。
+     NSFW 普通态灰化+锁；成人 geometry unchanged。 */
+  --toiv-settings-page-max: 920px;
+  --toiv-settings-pad-x: 28px;
+  --toiv-settings-section-gap: 14px;
+  --toiv-settings-card-radius: 12px;
+  --toiv-settings-card-pad: 12px;
+  --toiv-settings-card-border: var(--toiv-border, #22232c);
+  --toiv-settings-card-bg: color-mix(in srgb, var(--toiv-surface, #15161d) 92%, transparent);
+  --toiv-settings-label-fs: 11px;
+  --toiv-settings-title-fs: 15px;
+  --toiv-settings-nav-h: 40px;
+  --toiv-settings-drawer-w: 420px;
+  --toiv-settings-drawer-pad: 20px;
+  --toiv-settings-enter-ms: 220ms;
+  --toiv-settings-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-model-row-h: 52px;
+  --toiv-model-row-pad-x: 12px;
+  --toiv-model-row-gap: 4px;
+  --toiv-model-row-radius: 10px;
+  --toiv-model-row-hover: color-mix(in srgb, var(--toiv-text) 4%, transparent);
+  --toiv-model-title-fs: 13px;
+  --toiv-model-meta-fs: 11px;
+  --toiv-model-badge-fs: 10px;
+  --toiv-model-icon-d: 28px;
+  --toiv-model-default-chip-h: 22px;
+  --toiv-model-nsfw-opacity: 0.55;
+  --toiv-model-list-max-h: min(52vh, 480px);
+  --toiv-settings-adult-geometry: unchanged;
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);

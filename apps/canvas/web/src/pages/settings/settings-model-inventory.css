@@ -1,0 +1,174 @@
+/* R10 Settings model inventory — list + drawer; Freezone */
+
+.toiv-model-inventory {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toiv-model-inventory-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toiv-model-inventory-head h3 {
+  margin: 0;
+  font-size: var(--toiv-settings-title-fs, 15px);
+  font-weight: 600;
+}
+
+.toiv-model-inventory-head p {
+  margin: 4px 0 0;
+  font-size: var(--toiv-model-meta-fs, 11px);
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+.toiv-model-inventory-list {
+  max-height: var(--toiv-model-list-max-h, min(52vh, 480px));
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--toiv-model-row-gap, 4px);
+  padding: 4px;
+  border: 1px solid var(--toiv-settings-card-border, var(--toiv-border, #22232c));
+  border-radius: var(--toiv-settings-card-radius, 12px);
+  background: var(--toiv-settings-card-bg);
+}
+
+.toiv-model-row {
+  display: grid;
+  grid-template-columns: var(--toiv-model-icon-d, 28px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--toiv-model-row-h, 52px);
+  padding: 8px var(--toiv-model-row-pad-x, 12px);
+  border: 0;
+  border-radius: var(--toiv-model-row-radius, 10px);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--toiv-settings-enter-ms, 220ms) var(--toiv-settings-ease);
+}
+
+.toiv-model-row:hover,
+.toiv-model-row:focus-visible {
+  background: var(--toiv-model-row-hover);
+  outline: none;
+}
+
+.toiv-model-row.is-nsfw-locked {
+  opacity: var(--toiv-model-nsfw-opacity, 0.55);
+  filter: grayscale(0.3);
+}
+
+.toiv-model-row-icon {
+  display: grid;
+  place-items: center;
+  width: var(--toiv-model-icon-d, 28px);
+  height: var(--toiv-model-icon-d, 28px);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 12%, transparent);
+  color: var(--toiv-accent, #5ba0ff);
+}
+
+.toiv-model-row-icon svg { width: 14px; height: 14px; }
+
+.toiv-model-row-main { min-width: 0; }
+
+.toiv-model-row-title {
+  margin: 0;
+  font-size: var(--toiv-model-title-fs, 13px);
+  font-weight: 560;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toiv-model-row-meta {
+  margin: 2px 0 0;
+  font-size: var(--toiv-model-meta-fs, 11px);
+  color: var(--toiv-text-muted, #6f7079);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toiv-model-row-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toiv-model-chip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--toiv-model-default-chip-h, 22px);
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: var(--toiv-model-badge-fs, 10px);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 16%, transparent);
+  color: var(--toiv-accent, #5ba0ff);
+}
+
+.toiv-model-drawer .ant-drawer-body {
+  padding: var(--toiv-settings-drawer-pad, 20px) !important;
+  background: var(--toiv-surface, #15161d);
+  color: var(--toiv-text, #e8eaf0);
+}
+
+.toiv-model-drawer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.toiv-model-drawer-block h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--toiv-text-muted, #6f7079);
+  text-transform: none;
+}
+
+.toiv-model-drawer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toiv-model-drawer-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  border: 1px solid var(--toiv-border, #22232c);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--toiv-text) 4%, transparent);
+  color: var(--toiv-text, #e8eaf0);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.toiv-model-drawer-actions button.is-primary {
+  border-color: transparent;
+  background: var(--toiv-accent, #5ba0ff);
+  color: #0a0c12;
+}
+
+.toiv-model-drawer-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toiv-model-drawer-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--toiv-text-muted, #6f7079);
+}

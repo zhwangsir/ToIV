@@ -1,3 +1,4 @@
+/* R10: --toiv-settings-* / --toiv-model-*; list+drawer inventory; no settings content_mode master switch */
 /* Settings Freezone desk — wave ⑤ (三层 IA 已有；成人仅说明+光幕) */
 .settings-page.fz-desk,
 .settings-page {
@@ -63,9 +64,9 @@ html.dark .settings-page.fz-desk,
 /* Settings visual pass 2026-10-26 — LingGuo-style restraint: slot table first, less chrome */
 
 .settings-page .settings-pane-root {
-  width: min(920px, 100%);
+  width: min(var(--toiv-settings-page-max, 920px), 100%);
   margin-inline: auto;
-  padding: 8px 28px 40px;
+  padding: 8px var(--toiv-settings-pad-x, 28px) 40px;
 }
 
 .settings-page .settings-pane-header {
