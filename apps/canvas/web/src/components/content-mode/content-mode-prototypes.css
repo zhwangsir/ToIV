@@ -123,55 +123,76 @@
 }
 
 /* ── A: Light curtain paddle (top stage) ── */
+/* A production: compact top-right toolbar chip — never center island over title */
 .cm-light-curtain {
   position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 10px;
+  right: 14px;
+  left: auto;
+  transform: none;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 4px;
   pointer-events: none;
+  max-width: calc(100% - 28px);
 }
 .cm-light-curtain > * { pointer-events: auto; }
 .cm-light-curtain-rail {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  width: min(340px, calc(100vw - 48px));
-  height: 48px;
-  padding: 4px;
+  width: auto;
+  min-width: 132px;
+  max-width: 168px;
+  height: 28px;
+  padding: 2px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--cm-accent) 30%, var(--cm-border));
-  background:
-    linear-gradient(180deg, rgba(21, 22, 29, 0.92), rgba(10, 12, 18, 0.96)),
-    var(--cm-canvas);
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 32px rgba(0, 189, 207, 0.12);
+  border: 1px solid color-mix(in srgb, var(--cm-border) 88%, var(--cm-primary));
+  background: color-mix(in srgb, var(--cm-surface) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
+  backdrop-filter: blur(10px) saturate(112%);
 }
+/* Light workspace: keep chip readable without purple glass blob */
+:root:not(.dark) .cm-light-curtain-rail,
+html:not(.dark) .cm-light-curtain-rail,
+body:not(.dark) .cm-light-curtain-rail,
+.app-user-workspace:not(.dark) .cm-light-curtain-rail {
+  border-color: color-mix(in srgb, var(--border, #e5e5e5) 90%, #00bdcf);
+  background: color-mix(in srgb, #fff 88%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+:root:not(.dark) .cm-light-curtain-opt,
+html:not(.dark) .cm-light-curtain-opt {
+  color: #6b6b73;
+}
+:root:not(.dark) .cm-light-curtain-veil,
+html:not(.dark) .cm-light-curtain-veil {
+  background: color-mix(in srgb, #00bdcf 16%, transparent);
+}
+:root:not(.dark) .cm-light-curtain-rail.is-adult .cm-light-curtain-veil,
+html:not(.dark) .cm-light-curtain-rail.is-adult .cm-light-curtain-veil {
+  background: color-mix(in srgb, #6b5cff 14%, transparent);
+}
+
 .cm-light-curtain-veil {
   position: absolute;
-  inset: 4px;
-  width: calc(50% - 4px);
+  inset: 2px;
+  width: calc(50% - 2px);
   border-radius: 999px;
-  background:
-    linear-gradient(120deg, rgba(0, 189, 207, 0.35), rgba(91, 160, 255, 0.22)),
-    color-mix(in srgb, var(--cm-ordinary-matte) 70%, transparent);
-  box-shadow: 0 0 24px rgba(0, 189, 207, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1), background 220ms ease, box-shadow 220ms ease;
+  background: color-mix(in srgb, var(--cm-primary) 22%, transparent);
+  box-shadow: none;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), background 180ms ease;
   pointer-events: none;
 }
 .cm-light-curtain-rail.is-adult .cm-light-curtain-veil {
   transform: translateX(100%);
   background:
-    linear-gradient(120deg, rgba(139, 124, 255, 0.42), rgba(58, 47, 107, 0.55)),
-    repeating-linear-gradient(-35deg, transparent 0 4px, rgba(255, 255, 255, 0.04) 4px 5px);
-  box-shadow: 0 0 28px rgba(139, 124, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color-mix(in srgb, var(--cm-adult) 22%, transparent),
+    repeating-linear-gradient(-35deg, transparent 0 3px, rgba(255, 255, 255, 0.05) 3px 4px);
+  box-shadow: none;
 }
 .cm-light-curtain-opt {
   position: relative;
@@ -179,24 +200,34 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 6px;
   border: 0;
   background: transparent;
   color: var(--cm-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
   border-radius: 999px;
+  line-height: 1;
 }
-.cm-light-curtain-opt.is-active { color: var(--cm-ink); text-shadow: 0 0 12px rgba(255, 255, 255, 0.2); }
-.cm-light-curtain-opt:focus-visible { outline: 2px solid var(--cm-accent); outline-offset: -2px; }
-.cm-light-curtain-opt svg { width: 14px; height: 14px; }
-.cm-light-curtain-hint {
-  font-size: 10px;
-  color: var(--cm-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.cm-light-curtain-opt.is-active { color: var(--cm-ink); text-shadow: none; }
+:root:not(.dark) .cm-light-curtain-opt.is-active,
+html:not(.dark) .cm-light-curtain-opt.is-active {
+  color: #1b1b1f;
+}
+.cm-light-curtain-opt:focus-visible { outline: 2px solid var(--cm-accent); outline-offset: 1px; }
+.cm-light-curtain-opt svg { width: 11px; height: 11px; flex: none; }
+/* Adult opt: keep Lock, hide redundant ShieldAlert to reduce visual weight */
+.cm-light-curtain-hint { display: none; }
+.cm-light-curtain .cm-confirm {
+  right: 0;
+  left: auto;
+  bottom: auto;
+  top: calc(100% + 6px);
+  min-width: 220px;
 }
 
 /* ── B: Film dual rail (sidebar) ── */

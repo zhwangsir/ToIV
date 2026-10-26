@@ -1,11 +1,11 @@
-import { Lock, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 
 import { ContentModeConfirm } from "@/components/content-mode/content-mode-confirm";
 import { useContentModeControl } from "@/components/content-mode/use-content-mode-control";
 import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
 import { cn } from "@/lib/utils";
 
-/** A — 顶栏光幕拨片：哑光青幕 / 暗紫锁幕，文案+图标双通道。 */
+/** A — 顶栏右紧凑光幕芯片：一行高，不挡标题，文案+图标双通道。 */
 export function LightCurtainPaddle() {
     const { adultOn, confirming, select, confirmAdult, cancelConfirm } = useContentModeControl();
 
@@ -30,14 +30,10 @@ export function LightCurtainPaddle() {
                     data-testid="content-mode-a-adult"
                     onClick={() => select(true)}
                 >
-                    <ShieldAlert aria-hidden />
-                    <Lock aria-hidden className="opacity-80" />
+                    <Lock aria-hidden />
                     <span>{COPY_MODE_ADULT}</span>
                 </button>
             </div>
-            <span className="cm-light-curtain-hint" aria-hidden>
-                light curtain · 光幕
-            </span>
             {confirming ? <ContentModeConfirm onConfirm={confirmAdult} onCancel={cancelConfirm} /> : null}
         </div>
     );
