@@ -4,6 +4,8 @@ import { Check, ChevronDown, ChevronUp, Clapperboard, CloudUpload, Columns2, Cop
 import { Button, Dropdown, Tooltip } from "antd";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
+import { LightCurtainPaddle } from "@/components/content-mode/light-curtain-paddle";
+import "@/components/content-mode/content-mode-prototypes.css";
 import { canvasDockStyle } from "@/lib/canvas/canvas-aceternity-style";
 import type { CanvasContextSummary } from "@/lib/canvas/canvas-context-summary";
 import type { CanvasShortDramaProgress } from "@/lib/canvas/canvas-short-drama";
@@ -351,6 +353,7 @@ export function CanvasTopBar({
                 ) : null}
 
                 <div className="canvas-topbar-cluster canvas-topbar-local-cluster pointer-events-auto hidden items-center gap-1 lg:flex" style={dockStyle}>
+                    <LightCurtainPaddle />
                     {activeTasks}
                     {onToggleAssistant ? (
                         <CanvasTopBarTooltip label="助手（Ctrl/Cmd + J）">
@@ -371,6 +374,7 @@ export function CanvasTopBar({
                 </div>
 
                 <div className="canvas-topbar-cluster canvas-topbar-tools-cluster pointer-events-auto flex items-center gap-1.5 lg:hidden" style={dockStyle}>
+                    <LightCurtainPaddle compact />
                     {activeTasks}
                     <CanvasTopBarTooltip label="搜索画布节点">
                         <Button

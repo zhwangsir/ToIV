@@ -1,6 +1,8 @@
 import { PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
+import { LightCurtainPaddle } from "@/components/content-mode/light-curtain-paddle";
+import "@/components/content-mode/content-mode-prototypes.css";
 import { WorkspaceTopBarExtensionSlot } from "@/components/layout/workspace-top-bar-extension";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 
@@ -9,7 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
     assets: "资产", skills: "技能", plugins: "插件", settings: "设置",
 };
 
-/** Compatibility workspace chrome retained for non-canvas routes. Canvas owns its own top bar. */
+/** Product workspace chrome: page title left, extension slot center, light-curtain + utilities right. */
 export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void }) {
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
     const { pathname } = useLocation();
@@ -18,7 +20,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
     const isHome = pathname === "/";
 
     return (
-        <header className="app-workspace-topbar">
+        <header className={"app-workspace-topbar" + (isHome ? " is-home" : "")}>
             <button type="button" className="app-workspace-mobile-menu app-workspace-topbar-icon-button" aria-label={sidebarOpen ? "收起侧栏" : "展开侧栏"} onClick={onToggleSidebar}>
                 {sidebarOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
             </button>
@@ -28,7 +30,8 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
                 <span className="truncate font-medium text-foreground">{pageTitle}</span>
             </nav> : <span className="app-workspace-topbar-spacer" />}
             <WorkspaceTopBarExtensionSlot />
-            <div className="app-workspace-topbar-actions">
+            <div className="app-workspace-topbar-actions" data-testid="workspace-topbar-actions">
+                <LightCurtainPaddle />
                 <Link to="/settings?section=common" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
             </div>
         </header>

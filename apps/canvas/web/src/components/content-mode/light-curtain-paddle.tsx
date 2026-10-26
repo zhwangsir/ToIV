@@ -6,9 +6,10 @@ import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
 import { cn } from "@/lib/utils";
 
 /**
- * A 生产光幕芯片（TL 锁规格）：
- * 侧栏深浅色旁；高 28–32px、宽 ≈88–120px、字 12px；
- * 静止近透明细边、激活弱 fill；禁正中浮岛/大紫光晕；不挡标题。
+ * A 生产光幕拨片（R2 · 顶栏右一等公民）：
+ * 挂载：产品顶栏右侧工具带 / 画布顶栏右簇；侧栏脚不再挂主切换。
+ * 尺：高 28–32px（token 30 / compact 28）、宽 ≈88–120、字 12；
+ * 动效：~200ms 弹性微光；成人态 nsfw-lock + 可选 glow-director 弱提示；禁正中浮岛。
  */
 export function LightCurtainPaddle({ compact }: { compact?: boolean }) {
     const { adultOn, confirming, select, confirmAdult, cancelConfirm } = useContentModeControl();

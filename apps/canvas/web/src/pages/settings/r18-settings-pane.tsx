@@ -1,6 +1,6 @@
 /**
  * 普通/成人内容模式设置（死令 2026-10-26 · A 光幕收束）。
- * 主切换：舞台顶栏 LightCurtainPaddle；本页仅状态说明 + focus=r18 确认闸兼容。
+ * 主切换：顶栏右 LightCurtainPaddle（R2）；本页仅状态说明 + focus=r18 确认闸；拒绝设置页主开关。
  * 真源：GET/PATCH /api/me/mode（ordinary|adult）。
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";

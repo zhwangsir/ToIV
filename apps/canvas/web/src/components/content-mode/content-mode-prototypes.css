@@ -113,8 +113,8 @@
   font-size: 9px;
 }
 
-/* ── A: Light curtain paddle (top stage) ── */
-/* A production (TL lock): sidebar chip beside theme — never stage-center island */
+/* ── A: Light curtain paddle (R2 · topbar right first-class) ── */
+/* Never stage-center island; never sidebar-footer primary mount */
 .cm-light-curtain {
   position: relative;
   top: auto;
@@ -139,12 +139,15 @@
   max-width: var(--toiv-light-curtain-w-max, 120px);
   height: var(--toiv-light-curtain-h, 30px);
   padding: 2px;
-  border-radius: 999px;
+  border-radius: var(--toiv-radius-full, 9999px);
   border: 1px solid color-mix(in srgb, var(--border, var(--cm-border)) 70%, transparent);
   background: color-mix(in srgb, var(--background, transparent) 40%, transparent);
   box-shadow: none;
   overflow: hidden;
   backdrop-filter: none;
+  transition:
+    border-color var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 .cm-light-curtain.is-compact .cm-light-curtain-rail {
   width: var(--toiv-light-curtain-w-compact, 56px);
@@ -156,25 +159,40 @@
   position: absolute;
   inset: 2px;
   width: calc(50% - 2px);
-  border-radius: 999px;
+  border-radius: var(--toiv-radius-full, 9999px);
   background: transparent;
   box-shadow: none;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background 160ms ease;
+  transition:
+    transform var(--toiv-duration-base, 200ms) var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    background var(--toiv-duration-base, 200ms) ease,
+    box-shadow var(--toiv-duration-base, 200ms) ease;
   pointer-events: none;
 }
-.cm-light-curtain-rail.is-adult .cm-light-curtain-veil,
 .cm-light-curtain-rail:not(.is-adult) .cm-light-curtain-veil {
-  /* idle: near transparent; active segment gets weak fill via .is-active sibling drive */
+  /* ordinary: cyan aux weak fill */
+  background: color-mix(in srgb, var(--toiv-accent-cyan, var(--cm-primary, #00bdcf)) 14%, transparent);
 }
-.cm-light-curtain-rail:not(.is-adult) .cm-light-curtain-veil {
-  background: color-mix(in srgb, var(--cm-primary, #00bdcf) 12%, transparent);
+.cm-light-curtain-rail.is-adult {
+  border-color: color-mix(in srgb, var(--toiv-nsfw-lock, var(--cm-adult, #8b7cff)) 40%, var(--cm-border));
+  /* director glow aux only — weak, not floor/CTA */
+  box-shadow: 0 0 14px rgb(var(--toiv-director-rgb, 79 140 255) / 0.22);
 }
 .cm-light-curtain-rail.is-adult .cm-light-curtain-veil {
   transform: translateX(100%);
   background:
-    color-mix(in srgb, var(--cm-adult, #8b7cff) 12%, transparent),
+    color-mix(in srgb, var(--toiv-nsfw-lock, var(--cm-adult, #8b7cff)) 14%, transparent),
     repeating-linear-gradient(-35deg, transparent 0 3px, rgba(255, 255, 255, 0.04) 3px 4px);
-  box-shadow: none;
+  box-shadow: inset 0 0 10px rgb(var(--toiv-director-rgb, 79 140 255) / 0.12);
+}
+.app-workspace-topbar-actions .cm-light-curtain,
+.canvas-topbar .cm-light-curtain {
+  align-self: center;
+}
+.app-workspace-topbar-actions .cm-light-curtain .cm-confirm,
+.canvas-topbar .cm-light-curtain .cm-confirm {
+  top: calc(100% + 8px);
+  bottom: auto;
+  right: 0;
 }
 .cm-light-curtain-opt {
   position: relative;

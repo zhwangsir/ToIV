@@ -5,8 +5,6 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSPrope
 import { Link, useLocation, useSearchParams } from "react-router";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
-import { LightCurtainPaddle } from "@/components/content-mode/light-curtain-paddle";
-import "@/components/content-mode/content-mode-prototypes.css";
 import { WorkspaceSidebarAccount } from "@/components/layout/workspace-sidebar-account";
 import { WorkspaceSidebarUpdate } from "@/components/layout/workspace-sidebar-update";
 import { Kbd } from "@/components/ui/base/kbd";
@@ -345,7 +343,6 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
                 <div className={cn("app-workspace-sidebar-utility-row", collapsed && "is-collapsed")}>
                     <WorkspaceSidebarAccount collapsed={collapsed} />
                     <WorkspaceSidebarUpdate collapsed={collapsed} />
-                    <LightCurtainPaddle compact={collapsed} />
                     <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} aria-label={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"} title={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"} className="app-workspace-theme-action">
                         {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
                     </AnimatedThemeToggler>

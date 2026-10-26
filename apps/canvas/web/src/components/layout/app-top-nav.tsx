@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { PanelLeftOpen } from "lucide-react";
 
 import { ModelSetupGuide } from "@/components/layout/model-setup-guide";
 import { WorkspaceSidebarNav } from "@/components/layout/workspace-sidebar-nav";
+import { WorkspaceTopBar } from "@/components/layout/workspace-top-bar";
+import { WorkspaceTopBarExtensionProvider } from "@/components/layout/workspace-top-bar-extension";
 import { readWorkspaceSidebarCollapsed, writeWorkspaceSidebarCollapsed } from "@/components/layout/workspace-sidebar-state";
 import { useDesktopUpdateBootstrap } from "@/hooks/use-desktop-update";
 import { cn } from "@/lib/utils";
@@ -81,7 +82,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     }, [navigate]);
 
     return (
-        <>
+        <WorkspaceTopBarExtensionProvider>
             <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")}>
                 {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label="收起侧栏" onClick={() => setMobileSidebarExpanded(false)} /> : null}
 
@@ -106,9 +107,10 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
 
                     <div className="app-workspace-stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                         {!hideChrome ? (
-                            <button type="button" className="app-workspace-mobile-menu app-workspace-topbar-icon-button app-workspace-floating-menu" aria-label="展开侧栏" onClick={toggleSidebar}>
-                                <PanelLeftOpen className="size-4" strokeWidth={1.7} />
-                            </button>
+                            <WorkspaceTopBar
+                                sidebarOpen={mobileSidebarExpanded || !desktopSidebarCollapsed}
+                                onToggleSidebar={toggleSidebar}
+                            />
                         ) : null}
                         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
                     </div>
@@ -117,6 +119,6 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
                 {paletteOpen ? <Suspense fallback={null}><WorkspaceCommandPalette open onClose={() => setPaletteOpen(false)} /></Suspense> : null}
             </div>
             <ModelSetupGuide hidden={!sessionHydrated || localMode || pathname === "/login" || pathname === "/register" || pathname.startsWith("/admin") || pathname.startsWith("/assets")} />
-        </>
+        </WorkspaceTopBarExtensionProvider>
     );
 }
