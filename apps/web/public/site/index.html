@@ -9,11 +9,15 @@
 </script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0c12">
 <title>ToIV · 一句话出短剧</title>
 <meta name="description" content="ToIV：输入一句话，自动生成剧本、角色一致的分镜视频和配音配乐。">
 <link rel="stylesheet" href="/site/styles.css">
 </head>
 <body>
+<div class="stage-glow" aria-hidden="true"></div>
+<div class="stage-rays" aria-hidden="true"></div>
+
 <header class="nav">
   <div class="wrap nav-inner">
     <a class="logo" href="/" aria-label="ToIV 首页"><span class="logo-mark" aria-hidden="true"></span>ToIV</a>
@@ -24,7 +28,9 @@
 <main>
   <section class="hero wrap">
     <div class="hero-copy">
+      <div class="eyebrow">AI 短剧工作台</div>
       <h1>一句话，<br>出一部短剧。</h1>
+      <p class="hero-lead">暗色创作台 · 剧本到成片一条链。打开即进入新视觉，而非微调旧壳。</p>
       <div class="cta">
         <a class="btn btn-primary btn-lg" href="/?view=home">开始创作<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg></a>
       </div>
