@@ -3,7 +3,7 @@
  *
  * 产品：
  * - 成人态 = **账号全局**；前端只展示 + 携带 X-NSFW；后端账号字段为唯一判据（403 不看请求头放行）
- * - localStorage 仅乐观缓存，非真相源；真源：GET me/mode → content_mode + updated_at（未就绪则占位 TODO）
+ * - localStorage 仅乐观缓存，非真相源；真源：GET/PATCH /api/me/mode → { content_mode: ordinary|adult, updated_at }；/auth/me 亦可读
  * - 他端 ≤30s 轮询刷新；切模式不 abort/cancel 在途任务（仅新请求走闸）
  * - 拦截在路由守卫（本文件 + RequireR18）；Settings 两步闸仍用 R18SettingsPane
  * - NSFW 列表：已知 NSFW → 普通态灰化+锁+「NSFW」可见不可点；未知元数据 → 普通藏/成人显
@@ -71,10 +71,11 @@ export const NSFW_ONLY_APP_IDS: readonly string[] = CLASSIC_NSFW_TO_MARKET.filte
 );
 
 /** 账号 content_mode 契约（对齐后端 GET me/mode）。 */
-export type AccountContentMode = "sfw" | "nsfw";
+export type AccountContentMode = "ordinary" | "adult";
 
 export type AccountModePayload = {
-    content_mode: AccountContentMode;
+    /** 真值 ordinary|adult；读入时亦接受 sfw|nsfw|r18 别名并由 normalize 收口。 */
+    content_mode: AccountContentMode | string;
     updated_at?: string | null;
 };
 
@@ -165,30 +166,96 @@ export function peekFallbackTip(): boolean {
 }
 
 /**
- * TODO(backend): GET /api/me/mode → { content_mode: "sfw"|"nsfw", updated_at }
- * 接口未就绪时返回 null，前端继续用内存/乐观缓存展示。
+ * 规范化账号 content_mode。
+ * 真值 ordinary|adult；写入别名 sfw→ordinary、nsfw|r18→adult（后端已兼容）。
  */
-export async function fetchAccountContentMode(): Promise<AccountModePayload | null> {
-    // TODO: wire real endpoint when backend ships content_mode + me/mode
-    // Expected: const { data } = await apiClient.get<AccountModePayload>("/me/mode");
-    // return { content_mode: data.content_mode, updated_at: data.updated_at };
-    void ACCOUNT_MODE_POLL_MS;
-    return null;
+export function normalizeAccountContentMode(raw: unknown): AccountContentMode {
+    const v = String(raw ?? "").trim().toLowerCase();
+    if (v === "adult" || v === "nsfw" || v === "r18") return "adult";
+    return "ordinary";
+}
+
+type ToivHttpLike = {
+    get: (url: string, config?: object) => Promise<{ data: unknown }>;
+    patch: (url: string, body?: object, config?: object) => Promise<{ data: unknown }>;
+};
+
+async function loadToivHttp(): Promise<ToivHttpLike | null> {
+    try {
+        // 动态导入避免与 toiv/client → r18-mode → redline 成环
+        const mod = await import("@/services/toiv/client");
+        return mod.toivHttp as ToivHttpLike;
+    } catch {
+        return null;
+    }
+}
+
+function payloadFromMeMode(data: unknown): AccountModePayload | null {
+    if (!data || typeof data !== "object") return null;
+    const row = data as Record<string, unknown>;
+    if (!("content_mode" in row)) return null;
+    const updated = row.updated_at;
+    return {
+        content_mode: normalizeAccountContentMode(row.content_mode),
+        updated_at: typeof updated === "string" ? updated : updated == null ? null : String(updated),
+    };
+}
+
+function payloadFromAuthMe(data: unknown): AccountModePayload | null {
+    if (!data || typeof data !== "object") return null;
+    const root = data as Record<string, unknown>;
+    const user = (root.user && typeof root.user === "object" ? root.user : root) as Record<string, unknown>;
+    if (!("content_mode" in user)) return null;
+    const updated = user.content_mode_updated_at ?? user.updated_at;
+    return {
+        content_mode: normalizeAccountContentMode(user.content_mode),
+        updated_at: typeof updated === "string" ? updated : updated == null ? null : String(updated),
+    };
 }
 
 /**
- * TODO(backend): PATCH /api/me/mode { content_mode }
- * 403 仅看账号态；请求头 X-NSFW 不作放行判据（仅展示/携带）。
+ * GET /api/me/mode → { content_mode, updated_at }。
+ * 失败时回退 GET /api/auth/me 的 content_mode + content_mode_updated_at。
+ * 403 以账号态为准；X-NSFW 仅携带不作放行判据。
+ */
+export async function fetchAccountContentMode(): Promise<AccountModePayload | null> {
+    const http = await loadToivHttp();
+    if (!http) return null;
+    try {
+        const { data } = await http.get("/me/mode", { timeout: 10_000 });
+        const fromMode = payloadFromMeMode(data);
+        if (fromMode) return fromMode;
+    } catch {
+        /* fall through to /auth/me */
+    }
+    try {
+        const { data } = await http.get("/auth/me", { timeout: 10_000 });
+        return payloadFromAuthMe(data);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * PATCH /api/me/mode { content_mode: ordinary|adult }。
+ * 成功则用响应刷新本地；失败返回 false（调用方应 refresh）。
  */
 export async function pushAccountContentMode(mode: AccountContentMode): Promise<boolean> {
-    // TODO: wire real endpoint
-    // await apiClient.patch("/me/mode", { content_mode: mode });
-    void mode;
-    return false;
+    const http = await loadToivHttp();
+    if (!http) return false;
+    const normalized = normalizeAccountContentMode(mode);
+    try {
+        const { data } = await http.patch("/me/mode", { content_mode: normalized }, { timeout: 10_000 });
+        const payload = payloadFromMeMode(data) ?? { content_mode: normalized, updated_at: null };
+        applyAccountModePayload(payload);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function optimisticAdult(): boolean {
-    if (accountModeCache != null) return accountModeCache === "nsfw";
+    if (accountModeCache != null) return accountModeCache === "adult";
     return storageGet(R18_STORAGE_KEY) === "1";
 }
 
@@ -197,9 +264,9 @@ export function isR18Mode(): boolean {
     return optimisticAdult();
 }
 
-/** 当前账号 content_mode（sfw|nsfw）。 */
+/** 当前账号 content_mode（ordinary|adult）。 */
 export function getAccountContentMode(): AccountContentMode {
-    return isR18Mode() ? "nsfw" : "sfw";
+    return isR18Mode() ? "adult" : "ordinary";
 }
 
 export function getAccountModeUpdatedAt(): string | null {
@@ -211,19 +278,26 @@ export function getAccountModeUpdatedAt(): string | null {
  * 返回是否相对刷新前发生了变化。
  */
 export function applyAccountModePayload(payload: AccountModePayload | null | undefined): boolean {
-    if (!payload || (payload.content_mode !== "sfw" && payload.content_mode !== "nsfw")) return false;
+    if (!payload) return false;
+    const mode = normalizeAccountContentMode(payload.content_mode);
+    const nextUpdated = payload.updated_at ?? null;
+
     if (isUnderage()) {
-        accountModeCache = "sfw";
-        accountModeUpdatedAt = payload.updated_at ?? accountModeUpdatedAt;
+        const changed = accountModeCache !== "ordinary" || isR18Mode();
+        accountModeCache = "ordinary";
+        accountModeUpdatedAt = nextUpdated ?? accountModeUpdatedAt;
         storageSet(R18_STORAGE_KEY, null);
         applyDataset(false);
-        notifyR18Listeners();
-        return true;
+        if (changed) notifyR18Listeners();
+        return changed;
     }
-    const nextAdult = payload.content_mode === "nsfw";
+
+    if (accountModeCache === mode && accountModeUpdatedAt === nextUpdated) return false;
+
     const prev = isR18Mode();
-    accountModeCache = payload.content_mode;
-    accountModeUpdatedAt = payload.updated_at ?? accountModeUpdatedAt;
+    const nextAdult = mode === "adult";
+    accountModeCache = mode;
+    accountModeUpdatedAt = nextUpdated ?? accountModeUpdatedAt;
     storageSet(R18_STORAGE_KEY, nextAdult ? "1" : null);
     applyDataset(nextAdult);
     if (prev !== nextAdult) {
@@ -237,13 +311,13 @@ export function applyAccountModePayload(payload: AccountModePayload | null | und
 /** 启动：用 localStorage 乐观缓存恢复展示，再拉账号 + ≤30s 轮询覆盖。切模式永不 abort 在途。 */
 export function initR18Mode(): void {
     if (isUnderage()) {
-        accountModeCache = "sfw";
+        accountModeCache = "ordinary";
         storageSet(R18_STORAGE_KEY, null);
         applyDataset(false);
     } else {
-        // 启动瞬间以存储恢复；accountModeCache 可能被热更新残留，显式对齐
+        // 启动瞬间以存储恢复；随即被 /me/mode 覆盖（存储非真相源）
         const fromStore = storageGet(R18_STORAGE_KEY) === "1";
-        accountModeCache = fromStore ? "nsfw" : "sfw";
+        accountModeCache = fromStore ? "adult" : "ordinary";
         applyDataset(fromStore);
     }
     void refreshAccountContentMode();
@@ -255,7 +329,7 @@ export async function refreshAccountContentMode(): Promise<void> {
         const payload = await fetchAccountContentMode();
         if (payload) applyAccountModePayload(payload);
     } catch {
-        /* 占位期静默；展示继续用乐观缓存 */
+        /* 网络失败时继续用内存/乐观缓存；不以 localStorage 覆盖 API */
     }
 }
 
@@ -281,20 +355,22 @@ export function stopAccountModePolling(): void {
 export function setR18Mode(on: boolean): boolean {
     if (typeof window === "undefined") return false;
     if (on && isUnderage()) {
-        accountModeCache = "sfw";
+        accountModeCache = "ordinary";
         storageSet(R18_STORAGE_KEY, null);
         applyDataset(false);
         notifyR18Listeners();
         return false;
     }
     const prev = isR18Mode();
-    const mode: AccountContentMode = on ? "nsfw" : "sfw";
+    const mode: AccountContentMode = on ? "adult" : "ordinary";
     accountModeCache = mode;
     storageSet(R18_STORAGE_KEY, on ? "1" : null);
     applyDataset(on);
     // 不触碰 AbortController / cancelJob —— 在途按提交快照继续
     void MODE_SWITCH_DOES_NOT_ABORT_INFLIGHT;
-    void pushAccountContentMode(mode);
+    void pushAccountContentMode(mode).then((ok) => {
+        if (!ok) void refreshAccountContentMode();
+    });
     if (prev && !on) notifyFallbackTip();
     notifyR18Listeners();
     return on;
@@ -549,6 +625,6 @@ export const REDLINE_GUARD_COVERAGE = [
     "/settings 含 focus=r18 永不拦截（开启入口）",
     "选型列表：已知 NSFW 普通态灰化+锁+NSFW 标签（可见不可点）；未知元数据普通藏/成人显",
     "显式 is_nsfw/nsfw/content_rating 优先；文件名仅兜底",
-    "账号 content_mode / me/mode 为真源；localStorage 仅乐观缓存；≤30s 轮询",
+    "账号 content_mode(ordinary|adult) / me/mode 为真源；localStorage 仅乐观缓存；≤30s 轮询",
     "切模式不中断在途；软化仅普通路径",
 ] as const;

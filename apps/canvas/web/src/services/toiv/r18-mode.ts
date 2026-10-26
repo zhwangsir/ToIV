@@ -29,6 +29,7 @@ export {
     R18_FALLBACK_TIP_EVENT,
     shouldApplyContentSoftening,
     getAccountContentMode,
+    normalizeAccountContentMode,
     fetchAccountContentMode,
     pushAccountContentMode,
     refreshAccountContentMode,

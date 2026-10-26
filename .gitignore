@@ -102,3 +102,6 @@ third_party/video-use/
 # local API tokens
 .secrets/
 
+
+# Wave2 local absorb scratch (do not commit upstream trees)
+.wave2-absorb-src/

@@ -154,3 +154,51 @@ describe("redline NSFW asset visibility", () => {
         expect(mod.FALLBACK_VIDEO_MODEL).toBe("local-wan");
     });
 });
+
+
+describe("redline account content_mode ordinary|adult", () => {
+    test("normalizeAccountContentMode maps aliases to ordinary|adult", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.normalizeAccountContentMode("ordinary")).toBe("ordinary");
+        expect(mod.normalizeAccountContentMode("adult")).toBe("adult");
+        expect(mod.normalizeAccountContentMode("sfw")).toBe("ordinary");
+        expect(mod.normalizeAccountContentMode("nsfw")).toBe("adult");
+        expect(mod.normalizeAccountContentMode("r18")).toBe("adult");
+        expect(mod.normalizeAccountContentMode("")).toBe("ordinary");
+    });
+
+    test("applyAccountModePayload uses API as truth; localStorage only caches", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        mod.setR18Mode(false);
+        expect(mod.getAccountContentMode()).toBe("ordinary");
+        expect(mod.applyAccountModePayload({ content_mode: "adult", updated_at: "2026-10-26T00:00:00Z" })).toBe(true);
+        expect(mod.isR18Mode()).toBe(true);
+        expect(mod.getAccountContentMode()).toBe("adult");
+        expect(mod.getAccountModeUpdatedAt()).toBe("2026-10-26T00:00:00Z");
+        expect(mod.applyAccountModePayload({ content_mode: "adult", updated_at: "2026-10-26T00:00:00Z" })).toBe(false);
+        // alias nsfw accepted; mode unchanged → false even if updated_at moves
+        expect(mod.applyAccountModePayload({ content_mode: "nsfw", updated_at: "2026-10-26T00:00:01Z" })).toBe(false);
+        expect(mod.getAccountContentMode()).toBe("adult");
+        expect(mod.applyAccountModePayload({ content_mode: "ordinary", updated_at: "2026-10-26T00:00:02Z" })).toBe(true);
+        expect(mod.isR18Mode()).toBe(false);
+        expect(mod.peekFallbackTip()).toBe(true);
+    });
+
+    test("setR18Mode writes ordinary|adult and does not abort in-flight", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.MODE_SWITCH_DOES_NOT_ABORT_INFLIGHT).toBe(true);
+        mod.setR18Mode(true);
+        expect(mod.getAccountContentMode()).toBe("adult");
+        mod.setR18Mode(false);
+        expect(mod.getAccountContentMode()).toBe("ordinary");
+    });
+});

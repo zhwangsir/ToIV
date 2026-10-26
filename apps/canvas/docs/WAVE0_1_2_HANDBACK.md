@@ -15,7 +15,7 @@
 ## 冒测 Checklist
 | # | 项 | 结果 |
 |---|----|------|
-| A | 去 localStorage 真源；me/mode 占位 + 30s | PASS（API TODO） |
+| A | 去 localStorage 真源；me/mode 占位 + 30s | PASS（me/mode 真接线） |
 | B | 普通 NSFW 灰化+锁+标签；未知藏 | PASS |
 | C | 回落 + 一次性徽标 | PASS |
 | D | 侧栏一级无新建短剧 | PASS |

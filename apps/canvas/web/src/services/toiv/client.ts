@@ -41,7 +41,7 @@ toivHttp.interceptors.request.use((config) => {
     if (typeof window !== "undefined") {
         const token = window.localStorage.getItem(TOKEN_KEY);
         if (token) config.headers.Authorization = `Bearer ${token}`;
-        // D-U1(2026-10-15):R18 模式开启时全请求附加 X-NSFW 上下文(后端 nsfw_ctx 放行 R18 可见面)
+        // D-U1:R18 开启时附加 X-NSFW（仅审计携带）；403/放行以账号 content_mode 为准，不看请求头
         if (nsfwHeaderEnabled()) {
             config.headers["X-NSFW"] = "1";
         }
