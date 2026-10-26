@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-26T07:00:00+08:00",
+  "updated_at": "2026-10-27T01:05:18+08:00",
   "session_checkpoint_2026_10_15": {
     "status": "active_fu2_done_2026_10_15",
     "commits": [
@@ -9587,29 +9587,7 @@
     "tests": "580 passed",
     "known": "library new kinds still bucket to 其他"
   },
-  "health": {
-    "engine_r3_2026_08_21": {
-      "status": "completed",
-      "scope": "引擎选型深度调研落地(R18=Wan2.2+LTX2.3,LTX2.5 退役→H3 全面替代) + 双层生产事故根治(RAM OOM + tracker 排队误杀) + 25 样本批量生成与恢复",
-      "deliverables": [
-        "调研报告 docs/2026-08-21-engine-research-and-frontend-audit.md:本地库存盘点(Wan2.2 全套+10eros+98 LoRA)+ 社区生态结论 + 全场景最优引擎矩阵 + 前端完整性审计(20/21 引擎可提交,avatar-talk 双重缺口 + 5 处资产断链 + P0/P1/P2 UX 清单)",
-        "LTX2.5 退役:comfyui-ltx25 服务停用(RAM 136→97G,GPU3 释放 36G);注册表条目移除推迟为专项(涉及 7 个测试文件)",
-        "RAM OOM 根治:H3 drop-in MemoryMax=160G(/etc/systemd/system/toiv-comfyui-h3.service.d/memlimit.conf,重启生效)",
-        "tracker 排队误杀修复(app/comfy/tracker.py,已部署 core):_orphan_check 返回 (orphan,in_queue),_track 队列在场重置超时窗口;reconcile_pending 豁免 _tracked 在世作业防二次误杀",
-        "H3 显存预检竞态修复(app/services/h3.py,已部署 core):ComfyUI /free 异步卸载驱逐后 9ms 复查读旧值误 503;_VRAM_SETTLE_SEC=5s 落定等待(自身驱逐后+同卡驱逐后),test_vram_self_evict_settle_waits_for_async_release 回归",
-        "误杀作业恢复(core /tmp/h3_recover_full.py nohup):B4 VACE 多参考提交 + 11 个误标作业 history 回写 + 7 个缺失 extend 补提 + 6 条时长链拼接 + 11 作业重挂 1080p 超分 + ffprobe 终验",
-        "C 批 R18 样本 5/5 done(Wan×3 体位+LTX2.3×2 音画直出);A/B/D 批随恢复脚本落地"
-      ],
-      "regression": "pytest 全量 1906 passed(86s)零失败;test_tracker.py 23 passed + test_h3_studio.py 46 passed(新增排队超时不误杀+存活追踪豁免+显存落定等待 3 例回归);deploy.sh 部署 core 双服务就绪",
-      "known_issues": [
-        "H3 MemoryMax=160G ✅已生效(08-22 23:19 服务重启,systemctl show 实测 171798691840;2026-08-23 复核关闭)",
-        "ltx25 退役时只 stop 未 disable,BIOS 重启后已复活(enabled+active,GPU3 占 88.6G)——待用户决断彻底退役(disable)或保留备用",
-        "前端 P0:统一工作台 avatar-talk 提交断链 + submitting 停止跟踪卡死(详见报告 2.3/2.4)"
-      ],
-      "next": "前端 P0/P1 修复(avatar-talk 接入/trackJob abort/TTS 产物落 Job/AssetPicker 分页去重);多引擎 RAM 预算调度;ltx25 退役决断(disable 或保留)",
-      "verified_at": "2026-08-21T12:30:00+08:00"
-    }
-  },
+  "health": "主路径全200",
   "git": {
     "latest_commit": "72679cd feat(library): 作品库专业工具风全面重设计 + 生产数据清空",
     "production_verified": "2026-08-14: core harness profile=full 4 插件激活;/api/system/harness 200;/api/agent/sessions 200;toiv.dgmt.top 200(跨境波动期 7-10s)+ toiv.wineryz.top 200(0.2-0.3s);frpc 断连系链路波动自动重连恢复"
@@ -16300,5 +16278,991 @@
     "cluster_truth": "AGENTS.md",
     "pushed": false,
     "deployed": false
+  },
+  "ui_remediation": "done",
+  "tip_remediation": "c452d284",
+  "target_tip": "c452d284",
+  "local_head": "c452d284",
+  "local_chain": [
+    "2f6ad65b",
+    "090e2176",
+    "79bfbf88",
+    "c452d284"
+  ],
+  "tip_curtain_shrink": "2f6ad65b",
+  "tip_curtain": "2f6ad65b",
+  "ui_quality_replan": "locked",
+  "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+  "push_authorized": false,
+  "await_user": null,
+  "pending_dispatch": null,
+  "gap_table": "done",
+  "evidence": "技术负责人 R12 关账+R1–R12 归档：final_tip=ebf8cdf1（含走查 ae158cce+补）；安全/运维/调研途中交付已入；carryover 已挂；routine toiv-30=paused；未 push",
+  "local_ahead_of_prod": 0,
+  "shipping_target_tip": "c452d284",
+  "remote_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+  "remote_tip_gitee": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+  "remote_tip_github": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+  "remote_ahead": {
+    "origin": 0,
+    "github": 0
+  },
+  "push_landed": true,
+  "tip_remediation_pushed": true,
+  "deploy_window_2026_10_26_c452d284": {
+    "status": "closed_done",
+    "date": "2026-10-26",
+    "executor": "网络运维",
+    "mode": "--all core",
+    "pre_tip": "1854b578d5734b9091a20a4a1656d8b64a8d51a6",
+    "pre_build_id": "20261026-052220-1854b578",
+    "post_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "web_build_id": "20261026-054140-c452d284",
+    "remotes": {
+      "origin": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+      "github": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+      "verified_both": true
+    },
+    "rollback": false,
+    "smoke": 0,
+    "backup": "/home/merlin/toiv-ops-backups/rollback-previous-pre-c452d284-20261026-134138",
+    "updated_at": "2026-10-26T14:06:40+08:00",
+    "deploy_status": "closed_done",
+    "deploy_result": "closed_done",
+    "prev_prod_tip": "1854b578d5734b9091a20a4a1656d8b64a8d51a6",
+    "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "BUILD_ID": "20261026-054140-c452d284",
+    "remote_tip_gitee": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "remote_tip_github": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "rollback_cmd": "deploy.sh --rollback core",
+    "smoke_note": "running=0",
+    "health": "主路径全200",
+    "ui_remediation": "done",
+    "ui_quality_replan": "locked",
+    "tip_remediation": "c452d284",
+    "target_tip": "c452d284",
+    "await_user": "round1_outputs",
+    "push_authorized": false,
+    "push_landed": true,
+    "tip_remediation_pushed": true,
+    "evidence": "网络运维 prod_tip/BUILD/health200/smoke0；技术负责人关账",
+    "source": "网络运维 + 技术负责人关账",
+    "closed_at": "2026-10-26T13:43:35+08:00",
+    "refactor_note": "12r 重构开账；prod 仍 c452d284 closed_done"
+  },
+  "deploy_status": "closed_done",
+  "deploy_result": "closed_done",
+  "prev_prod_tip": "1854b578d5734b9091a20a4a1656d8b64a8d51a6",
+  "BUILD_ID": "20261026-054140-c452d284",
+  "web_build_id": "20261026-054140-c452d284",
+  "smoke": 0,
+  "rollback": "deploy.sh --rollback core",
+  "backup": "/home/merlin/toiv-ops-backups/rollback-previous-pre-c452d284-20261026-134138",
+  "ui_quality_replan_2026_10_26": {
+    "status": "locked",
+    "ui_quality_replan": "locked",
+    "ui_remediation": "done",
+    "tip_remediation": "c452d284",
+    "tip_curtain": "2f6ad65b",
+    "tip_curtain_shrink": "2f6ad65b",
+    "local_head": "c452d284",
+    "local_chain": [
+      "2f6ad65b",
+      "090e2176",
+      "79bfbf88",
+      "c452d284"
+    ],
+    "target_tip": "c452d284",
+    "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "prev_prod_tip": "1854b578d5734b9091a20a4a1656d8b64a8d51a6",
+    "BUILD_ID": "20261026-054140-c452d284",
+    "remote_tip_gitee": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "remote_tip_github": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "deploy_status": "closed_done",
+    "deploy_result": "closed_done",
+    "health": "主路径全200",
+    "smoke": 0,
+    "await_user": "round1_outputs",
+    "push_authorized": false,
+    "push_landed": true,
+    "tip_remediation_pushed": true,
+    "rollback_cmd": "deploy.sh --rollback core",
+    "backup": "/home/merlin/toiv-ops-backups/rollback-previous-pre-c452d284-20261026-134138",
+    "gap_table": "done",
+    "evidence": "网络运维 prod_tip/BUILD/health200/smoke0；技术负责人关账",
+    "user_confirm_widget": "t97s492",
+    "source": "网络运维 + 技术负责人关账",
+    "updated_at": "2026-10-26T14:06:40+08:00",
+    "note": "全站整改②–⑥已上线；光幕基线 tip_curtain=2f6ad65b；方案 locked 随 remediation done 收束"
+  },
+  "refactor_rounds": 12,
+  "current_round": 12,
+  "round_theme": "全局走查与最终交付",
+  "refactor_mode": "local_tips_no_push_default",
+  "refactor_deadline": "2026-10-26T22:05:00+08:00",
+  "refactor_cadence": "every_30min",
+  "refactor_12r_2026_10_26": {
+    "status": "closed",
+    "refactor_rounds": 12,
+    "current_round": 12,
+    "round_theme": "全局走查与最终交付",
+    "refactor_mode": "local_tips_no_push_default",
+    "refactor_deadline": "2026-10-26T22:05:00+08:00",
+    "refactor_cadence": "every_30min",
+    "await_user": null,
+    "push_authorized": false,
+    "ui_remediation": "done",
+    "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "deploy_status": "closed_done",
+    "note": "本地 tips 默认不 push；勿改生产；等 round1 产出",
+    "evidence": "2026-10-27 用户改口径（经 TL）：限制/红线仅前端，禁后端加闸；挂账已删 BE P0 R12-3 / R12-1·2·4 / media 部分闸；保留 P1-3、P2×5、前端 redline(R12-5)；push_authorized=false。 | 前证：技术负责人 R12 关账+R1–R12 归档：final_tip=ebf8cdf1（含走查 ae158cce+补）；安全/运维/调研途中交付已入；carryover 已挂；routine toiv-30=paused；未 push",
+    "source": "技术负责人",
+    "started_at": "2026-10-26T14:06:40+08:00",
+    "updated_at": "2026-10-27T01:05:18+08:00",
+    "round1_license_gate": "done",
+    "license_gate_A": [
+      "Toonflow-app",
+      "LumenX",
+      "PrintFilm",
+      "AID"
+    ],
+    "license_gate_B": [
+      "BeefTV",
+      "ArcReel",
+      "dramaclaw",
+      "BigBanana",
+      "AIMovieStudio",
+      "ai_story",
+      "CineGen"
+    ],
+    "license_gate_exclude": [
+      "koma"
+    ],
+    "license_gate_risk": "redline.ts/.py 当前硬 import；『缺失不影响主功能』不成立；另轮 soft-optional",
+    "license_gate_evidence": "docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
+    "license_gate_evidence_on_disk": true,
+    "await_user_note": "已清 cross_end_tip+route_table",
+    "license_gate_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
+    "license_gate_evidence_authority": "file+chat",
+    "round1_visual_dna": "done",
+    "visual_dna_evidence": "docs/ops/VISUAL_DNA_RESET_R1_20261026.md",
+    "visual_dna_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_DNA_RESET_R1_20261026.md",
+    "visual_dna_evidence_on_disk": true,
+    "accent_arbitrated": "#5ba0ff",
+    "accent_secondary": "#00bdcf",
+    "accent_cyan": "#00bdcf",
+    "round1_status": "done",
+    "round1_closed": true,
+    "round1_tip": "c87a6a02",
+    "round1_tip_full": "c87a6a022544bbb6b8d61f44dda9d7e10194b2be",
+    "round1_token": "toiv-freezone-tokens.css",
+    "round1_token_note": "双端",
+    "round1_handback": "apps/canvas/docs/VISUAL_SYSTEM_RESET_R1_HANDBACK.md",
+    "round1_handback_on_disk": true,
+    "pushed": false,
+    "round1_closed_at": "2026-10-26T14:12:32+08:00",
+    "round2_opened_at": "2026-10-26T14:12:32+08:00",
+    "round2_visual_mode_research": "done",
+    "visual_mode_switch_evidence": "docs/ops/VISUAL_MODE_SWITCH_R2_20261026.md",
+    "visual_mode_switch_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_MODE_SWITCH_R2_20261026.md",
+    "visual_mode_switch_evidence_on_disk": true,
+    "mode_labels": [
+      "普通",
+      "成人"
+    ],
+    "adult_accent_glow": "#4f8cff",
+    "mode_switch_size": "28×≥108",
+    "round2_status": "done",
+    "round2_closed": true,
+    "round2_tip": "eac519c9",
+    "round2_tip_full": "eac519c92f4eaeb4dc0769d7f4bbbc4ba1b5652a",
+    "round2_handback": "apps/canvas/docs/LIGHT_CURTAIN_TOPBAR_R2_HANDBACK.md",
+    "round2_handback_on_disk": true,
+    "round2_note": "光幕顶栏右已落地",
+    "round2_closed_at": "2026-10-26T14:16:07+08:00",
+    "round3_opened_at": "2026-10-26T14:16:07+08:00",
+    "round3_status": "done",
+    "round3_closed": true,
+    "round3_tip": "73358b6c",
+    "round3_tip_full": "73358b6c78323d67e6b42c01d1b8fa1d88822749",
+    "round3_handback": "apps/canvas/docs/CREATE_STUDIO_THREE_PANE_R3_HANDBACK.md",
+    "round3_handback_on_disk": true,
+    "round3_risk": "中栏短剧表单未迁 Inspector",
+    "round3_research_note": "已补挂",
+    "round3_closed_at": "2026-10-26T14:18:39+08:00",
+    "round4_opened_at": "2026-10-26T14:18:39+08:00",
+    "round3_research": "done",
+    "round3_research_evidence": "docs/ops/VISUAL_CREATE_SHELL_R3_20261026.md",
+    "round3_research_evidence_on_disk": true,
+    "round4_research": "done",
+    "round4_research_evidence": "docs/ops/VISUAL_STORYBOARD_CARDS_R4_20261026.md",
+    "round4_research_evidence_on_disk": true,
+    "create_shell_layout": {
+      "left": 280,
+      "right": 320,
+      "selected_detail_expand": 420,
+      "dual_track_pip": true,
+      "layout_authority": "round4_tip",
+      "layout_supersedes": "R3 handback 240/280",
+      "layout_note": "R3 handback 240/280 以 R4 tip 为准（覆盖/标注 supersede）"
+    },
+    "round4_status": "done",
+    "round4_closed": true,
+    "round4_tip": "8cfbcab7",
+    "round4_tip_full": "8cfbcab7ac05d763b5fd658e203900f16c32ca19",
+    "round4_handback": "apps/canvas/docs/SCRIPT_STORYBOARD_R4_HANDBACK.md",
+    "round4_handback_on_disk": true,
+    "layout_note": "R3 handback 240/280 以 R4 tip 为准（覆盖/标注 supersede）",
+    "round4_closed_at": "2026-10-26T14:25:20+08:00",
+    "round5_opened_at": "2026-10-26T14:25:20+08:00",
+    "round5_status": "done",
+    "round5_closed": true,
+    "round5_tip": "a140e360",
+    "round5_tip_full": "a140e3606b94104e7cdb710f258484262b6bcdcc",
+    "round5_handback": "apps/canvas/docs/NODE_GRAPH_VISUAL_R5_HANDBACK.md",
+    "round5_handback_on_disk": true,
+    "round5_closed_at": "2026-10-26T14:28:40+08:00",
+    "round6_opened_at": "2026-10-26T14:28:40+08:00",
+    "round5_research": "done",
+    "round5_research_evidence": "docs/ops/VISUAL_NODE_GRAPH_R5_20261026.md",
+    "round5_research_evidence_on_disk": true,
+    "round5_research_note": "tip a140e360 关账后到",
+    "node_spec_note": "节点规格表以该调研文档 / TL 厅表为准",
+    "round6_status": "done",
+    "round6_closed": true,
+    "round6_tip": "c02226b4",
+    "round6_tip_full": "c02226b454e27dc8cd25b8e34ba8c0a61304c6a1",
+    "round6_handback": "apps/canvas/docs/ASSET_MEDIA_POOL_R6_HANDBACK.md",
+    "round6_handback_on_disk": true,
+    "round6_note": "R5 node token 已同 tip 校准",
+    "round6_risk": "左栏未接远端分页",
+    "round6_research": "done",
+    "round6_research_evidence": "docs/ops/VISUAL_MEDIA_LIBRARY_R6_20261026.md",
+    "round6_research_evidence_on_disk": true,
+    "round6_closed_at": "2026-10-26T14:32:07+08:00",
+    "round7_opened_at": "2026-10-26T14:32:07+08:00",
+    "round6_calibration_pending": false,
+    "round6_calibration_note": "--toiv-media-* 尺寸校准 tip=4669bf52 已落地；功能 tip 仍 c02226b4",
+    "round7_research": "done",
+    "round7_research_evidence": "docs/ops/VISUAL_JOB_QUEUE_R7_20261026.md",
+    "round7_research_evidence_on_disk": true,
+    "job_queue_drawer_width": 736,
+    "job_queue_progress_policy": "真progress优先，否则估计并标注",
+    "round6_calibration_tip": "4669bf52",
+    "round6_calibration_tip_full": "4669bf52752af06c81c1c659a93b719c3ebd83a8",
+    "round6_calibration_status": "tip_landed",
+    "round7_tip": "1b132535",
+    "round7_tip_full": "1b132535c10629b0ecb988e548a8c4ea9bdade83",
+    "round7_tip_pushed": false,
+    "round7_hard_table_calibration_pending": false,
+    "round7_hard_table_calibration_note": "跨端正补 R7 硬表校准 tip",
+    "round7_status": "done",
+    "round7_closed": true,
+    "round7_closed_at": "2026-10-26T14:38:55+08:00",
+    "round7_calibration_tip": "e8391a95",
+    "round7_calibration_tip_full": "e8391a957ec39fd7427277a03650162d0453d79e",
+    "round7_handback": "apps/canvas/docs/GENERATION_QUEUE_R7_HANDBACK.md",
+    "round7_handback_on_disk": true,
+    "notes": "refactor 12/12 关账归档；toiv-30=paused；未 push；prod 仍 c452d284",
+    "round7_notes": "生成队列坞顶栏（光幕左）+/create 底栏；--toiv-job-* 硬表（行92/缩略84×60/进度3px #5ba0ff 420ms/重试32/抽屉736/侧320）；禁假满条；普通 NSFW 灰锁；未 push",
+    "round8_opened_at": "2026-10-26T14:38:55+08:00",
+    "round8_license_gate": "done",
+    "round8_license_gate_evidence": "docs/ops/WAVE2_LICENSE_GATE_R8_TIMELINE_20261026.md",
+    "round8_license_gate_evidence_on_disk": true,
+    "license_policy": "可抄 Toonflow-app/LumenX；BeefTV/dramaclaw/CineGen 重写；AGPL/NC 禁并",
+    "round8_backend_gap": {
+      "P0": "timeline-preview 聚合口 + /jobs/active·boards 双闸漏滤"
+    },
+    "round8_backend_gap_note": "TL 已派后端本轮落地本地 tip（管家不重派）",
+    "round8_research": "done",
+    "round8_research_evidence": "docs/ops/VISUAL_PREVIEW_TIMELINE_R8_20261026.md",
+    "round8_research_evidence_on_disk": true,
+    "timeline_zoom_pin": "0.25–4×",
+    "backend_p0_tip": "45ebdab4",
+    "backend_p0_tip_full": "45ebdab45a5745869106491b2da1360a9d0b7cd8",
+    "backend_p0_tip_pushed": false,
+    "backend_p0_status": "done",
+    "backend_p0_note": "P0 表三项已关；74 tests；images/studio_files 部分",
+    "round8_status": "done",
+    "round8_closed": true,
+    "round8_closed_at": "2026-10-26T14:45:30+08:00",
+    "round8_fe_tip": "d021f98b",
+    "round8_fe_tip_full": "d021f98b72a167d746d383026424f9d0171c9ecb",
+    "round8_tip": "d021f98b",
+    "round8_tip_full": "d021f98b72a167d746d383026424f9d0171c9ecb",
+    "round8_be_tip": "45ebdab4",
+    "round8_handback": "apps/canvas/docs/PREVIEW_TIMELINE_R8_HANDBACK.md",
+    "round8_handback_on_disk": true,
+    "round9_opened_at": "2026-10-26T14:45:30+08:00",
+    "round9_status": "done",
+    "round9_closed": true,
+    "round9_closed_at": "2026-10-26T14:49:04+08:00",
+    "round9_tip": "7087fbfe",
+    "round9_tip_full": "7087fbfe012ec8d72da538c2e2b525bbd2b84b0e",
+    "round9_tip_pushed": false,
+    "round9_research_pending_backfill": false,
+    "round9_notes": "调研 R9 后到可补挂校准",
+    "round9_handback": "apps/canvas/docs/EMPTY_LOADING_MOTION_R9_HANDBACK.md",
+    "round9_handback_on_disk": true,
+    "round10_opened_at": "2026-10-26T14:49:04+08:00",
+    "round9_research": "done",
+    "round9_research_evidence": "docs/ops/VISUAL_MOTION_EMPTY_R9_20261026.md",
+    "round9_research_evidence_on_disk": true,
+    "motion_spec": {
+      "base": 220,
+      "toast": 2200
+    },
+    "round10_research": "done",
+    "round10_research_evidence": "docs/ops/VISUAL_SETTINGS_MODELS_R10_20261026.md",
+    "round10_research_evidence_on_disk": true,
+    "settings_dialog": "1120×760cap",
+    "engine_partition": "独立分区",
+    "round10_status": "done",
+    "round10_closed": true,
+    "round10_closed_at": "2026-10-26T14:53:20+08:00",
+    "round10_tip": "d7274c16",
+    "round10_tip_full": "d7274c1681758ecefa0b86acdb9affea111d4ef8",
+    "round10_tip_pushed": false,
+    "round10_handback": "apps/canvas/docs/SETTINGS_MODELS_R10_HANDBACK.md",
+    "round10_handback_on_disk": true,
+    "round11_opened_at": "2026-10-26T14:53:20+08:00",
+    "round11_ops_readonly_map": {
+      "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+      "public_path": "/studio/create",
+      "cloud_conf_change_required": false,
+      "no_cloud_conf_change_required": true,
+      "redirects_align_required": true,
+      "redirects_note": "三套重定向须对齐"
+    },
+    "round11_status": "done",
+    "round11_closed": true,
+    "round11_closed_at": "2026-10-26T14:58:42+08:00",
+    "round11_tip": "f0d789a3",
+    "round11_tip_full": "f0d789a3fbf0be8c7e05e5872b8ea8a3325a4986",
+    "round11_tip_pushed": false,
+    "round11_calibration_tip": "b188df77",
+    "round11_calib": "b188df77",
+    "round11_calibration_tip_full": "b188df77704e7b67d0babd02cf0160be8252c36b",
+    "round11_handback": "apps/canvas/docs/STRANGLER_CONVERGE_R11_HANDBACK.md",
+    "round11_handback_on_disk": true,
+    "round12_opened_at": "2026-10-26T14:58:42+08:00",
+    "refactor_status": "done",
+    "archive": true,
+    "round12_status": "done",
+    "round12_closed": true,
+    "round12_closed_at": "2026-10-26T15:06:28+08:00",
+    "round12_tip": "ebf8cdf1",
+    "round12_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+    "round12_tip_nested": {
+      "walkthrough_tip": "ae158cce",
+      "walkthrough_tip_full": "ae158cceddd92cdfebbd17d0cbae8a2ea0d55091",
+      "final_tip": "ebf8cdf1",
+      "final_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+      "note": "含走查 ae158cce + 补（zoom CSS var + aceternityMotion 220ms）"
+    },
+    "chain_final_tip": "ebf8cdf1",
+    "chain_final_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+    "round12_handback": "apps/canvas/docs/GLOBAL_WALKTHROUGH_R12_HANDBACK.md",
+    "round12_handback_on_disk": true,
+    "round12_security": {
+      "evidence": "docs/ops/WAVE2_DUALGATE_RETEST_R12_20261026.md",
+      "evidence_on_disk": true,
+      "evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_DUALGATE_RETEST_R12_20261026.md",
+      "blocking_hotfix": null,
+      "blocking_hotfix_note": "无",
+      "be_p0_candidates_hangover": false,
+      "backend_gate_policy": "禁后端加闸；限制/红线仅前端",
+      "backend_gate_policy_at": "2026-10-27T01:05:18+08:00"
+    },
+    "round12_ops": {
+      "r11_route_table_review": true,
+      "openresty_change": false,
+      "cdn_308_cache_risk": true,
+      "rollback_scope": "仅 core",
+      "risks": [
+        "runs/:id 丢 id",
+        "/create/foo NotFound",
+        "assistant 双轨（已转跨端）"
+      ]
+    },
+    "round12_walkthrough": {
+      "evidence": "docs/ops/VISUAL_WALKTHROUGH_DIFF_R12_20261026.md",
+      "token_check": "558/558",
+      "P0": 0,
+      "P1": 3,
+      "P2": 5,
+      "arbitrated_into_final_tip": [
+        "P1 zoom",
+        "aceternity"
+      ],
+      "hangover": [
+        "P1-3",
+        "P2×5"
+      ]
+    },
+    "round12_research": "done",
+    "round12_research_evidence": "docs/ops/VISUAL_WALKTHROUGH_DIFF_R12_20261026.md",
+    "tip_chain": [
+      {
+        "round": 1,
+        "tip": "c87a6a02",
+        "theme": "全局视觉系统重置"
+      },
+      {
+        "round": 2,
+        "tip": "eac519c9",
+        "theme": "顶栏与光幕拨片重构"
+      },
+      {
+        "round": 3,
+        "tip": "73358b6c",
+        "theme": "/create单一创作台三栏布局"
+      },
+      {
+        "round": 4,
+        "tip": "8cfbcab7",
+        "theme": "剧本与分镜管理UI"
+      },
+      {
+        "round": 5,
+        "tip": "a140e360",
+        "theme": "节点编排引擎外观与交互"
+      },
+      {
+        "round": 6,
+        "tip": "c02226b4",
+        "theme": "资产库与媒体池",
+        "calib": "4669bf52"
+      },
+      {
+        "round": 7,
+        "tip": "1b132535",
+        "theme": "生成队列与任务状态",
+        "calib": "e8391a95"
+      },
+      {
+        "round": 8,
+        "tip": "d021f98b",
+        "theme": "视频预览与时间线播放器",
+        "be": "45ebdab4"
+      },
+      {
+        "round": 9,
+        "tip": "7087fbfe",
+        "theme": "空状态加载态与微动效"
+      },
+      {
+        "round": 10,
+        "tip": "d7274c16",
+        "theme": "设置面板与模型管理"
+      },
+      {
+        "round": 11,
+        "tip": "f0d789a3",
+        "theme": "Strangler收敛实战",
+        "calib": "b188df77"
+      },
+      {
+        "round": 12,
+        "tip": "ebf8cdf1",
+        "theme": "全局走查与最终交付",
+        "nested_walkthrough": "ae158cce"
+      }
+    ],
+    "carryover": {
+      "policy": "限制/红线仅前端；禁后端加闸",
+      "policy_source": "技术负责人转述用户口径 2026-10-27",
+      "policy_at": "2026-10-27T01:05:18+08:00",
+      "BE_P0": [],
+      "P1": [
+        {
+          "id": "P1-3",
+          "item": "时间线能力"
+        }
+      ],
+      "P2": [
+        {
+          "id": "P2×5",
+          "item": "走查 P2 五项挂账（见 VISUAL_WALKTHROUGH_DIFF_R12）"
+        }
+      ],
+      "other": [
+        {
+          "id": "R12-5",
+          "item": "前端 redline 覆盖（限制/红线仅前端）"
+        },
+        {
+          "id": "R12-6",
+          "item": "Strangler 通过",
+          "status": "pass"
+        }
+      ],
+      "dropped_backend_gate_items": [
+        {
+          "id": "R12-3",
+          "item": "/api/drama/output（无属主/无 nsfw/public cache）",
+          "reason": "禁后端加闸"
+        },
+        {
+          "id": "R12-1/2",
+          "item": "部分闸",
+          "reason": "禁后端加闸"
+        },
+        {
+          "id": "R12-4",
+          "item": "entities 直读绕 gate",
+          "reason": "禁后端加闸"
+        },
+        {
+          "id": "media_partial_gate",
+          "item": "media 部分闸",
+          "reason": "禁后端加闸"
+        }
+      ]
+    },
+    "routine_toiv_30": "paused",
+    "closed_at": "2026-10-26T15:06:28+08:00",
+    "carryover_policy": "限制/红线仅前端；禁后端加闸",
+    "carryover_policy_at": "2026-10-27T01:05:18+08:00"
+  },
+  "round1_license_gate": "done",
+  "license_gate_A": [
+    "Toonflow-app",
+    "LumenX",
+    "PrintFilm",
+    "AID"
+  ],
+  "license_gate_B": [
+    "BeefTV",
+    "ArcReel",
+    "dramaclaw",
+    "BigBanana",
+    "AIMovieStudio",
+    "ai_story",
+    "CineGen"
+  ],
+  "license_gate_exclude": [
+    "koma"
+  ],
+  "license_gate_risk": "redline.ts/.py 当前硬 import；『缺失不影响主功能』不成立；另轮 soft-optional",
+  "license_gate_evidence": "docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
+  "license_gate_evidence_on_disk": true,
+  "round1_visual_dna": "done",
+  "visual_dna_evidence": "docs/ops/VISUAL_DNA_RESET_R1_20261026.md",
+  "visual_dna_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_DNA_RESET_R1_20261026.md",
+  "visual_dna_evidence_on_disk": true,
+  "accent_arbitrated": "#5ba0ff",
+  "accent_secondary": "#00bdcf",
+  "accent_cyan": "#00bdcf",
+  "license_gate_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
+  "license_gate_evidence_authority": "file+chat",
+  "await_user_note": "none；hangover 挂账见 carryover",
+  "round1_status": "done",
+  "round1_closed": true,
+  "round1_tip": "c87a6a02",
+  "round1_tip_full": "c87a6a022544bbb6b8d61f44dda9d7e10194b2be",
+  "round1_token": "toiv-freezone-tokens.css",
+  "round1_token_note": "双端",
+  "round1_handback": "apps/canvas/docs/VISUAL_SYSTEM_RESET_R1_HANDBACK.md",
+  "round1_handback_on_disk": true,
+  "round1_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/VISUAL_SYSTEM_RESET_R1_HANDBACK.md",
+  "round2_visual_mode_research": "done",
+  "visual_mode_switch_evidence": "docs/ops/VISUAL_MODE_SWITCH_R2_20261026.md",
+  "visual_mode_switch_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_MODE_SWITCH_R2_20261026.md",
+  "visual_mode_switch_evidence_on_disk": true,
+  "mode_labels": [
+    "普通",
+    "成人"
+  ],
+  "adult_accent_glow": "#4f8cff",
+  "mode_switch_size": "28×≥108",
+  "mode_switch_size_note": "高×宽下限",
+  "round2_status": "done",
+  "round2_closed": true,
+  "round2_tip": "eac519c9",
+  "round2_tip_full": "eac519c92f4eaeb4dc0769d7f4bbbc4ba1b5652a",
+  "round2_handback": "apps/canvas/docs/LIGHT_CURTAIN_TOPBAR_R2_HANDBACK.md",
+  "round2_handback_on_disk": true,
+  "round2_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/LIGHT_CURTAIN_TOPBAR_R2_HANDBACK.md",
+  "round2_note": "光幕顶栏右已落地",
+  "round3_status": "done",
+  "round3_closed": true,
+  "round3_tip": "73358b6c",
+  "round3_tip_full": "73358b6c78323d67e6b42c01d1b8fa1d88822749",
+  "round3_handback": "apps/canvas/docs/CREATE_STUDIO_THREE_PANE_R3_HANDBACK.md",
+  "round3_handback_on_disk": true,
+  "round3_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/CREATE_STUDIO_THREE_PANE_R3_HANDBACK.md",
+  "round3_risk": "中栏短剧表单未迁 Inspector",
+  "round3_research_note": "已补挂",
+  "round3_research": "done",
+  "round3_research_evidence": "docs/ops/VISUAL_CREATE_SHELL_R3_20261026.md",
+  "round3_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_CREATE_SHELL_R3_20261026.md",
+  "round3_research_evidence_on_disk": true,
+  "round4_research": "done",
+  "round4_research_evidence": "docs/ops/VISUAL_STORYBOARD_CARDS_R4_20261026.md",
+  "round4_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_STORYBOARD_CARDS_R4_20261026.md",
+  "round4_research_evidence_on_disk": true,
+  "create_shell_layout": {
+    "left": 280,
+    "right": 320,
+    "selected_detail_expand": 420,
+    "dual_track_pip": true,
+    "layout_authority": "round4_tip",
+    "layout_supersedes": "R3 handback 240/280",
+    "layout_note": "R3 handback 240/280 以 R4 tip 为准（覆盖/标注 supersede）"
+  },
+  "round4_status": "done",
+  "round4_closed": true,
+  "round4_tip": "8cfbcab7",
+  "round4_tip_full": "8cfbcab7ac05d763b5fd658e203900f16c32ca19",
+  "round4_handback": "apps/canvas/docs/SCRIPT_STORYBOARD_R4_HANDBACK.md",
+  "round4_handback_on_disk": true,
+  "round4_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/SCRIPT_STORYBOARD_R4_HANDBACK.md",
+  "layout_note": "R3 handback 240/280 以 R4 tip 为准（覆盖/标注 supersede）",
+  "round5_status": "done",
+  "round5_closed": true,
+  "round5_tip": "a140e360",
+  "round5_tip_full": "a140e3606b94104e7cdb710f258484262b6bcdcc",
+  "round5_handback": "apps/canvas/docs/NODE_GRAPH_VISUAL_R5_HANDBACK.md",
+  "round5_handback_on_disk": true,
+  "round5_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/NODE_GRAPH_VISUAL_R5_HANDBACK.md",
+  "round5_research": "done",
+  "round5_research_evidence": "docs/ops/VISUAL_NODE_GRAPH_R5_20261026.md",
+  "round5_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_NODE_GRAPH_R5_20261026.md",
+  "round5_research_evidence_on_disk": true,
+  "round5_research_note": "tip a140e360 关账后到",
+  "node_spec_note": "节点规格表以该调研文档 / TL 厅表为准",
+  "round6_research": "done",
+  "round6_research_evidence": "docs/ops/VISUAL_MEDIA_LIBRARY_R6_20261026.md",
+  "round6_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_MEDIA_LIBRARY_R6_20261026.md",
+  "round6_research_evidence_on_disk": true,
+  "round6_status": "done",
+  "round6_closed": true,
+  "round6_tip": "c02226b4",
+  "round6_tip_full": "c02226b454e27dc8cd25b8e34ba8c0a61304c6a1",
+  "round6_handback": "apps/canvas/docs/ASSET_MEDIA_POOL_R6_HANDBACK.md",
+  "round6_handback_on_disk": true,
+  "round6_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/ASSET_MEDIA_POOL_R6_HANDBACK.md",
+  "round6_note": "R5 node token 已同 tip 校准",
+  "round6_risk": "左栏未接远端分页",
+  "round7_research": "done",
+  "round7_research_evidence": "docs/ops/VISUAL_JOB_QUEUE_R7_20261026.md",
+  "round7_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_JOB_QUEUE_R7_20261026.md",
+  "round7_research_evidence_on_disk": true,
+  "job_queue_drawer_width": 736,
+  "job_queue_progress_policy": "真progress优先，否则估计并标注",
+  "round6_calibration_pending": false,
+  "round6_calibration_note": "--toiv-media-* 尺寸校准 tip=4669bf52 已落地；功能 tip 仍 c02226b4",
+  "round6_calibration_tip": "4669bf52",
+  "round6_calibration_tip_full": "4669bf52752af06c81c1c659a93b719c3ebd83a8",
+  "round6_calibration_status": "tip_landed",
+  "round7_tip": "1b132535",
+  "round7_tip_full": "1b132535c10629b0ecb988e548a8c4ea9bdade83",
+  "round7_tip_pushed": false,
+  "round7_hard_table_calibration_pending": false,
+  "round7_hard_table_calibration_note": "跨端正补 R7 硬表校准 tip",
+  "round7_status": "done",
+  "round7_closed": true,
+  "round7_closed_at": "2026-10-26T14:38:55+08:00",
+  "round7_calibration_tip": "e8391a95",
+  "round7_calibration_tip_full": "e8391a957ec39fd7427277a03650162d0453d79e",
+  "round7_handback": "apps/canvas/docs/GENERATION_QUEUE_R7_HANDBACK.md",
+  "round7_handback_on_disk": true,
+  "round7_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/GENERATION_QUEUE_R7_HANDBACK.md",
+  "round7_notes": "生成队列坞顶栏（光幕左）+/create 底栏；--toiv-job-* 硬表（行92/缩略84×60/进度3px #5ba0ff 420ms/重试32/抽屉736/侧320）；禁假满条；普通 NSFW 灰锁；未 push",
+  "round8_opened_at": "2026-10-26T14:38:55+08:00",
+  "round8_license_gate": "done",
+  "round8_license_gate_evidence": "docs/ops/WAVE2_LICENSE_GATE_R8_TIMELINE_20261026.md",
+  "round8_license_gate_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_LICENSE_GATE_R8_TIMELINE_20261026.md",
+  "round8_license_gate_evidence_on_disk": true,
+  "license_policy": "可抄 Toonflow-app/LumenX；BeefTV/dramaclaw/CineGen 重写；AGPL/NC 禁并",
+  "license_policy_r8": "可抄 Toonflow-app/LumenX；BeefTV/dramaclaw/CineGen 重写；AGPL/NC 禁并",
+  "round8_backend_gap": {
+    "P0": "timeline-preview 聚合口 + /jobs/active·boards 双闸漏滤"
+  },
+  "round8_backend_gap_note": "TL 已派后端本轮落地本地 tip（管家不重派）",
+  "round8_research": "done",
+  "round8_research_evidence": "docs/ops/VISUAL_PREVIEW_TIMELINE_R8_20261026.md",
+  "round8_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_PREVIEW_TIMELINE_R8_20261026.md",
+  "round8_research_evidence_on_disk": true,
+  "timeline_zoom_pin": "0.25–4×",
+  "backend_p0_tip": "45ebdab4",
+  "backend_p0_tip_full": "45ebdab45a5745869106491b2da1360a9d0b7cd8",
+  "backend_p0_tip_pushed": false,
+  "backend_p0_status": "done",
+  "backend_p0_note": "P0 表三项已关；74 tests；images/studio_files 部分",
+  "round8_status": "done",
+  "round8_closed": true,
+  "round8_closed_at": "2026-10-26T14:45:30+08:00",
+  "round8_fe_tip": "d021f98b",
+  "round8_fe_tip_full": "d021f98b72a167d746d383026424f9d0171c9ecb",
+  "round8_tip": "d021f98b",
+  "round8_tip_full": "d021f98b72a167d746d383026424f9d0171c9ecb",
+  "round8_be_tip": "45ebdab4",
+  "round8_handback": "apps/canvas/docs/PREVIEW_TIMELINE_R8_HANDBACK.md",
+  "round8_handback_on_disk": true,
+  "round8_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/PREVIEW_TIMELINE_R8_HANDBACK.md",
+  "round9_opened_at": "2026-10-26T14:45:30+08:00",
+  "round9_status": "done",
+  "round9_closed": true,
+  "round9_closed_at": "2026-10-26T14:49:04+08:00",
+  "round9_tip": "7087fbfe",
+  "round9_tip_full": "7087fbfe012ec8d72da538c2e2b525bbd2b84b0e",
+  "round9_tip_pushed": false,
+  "round9_research_pending_backfill": false,
+  "round9_notes": "调研 R9 后到可补挂校准",
+  "round9_handback": "apps/canvas/docs/EMPTY_LOADING_MOTION_R9_HANDBACK.md",
+  "round9_handback_on_disk": true,
+  "round9_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/EMPTY_LOADING_MOTION_R9_HANDBACK.md",
+  "round10_opened_at": "2026-10-26T14:49:04+08:00",
+  "round9_research": "done",
+  "round9_research_evidence": "docs/ops/VISUAL_MOTION_EMPTY_R9_20261026.md",
+  "round9_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_MOTION_EMPTY_R9_20261026.md",
+  "round9_research_evidence_on_disk": true,
+  "motion_base_ms": 220,
+  "motion_toast_ms": 2200,
+  "motion_spec": {
+    "base": 220,
+    "toast": 2200
+  },
+  "round10_research": "done",
+  "round10_research_evidence": "docs/ops/VISUAL_SETTINGS_MODELS_R10_20261026.md",
+  "round10_research_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/VISUAL_SETTINGS_MODELS_R10_20261026.md",
+  "round10_research_evidence_on_disk": true,
+  "settings_dialog": "1120×760cap",
+  "engine_partition": "独立分区",
+  "round10_status": "done",
+  "round10_closed": true,
+  "round10_closed_at": "2026-10-26T14:53:20+08:00",
+  "round10_tip": "d7274c16",
+  "round10_tip_full": "d7274c1681758ecefa0b86acdb9affea111d4ef8",
+  "round10_tip_pushed": false,
+  "round10_notes": "R9/R10 调研硬表可同轮校准",
+  "round10_handback": "apps/canvas/docs/SETTINGS_MODELS_R10_HANDBACK.md",
+  "round10_handback_on_disk": true,
+  "round10_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/SETTINGS_MODELS_R10_HANDBACK.md",
+  "round11_opened_at": "2026-10-26T14:53:20+08:00",
+  "round11_ops_readonly_map": {
+    "prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+    "public_path": "/studio/create",
+    "cloud_conf_change_required": false,
+    "no_cloud_conf_change_required": true,
+    "redirects_align_required": true,
+    "redirects_note": "三套重定向须对齐"
+  },
+  "round11_status": "done",
+  "round11_closed": true,
+  "round11_closed_at": "2026-10-26T14:58:42+08:00",
+  "round11_tip": "f0d789a3",
+  "round11_tip_full": "f0d789a3fbf0be8c7e05e5872b8ea8a3325a4986",
+  "round11_tip_pushed": false,
+  "round11_calibration_tip": "b188df77",
+  "round11_calib": "b188df77",
+  "round11_calibration_tip_full": "b188df77704e7b67d0babd02cf0160be8252c36b",
+  "round11_handback": "apps/canvas/docs/STRANGLER_CONVERGE_R11_HANDBACK.md",
+  "round11_handback_on_disk": true,
+  "round11_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/STRANGLER_CONVERGE_R11_HANDBACK.md",
+  "round12_opened_at": "2026-10-26T14:58:42+08:00",
+  "refactor_final_round": true,
+  "round12_security": {
+    "evidence": "docs/ops/WAVE2_DUALGATE_RETEST_R12_20261026.md",
+    "evidence_on_disk": true,
+    "evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_DUALGATE_RETEST_R12_20261026.md",
+    "blocking_hotfix": null,
+    "blocking_hotfix_note": "无",
+    "be_p0_candidates_hangover": false,
+    "backend_gate_policy": "禁后端加闸；限制/红线仅前端",
+    "backend_gate_policy_at": "2026-10-27T01:05:18+08:00"
+  },
+  "round12_ops": {
+    "r11_route_table_review": true,
+    "openresty_change": false,
+    "cdn_308_cache_risk": true,
+    "rollback_scope": "仅 core",
+    "risks": [
+      "runs/:id 丢 id",
+      "/create/foo NotFound",
+      "assistant 双轨（已转跨端）"
+    ]
+  },
+  "round12_research": "done",
+  "round12_research_evidence": "docs/ops/VISUAL_WALKTHROUGH_DIFF_R12_20261026.md",
+  "round12_research_evidence_on_disk": true,
+  "round12_walkthrough": {
+    "evidence": "docs/ops/VISUAL_WALKTHROUGH_DIFF_R12_20261026.md",
+    "token_check": "558/558",
+    "P0": 0,
+    "P1": 3,
+    "P2": 5,
+    "arbitrated_into_final_tip": [
+      "P1 zoom",
+      "aceternity"
+    ],
+    "hangover": [
+      "P1-3",
+      "P2×5"
+    ]
+  },
+  "round12_status": "done",
+  "round12_closed": true,
+  "round12_closed_at": "2026-10-26T15:06:28+08:00",
+  "round12_tip": "ebf8cdf1",
+  "round12_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+  "round12_tip_pushed": false,
+  "round12_tip_nested": {
+    "walkthrough_tip": "ae158cce",
+    "walkthrough_tip_full": "ae158cceddd92cdfebbd17d0cbae8a2ea0d55091",
+    "final_tip": "ebf8cdf1",
+    "final_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+    "note": "含走查 ae158cce + 补（zoom CSS var + aceternityMotion 220ms）"
+  },
+  "chain_final_tip": "ebf8cdf1",
+  "chain_final_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
+  "round12_handback": "apps/canvas/docs/GLOBAL_WALKTHROUGH_R12_HANDBACK.md",
+  "round12_handback_on_disk": true,
+  "round12_handback_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/docs/GLOBAL_WALKTHROUGH_R12_HANDBACK.md",
+  "refactor_12r_tip_chain": [
+    {
+      "round": 1,
+      "tip": "c87a6a02",
+      "theme": "全局视觉系统重置"
+    },
+    {
+      "round": 2,
+      "tip": "eac519c9",
+      "theme": "顶栏与光幕拨片重构"
+    },
+    {
+      "round": 3,
+      "tip": "73358b6c",
+      "theme": "/create单一创作台三栏布局"
+    },
+    {
+      "round": 4,
+      "tip": "8cfbcab7",
+      "theme": "剧本与分镜管理UI"
+    },
+    {
+      "round": 5,
+      "tip": "a140e360",
+      "theme": "节点编排引擎外观与交互"
+    },
+    {
+      "round": 6,
+      "tip": "c02226b4",
+      "theme": "资产库与媒体池",
+      "calib": "4669bf52"
+    },
+    {
+      "round": 7,
+      "tip": "1b132535",
+      "theme": "生成队列与任务状态",
+      "calib": "e8391a95"
+    },
+    {
+      "round": 8,
+      "tip": "d021f98b",
+      "theme": "视频预览与时间线播放器",
+      "be": "45ebdab4"
+    },
+    {
+      "round": 9,
+      "tip": "7087fbfe",
+      "theme": "空状态加载态与微动效"
+    },
+    {
+      "round": 10,
+      "tip": "d7274c16",
+      "theme": "设置面板与模型管理"
+    },
+    {
+      "round": 11,
+      "tip": "f0d789a3",
+      "theme": "Strangler收敛实战",
+      "calib": "b188df77"
+    },
+    {
+      "round": 12,
+      "tip": "ebf8cdf1",
+      "theme": "全局走查与最终交付",
+      "nested_walkthrough": "ae158cce"
+    }
+  ],
+  "refactor_12r_status": "closed",
+  "routine_toiv_30": "paused",
+  "routine_toiv_30_note": "toiv-30=paused",
+  "refactor_12r_carryover": {
+    "policy": "限制/红线仅前端；禁后端加闸",
+    "policy_source": "技术负责人转述用户口径 2026-10-27",
+    "policy_at": "2026-10-27T01:05:18+08:00",
+    "BE_P0": [],
+    "P1": [
+      {
+        "id": "P1-3",
+        "item": "时间线能力"
+      }
+    ],
+    "P2": [
+      {
+        "id": "P2×5",
+        "item": "走查 P2 五项挂账（见 VISUAL_WALKTHROUGH_DIFF_R12）"
+      }
+    ],
+    "other": [
+      {
+        "id": "R12-5",
+        "item": "前端 redline 覆盖（限制/红线仅前端）"
+      },
+      {
+        "id": "R12-6",
+        "item": "Strangler 通过",
+        "status": "pass"
+      }
+    ],
+    "dropped_backend_gate_items": [
+      {
+        "id": "R12-3",
+        "item": "/api/drama/output（无属主/无 nsfw/public cache）",
+        "reason": "禁后端加闸"
+      },
+      {
+        "id": "R12-1/2",
+        "item": "部分闸",
+        "reason": "禁后端加闸"
+      },
+      {
+        "id": "R12-4",
+        "item": "entities 直读绕 gate",
+        "reason": "禁后端加闸"
+      },
+      {
+        "id": "media_partial_gate",
+        "item": "media 部分闸",
+        "reason": "禁后端加闸"
+      }
+    ]
+  },
+  "hangover": {
+    "policy": "限制/红线仅前端；禁后端加闸",
+    "BE_P0": [],
+    "P1": [
+      {
+        "id": "P1-3",
+        "item": "时间线能力"
+      }
+    ],
+    "P2": [
+      {
+        "id": "P2×5",
+        "item": "走查 P2 五项挂账（见 VISUAL_WALKTHROUGH_DIFF_R12）"
+      }
+    ],
+    "other": [
+      {
+        "id": "R12-5",
+        "item": "前端 redline 覆盖（限制/红线仅前端）"
+      }
+    ],
+    "updated_at": "2026-10-27T01:05:18+08:00"
   }
 }

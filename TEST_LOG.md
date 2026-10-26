@@ -1,3 +1,146 @@
+## 2026-10-27 01:05 Asia/Shanghai · 项目管家 · 挂账口径变更（限制/红线仅前端）
+
+- **source**：技术负责人转述用户口径
+- **policy**：限制/红线**仅前端**；**禁后端加闸**
+- **挂账删**（后端闸类）：
+  - BE P0 R12-3 `/api/drama/output`
+  - R12-1/2 部分闸
+  - R12-4 entities 直读绕 gate
+  - media 部分闸
+- **挂账保留**：
+  - P1-3 时间线能力
+  - P2×5（走查挂账）
+  - 前端 redline 覆盖（R12-5）
+- **不变**：`push_authorized=false`；prod 仍 `c452d284…`；R12 tip `ebf8cdf1`；未 commit / push / deploy
+- **STATE**：已同步 `refactor_12r_carryover` / `hangover` / `round12_security.be_p0_candidates_hangover=false`
+
+---
+
+## 2026-10-26 15:06 Asia/Shanghai · 项目管家 · R12 关账 + R1–R12 归档
+
+- **evidence**：技术负责人「R12 关账 + R1–R12 归档」原文
+- **途中交付补挂**：
+  - 安全：`docs/ops/WAVE2_DUALGATE_RETEST_R12_20261026.md`（在盘）；阻断级热修=无；BE P0 候选挂账
+  - 运维：R11 路由表审 — OpenResty 否；CDN 308 缓存风险；回滚仅 core；风险 runs/:id 丢 id、/create/foo NotFound、assistant 双轨（已转跨端）
+  - 调研：`docs/ops/VISUAL_WALKTHROUGH_DIFF_R12_20261026.md`（在盘）— token 558/558；P0=0 P1=3 P2=5；仲裁 P1 zoom+aceternity 进最终 tip；P1-3/P2 挂账
+- **round12_status**：done / closed（`round12_closed_at`=2026-10-26T15:06:28+08:00）
+- **round12_tip**：`ebf8cdf1`（full `ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8`；nested 走查 `ae158cce` + 补）
+- **chain_final_tip**：`ebf8cdf1`
+- **round12_handback**：`apps/canvas/docs/GLOBAL_WALKTHROUGH_R12_HANDBACK.md`（在盘）
+- **refactor_12r**：status=`closed` / done；current_round=12 archive
+- **routine toiv-30**：`paused`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **await_user**：none（hangover 挂账）
+- **carryover 挂账**：
+  - BE P0：R12-3 `/api/drama/output`（无属主/无 nsfw/public cache）
+  - P1-3：时间线能力
+  - P2×5
+  - media 部分闸
+  - 另：R12-1/2 部分闸；R12-4 entities 直读绕 gate；R12-5 redline 硬依赖；R12-6 Strangler 通过
+- **tip 链摘要**：R1=c87a6a02 → R2=eac519c9 → R3=73358b6c → R4=8cfbcab7 → R5=a140e360 → R6=c02226b4 → R7=1b132535 → R8=d021f98b → R9=7087fbfe → R10=d7274c16 → R11=f0d789a3 → R12=ebf8cdf1
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:58 Asia/Shanghai · 项目管家 · 第11轮关账 → 第12轮开（12/12 末轮）
+
+- **evidence**：技术负责人「第11轮关账→第12轮开」原文
+- **round11_status**：done / closed（`round11_closed_at`=2026-10-26T14:58:42+08:00）
+- **round11_tip**：`f0d789a3`（full `f0d789a3fbf0be8c7e05e5872b8ea8a3325a4986`；未 push）
+- **round11_calibration_tip / calib**：`b188df77`（full `b188df77704e7b67d0babd02cf0160be8252c36b`）
+- **round11_handback**：`apps/canvas/docs/STRANGLER_CONVERGE_R11_HANDBACK.md`（在盘）
+- **await**：已清 `cross_end_tip` + `route_table`
+- **current_round**：12；**status**：in_progress；**round_theme**：全局走查与最终交付
+- **round12_opened_at**：2026-10-26T14:58:42+08:00
+- **notes**：refactor 12/12 末轮
+- **await_user**：`round12_outputs`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:54 Asia/Shanghai · 项目管家 · round11 入账（ops_readonly_map）
+
+- **evidence**：技术负责人 round11 入账原文
+- **current_round / round_theme**：11 / Strangler收敛实战（保留）
+- **round11_ops_readonly_map**：
+  - prod 仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`
+  - 公网路径 `/studio/create`
+  - 无云 conf 必改（no cloud conf change required）
+  - 三套重定向须对齐
+- **await_user**：`cross_end_tip+route_table`（等跨端 tip + 路由表 / round11_outputs）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:53 Asia/Shanghai · 项目管家 · 第10轮关账 → 第11轮开
+
+- **evidence**：技术负责人「第10轮关账→第11轮开」（覆盖升级）
+- **round10_status**：done / closed（`round10_closed_at`=2026-10-26T14:53:20+08:00）
+- **round10_tip**：`d7274c16`（full `d7274c1681758ecefa0b86acdb9affea111d4ef8`；本地未 push）
+- **notes**：R9/R10 调研硬表可同轮校准
+- **round10_handback**：`apps/canvas/docs/SETTINGS_MODELS_R10_HANDBACK.md`（在盘）
+- **保留**：round9/10 research=done 及硬表字段
+- **current_round**：11；**status**：in_progress；**round_theme**：Strangler收敛实战
+- **round11_opened_at**：2026-10-26T14:53:20+08:00
+- **await_user**：`round11_outputs`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:52 Asia/Shanghai · 项目管家 · R9 调研补挂 + R10 调研入账
+
+- **evidence**：技术负责人入账原文
+- **current_round**：10；**round9_tip**：仍 `7087fbfe`
+- **round9_research**：`done`；**pending_backfill**：false
+- **round9_research_evidence**：`docs/ops/VISUAL_MOTION_EMPTY_R9_20261026.md`（在盘）
+- **motion_spec**：base=220 / toast=2200
+- **round10_research**：`done`；evidence=`docs/ops/VISUAL_SETTINGS_MODELS_R10_20261026.md`（在盘）
+- **settings_dialog**：1120×760cap；**engine_partition**：独立分区
+- **await_user**：`cross_end_tip`（等跨端 R10 tip / round10_outputs）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:49 Asia/Shanghai · 项目管家 · 第9轮关账 → 第10轮开
+
+- **evidence**：技术负责人「第9轮关账→第10轮开」原文
+- **round9_status**：done / closed（`round9_closed_at`=2026-10-26T14:49:04+08:00）
+- **round9_tip**：`7087fbfe`（full `7087fbfe012ec8d72da538c2e2b525bbd2b84b0e`；本地未 push）
+- **round9_research_pending_backfill**：true（调研 R9 后到可补挂校准）
+- **round9_handback**：`apps/canvas/docs/EMPTY_LOADING_MOTION_R9_HANDBACK.md`（在盘）
+- **current_round**：10；**status**：in_progress；**round_theme**：设置面板与模型管理
+- **round10_opened_at**：2026-10-26T14:49:04+08:00
+- **await_user**：`round10_outputs`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:45 Asia/Shanghai · 项目管家 · 第8轮关账 → 第9轮开
+
+- **evidence**：技术负责人「第8轮关账→第9轮开」原文
+- **round8_status**：done / closed（`round8_closed_at`=2026-10-26T14:45:30+08:00）
+- **round8_fe_tip / round8_tip**：`d021f98b`（full `d021f98b72a167d746d383026424f9d0171c9ecb`；跨端）
+- **round8_be_tip / backend_p0_tip**：`45ebdab4`（full `45ebdab45a5745869106491b2da1360a9d0b7cd8`；保留）
+- **round8_handback**：`apps/canvas/docs/PREVIEW_TIMELINE_R8_HANDBACK.md`（在盘）
+- **await**：已清 `cross_end_tip`
+- **current_round**：9；**status**：in_progress；**round_theme**：空状态加载态与微动效
+- **round9_opened_at**：2026-10-26T14:45:30+08:00
+- **await_user**：`round9_outputs`
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
+## 2026-10-26 14:44 Asia/Shanghai · 项目管家 · round8 中间态（backend_p0_tip 落地）
+
+- **evidence**：技术负责人 round8 中间态原文
+- **current_round**：8；**round8_research**：done（保留）
+- **backend_p0_tip**：`45ebdab4`（full `45ebdab45a5745869106491b2da1360a9d0b7cd8`；本地未 push）
+- **backend_p0_status**：`done`（P0 表三项已关）
+- **notes**：74 tests；images/studio_files 部分
+- **await_user**：`cross_end_tip`（已去掉 backend_p0；仅剩跨端 tip / round8_outputs）
+- **push_authorized**：false；**prod_tip**：仍 `c452d28402b0a783f30c076cc84aeb63dd4fc69e`（未改）
+- **source**：技术负责人
+- **git**：仅改 STATE.json + TEST_LOG.md；未 commit / 未 push / 未部署 / 未改生产
+
 ## 2026-10-26 14:45 Asia/Shanghai · 后端 · Wave8 P0 timeline-preview + 双闸补洞
 
 - **tip**: 本地即将 tip（本条 commit）；**push_authorized**: false；未 push / 未部署
