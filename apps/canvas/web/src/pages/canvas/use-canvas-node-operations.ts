@@ -1,3 +1,4 @@
+import { arrangeSelectionBoxes } from "@/lib/absorb/toonflow";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { App } from "antd";
 import copyToClipboard from "copy-to-clipboard";
@@ -226,7 +227,24 @@ export function useCanvasNodeOperations({
     const arrangeSelectedNodes = useCallback((mode: "row" | "column" | "grid" | "flow") => {
         const selected = nodesRef.current.filter((node) => selectedNodeIdsRef.current.has(node.id) && !node.metadata?.locked && !isFrameNode(node));
         if (selected.length < 2) return;
-        const positions = mode === "flow" ? layoutCanvasFlow(selected, connectionsRef.current) : layoutCanvasNodes(selected, mode);
+        let positions: Map<string, { x: number; y: number }>;
+        if (mode === "flow") {
+            positions = layoutCanvasFlow(selected, connectionsRef.current);
+        } else {
+            // Toonflow-app@30139c9 MIT arrangeSelection (adapted) — see lib/absorb/toonflow/NOTICE
+            const toonMode = mode === "row" ? "horizontal" : mode === "column" ? "vertical" : "grid";
+            const arranged = arrangeSelectionBoxes(
+                selected.map((node) => ({
+                    id: node.id,
+                    x: node.position.x,
+                    y: node.position.y,
+                    width: Math.max(1, node.width || 240),
+                    height: Math.max(1, node.height || 160),
+                })),
+                toonMode,
+            );
+            positions = new Map(arranged.map((item) => [item.id, { x: item.x, y: item.y }]));
+        }
         commitNodes(nodesRef.current.map((node) => positions.has(node.id) ? { ...node, position: positions.get(node.id)! } : node));
         message.success(mode === "flow" ? "已按连线整理" : "已整理选中节点");
     }, [commitNodes, connectionsRef, message, nodesRef, selectedNodeIdsRef]);

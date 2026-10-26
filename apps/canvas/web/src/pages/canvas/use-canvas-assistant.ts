@@ -27,6 +27,7 @@ import {
 import { assistantChangedNodeIds, assistantLifecycleText } from "./canvas-assistant-copy";
 import { waitForAssistant } from "./assistant-readiness";
 import { findRecoveredAssistantTurn, type PendingAssistantRecovery } from "./canvas-assistant-recovery";
+import type { AssistantPresentation } from "@/lib/absorb/toonflow";
 
 export const ASSISTANT_MIN_WIDTH = 320;
 export const ASSISTANT_MAX_WIDTH = 560;
@@ -35,6 +36,7 @@ export const ASSISTANT_DEFAULT_WIDTH = 380;
 export const ASSISTANT_DOCK_MIN_SHELL_WIDTH = 1050;
 
 const OPEN_STORAGE_KEY = "canvas:assistant-open";
+const PRESENTATION_STORAGE_KEY = "canvas:assistant-presentation";
 const WIDTH_STORAGE_KEY = "canvas:assistant-width";
 const PROPOSAL_STORAGE_KEY = "canvas:assistant-proposals";
 const PROPOSAL_MEMORY = 200;
@@ -152,6 +154,9 @@ export async function retryAssistantRead<T>(read: () => Promise<T>, superseded: 
  */
 export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     const [open, setOpenState] = useState(() => scopedLocalStorage.getItem(OPEN_STORAGE_KEY) !== "0");
+    const [presentation, setPresentationState] = useState<AssistantPresentation>(() =>
+        scopedLocalStorage.getItem(PRESENTATION_STORAGE_KEY) === "float" ? "float" : "dock",
+    );
     const [width, setWidthState] = useState(() => clampAssistantWidth(Number(scopedLocalStorage.getItem(WIDTH_STORAGE_KEY)) || ASSISTANT_DEFAULT_WIDTH));
     const [status, setStatus] = useState<AgentHostStatus | null>(null);
     const [statusBusy, setStatusBusy] = useState(false);
@@ -179,6 +184,11 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     const setOpen = useCallback((next: boolean) => {
         setOpenState(next);
         scopedLocalStorage.setItem(OPEN_STORAGE_KEY, next ? "1" : "0");
+    }, []);
+
+    const setPresentation = useCallback((next: AssistantPresentation) => {
+        setPresentationState(next);
+        scopedLocalStorage.setItem(PRESENTATION_STORAGE_KEY, next);
     }, []);
 
     const setWidth = useCallback((next: number) => {
@@ -497,6 +507,8 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     return {
         open,
         setOpen,
+        presentation,
+        setPresentation,
         width,
         setWidth,
         status,

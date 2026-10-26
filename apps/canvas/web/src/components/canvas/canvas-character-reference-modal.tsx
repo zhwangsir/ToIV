@@ -1,8 +1,12 @@
-
-import { AudioLines, BadgeCheck, Image as ImageIcon, UserRound, Volume2 } from "lucide-react";
+/**
+ * Character reference modal — LumenX@f2a02e2 three-view / R2V lock UX (MIT adapted).
+ * See lib/absorb/lumenx/NOTICE.
+ */
+import { AudioLines, BadgeCheck, Image as ImageIcon, Lock, UserRound, Volume2 } from "lucide-react";
 import { AppModal } from "@/components/ui/product/app-modal";
 import type { ReactNode } from "react";
 
+import { buildThreeViewLockState, characterViewUrlsFromNode } from "@/lib/absorb/lumenx";
 import type { CanvasNodeData } from "@/types/canvas";
 
 export function CanvasCharacterReferenceModal({ node, open, onClose }: { node: CanvasNodeData | null; open: boolean; onClose: () => void }) {
@@ -14,6 +18,9 @@ export function CanvasCharacterReferenceModal({ node, open, onClose }: { node: C
     const visualReady = metadata?.characterVisualStatus === "ready";
     const voiceReady = metadata?.characterVoiceStatus === "ready";
     const voiceProfile = metadata?.characterVoiceProfile;
+    const r2vLocked = Boolean((definition as Record<string, unknown>).r2vLocked ?? (metadata as Record<string, unknown> | undefined)?.characterR2vLocked);
+    const urls = characterViewUrlsFromNode(node);
+    const lockState = buildThreeViewLockState(urls, r2vLocked);
 
     return (
         <AppModal
@@ -25,43 +32,64 @@ export function CanvasCharacterReferenceModal({ node, open, onClose }: { node: C
             onCancel={onClose}
             flush
         >
-            <div className="grid h-[min(720px,calc(100dvh-48px))] min-h-0 grid-rows-[minmax(240px,42vh)_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-cols-[minmax(0,1.55fr)_minmax(360px,.85fr)] md:grid-rows-1">
-                <section className="relative min-h-0 overflow-hidden border-b border-border bg-foreground/[.035] md:border-b-0 md:border-r" aria-label="角色三视图">
-                    <div className="absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between px-5 pr-14">
-                        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-background/80 px-2.5 text-[var(--fs-label)] font-medium shadow-sm backdrop-blur-xl">
+            <div className="grid h-[min(720px,calc(100dvh-48px))] min-h-0 grid-rows-[minmax(220px,38vh)_minmax(0,1fr)] overflow-hidden bg-background text-foreground md:grid-rows-[minmax(240px,42vh)_minmax(0,1fr)]">
+                <section className="min-h-0 border-b border-border" aria-label="角色三视图工作台">
+                    <div className="flex h-11 items-center justify-between gap-2 border-b border-border/70 px-4 pr-14">
+                        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-background/80 px-2.5 text-[var(--fs-label)] font-medium">
                             <ImageIcon className="size-3.5" />
-                            人物三视图
+                            人物三视图 / R2V
                         </span>
-                        <StatusDot icon={<ImageIcon />} ready={visualReady} readyLabel="形象已绑定" emptyLabel="形象待完善" />
+                        <div className="flex items-center gap-1.5">
+                            {lockState.r2vLocked ? (
+                                <span className="inline-flex h-7 items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 text-[var(--fs-tiny)] font-medium text-amber-700 dark:text-amber-300">
+                                    <Lock className="size-3" /> R2V 已锁定
+                                </span>
+                            ) : null}
+                            <StatusDot icon={<ImageIcon />} ready={visualReady} readyLabel="形象已绑定" emptyLabel="形象待完善" />
+                        </div>
                     </div>
-                    {metadata?.characterCoverUrl ? (
-                        <div className="flex h-full w-full items-center justify-center p-5 pt-16 md:p-8 md:pt-20">
-                            <img
-                                src={metadata.characterCoverUrl}
-                                alt={`${name}人物三视图`}
-                                className="max-h-full max-w-full select-none object-contain drop-shadow-[0_22px_42px_rgba(0,0,0,.14)]"
-                                draggable={false}
-                            />
-                        </div>
-                    ) : (
-                        <div className="grid h-full place-items-center px-8 text-center text-foreground/35">
-                            <div>
-                                <UserRound className="mx-auto size-14 stroke-[1.25]" />
-                                <p className="mt-3 text-xs">尚未绑定人物三视图</p>
+                    <div className="grid h-[calc(100%-2.75rem)] min-h-0 grid-cols-3 divide-x divide-border/70">
+                        {lockState.slots.map((slot) => (
+                            <div key={slot.id} className="relative flex min-h-0 flex-col bg-foreground/[.02]" data-slot={slot.id} data-locked={slot.locked || undefined}>
+                                <div className="flex items-center justify-between px-3 pt-2">
+                                    <span className="text-[var(--fs-tiny)] font-semibold text-foreground/70">{slot.label}</span>
+                                    {slot.locked ? <Lock className="size-3.5 text-foreground/35" aria-label="已锁定" /> : null}
+                                </div>
+                                <div className="relative min-h-0 flex-1 p-2">
+                                    {slot.url ? (
+                                        <img src={slot.url} alt={`${name}${slot.label}`} className="h-full w-full select-none object-contain" draggable={false} />
+                                    ) : (
+                                        <div className="grid h-full place-items-center text-foreground/28">
+                                            <div className="text-center">
+                                                <UserRound className="mx-auto size-8 stroke-[1.25]" />
+                                                <p className="mt-1 text-[10px]">{slot.locked ? "需先绑定主形象" : "尚未绑定"}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {slot.locked ? (
+                                        <div className="absolute inset-0 grid place-items-center bg-background/55 backdrop-blur-[1px]">
+                                            <div className="rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-foreground/55">
+                                                <Lock className="mr-1 inline size-3" />
+                                                派生视图已锁定
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                                <p className="truncate px-3 pb-2 text-[10px] text-foreground/40">{slot.description}</p>
                             </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </section>
 
-                <aside className="thin-scrollbar min-h-0 overflow-y-auto">
-                    <header className="border-b border-border px-6 pb-5 pt-7 pr-14">
+                <aside className="thin-scrollbar min-h-0 overflow-y-auto md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
+                    <header className="border-b border-border px-6 pb-5 pt-5 pr-14 md:border-b-0 md:border-r">
                         <div className="flex items-start gap-3">
                             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-foreground/[.07]">
                                 <UserRound className="size-4.5" />
                             </span>
                             <div className="min-w-0">
                                 <h2 className="truncate text-xl font-semibold leading-7">{name}</h2>
-                                <p className="mt-1 text-[var(--fs-label)] text-foreground/45">项目角色引用 · 当前版本</p>
+                                <p className="mt-1 text-[var(--fs-label)] text-foreground/45">项目角色引用 · 三视图锁定（LumenX MIT）</p>
                             </div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-1.5">

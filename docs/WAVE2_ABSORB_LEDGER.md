@@ -25,3 +25,16 @@
 - klaus-2/koma-studio、Toonflow-web 归档仓
 
 详参：[重点仓深挖](https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/9a6e4b46-d3de-4981-bebf-88a9bdd8c5f6)
+
+
+## 落地勾选（2026-10-26）
+
+| 项 | 状态 | 说明 |
+|----|------|------|
+| P0 DramaClaw 双轨壳 | ✅ 已落地（重写） | Freezone |
+| P0 BeefTV IA | ✅ 已落地（重写） | 一级导航 / redline |
+| P0 Toonflow | ✅ 已落地（MIT） | arrange + float geometry |
+| P0 LumenX | ✅ 已落地（MIT） | 三视图锁定 + shot shell |
+| P1 AIMovieStudio | ✅ 增量（重写） | 编辑器三栏标签 |
+| P1 CineGen | ✅ 增量（重写） | 宫格首尾帧提示 |
+| P1 BigBanana | ✅ 已落地（重写） | 创作阶段条 |

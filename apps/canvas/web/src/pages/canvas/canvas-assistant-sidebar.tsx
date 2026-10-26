@@ -1,5 +1,5 @@
 import { Button, Dropdown, Tooltip } from "antd";
-import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight, LoaderCircle } from "lucide-react";
+import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight, LoaderCircle, PanelRight, AppWindow } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { AppDrawer } from "@/components/ui/product/app-drawer";
@@ -9,6 +9,7 @@ import { ASSISTANT_STARTER_PROMPTS, assistantStatusNotice, assistantVisibleReply
 import { CanvasAssistantComposer } from "./canvas-assistant-composer";
 import { CanvasAssistantReply, CanvasAssistantTurnView, CanvasAssistantUserMessage } from "./canvas-assistant-turn";
 import { ASSISTANT_MAX_WIDTH, ASSISTANT_MIN_WIDTH, type CanvasAssistantController } from "./use-canvas-assistant";
+import { computeFloatingAgentLayout } from "@/lib/absorb/toonflow";
 import "./canvas-assistant-sidebar.css";
 
 type Props = {
@@ -91,6 +92,18 @@ export function CanvasAssistantSidebar(props: Props) {
                 <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items: sessionItems, selectedKeys: assistant.sessionId ? [assistant.sessionId] : [] }}>
                     <Button type="text" size="small" aria-label="历史对话" disabled={assistant.streaming || assistant.sessionBusy} icon={<History className="size-4" />} />
                 </Dropdown>
+                {dockable && assistant.setPresentation ? (
+                    <Tooltip title={assistant.presentation === "dock" ? "切换为悬浮（Toonflow）" : "停靠到右侧"}>
+                        <Button
+                            type="text"
+                            size="small"
+                            className="canvas-assistant-presentation-toggle"
+                            aria-label={assistant.presentation === "dock" ? "切换为悬浮" : "停靠到右侧"}
+                            icon={assistant.presentation === "dock" ? <AppWindow className="size-4" /> : <PanelRight className="size-4" />}
+                            onClick={() => assistant.setPresentation(assistant.presentation === "dock" ? "float" : "dock")}
+                        />
+                    </Tooltip>
+                ) : null}
                 <Tooltip title="关闭助手">
                     <Button type="text" size="small" aria-label="关闭助手" icon={<X className="size-4" />} onClick={() => assistant.setOpen(false)} />
                 </Tooltip>
@@ -190,8 +203,35 @@ export function CanvasAssistantSidebar(props: Props) {
         );
     }
 
+    const float = dockable && assistant.presentation === "float";
+    const floatLayout = float
+        ? computeFloatingAgentLayout({
+              presentation: "float",
+              viewportWidth: typeof window !== "undefined" ? window.innerWidth : 1280,
+              viewportHeight: typeof window !== "undefined" ? window.innerHeight : 800,
+              preferredWidth: assistant.width,
+          })
+        : null;
+
     return (
-        <aside ref={sidebarRef} className="canvas-assistant-sidebar" aria-label="助手" style={{ width: assistant.width, flexBasis: assistant.width }}>
+        <aside
+            ref={sidebarRef}
+            className={`canvas-assistant-sidebar${float ? " is-floating" : ""}`}
+            aria-label="助手"
+            style={
+                float && floatLayout
+                    ? {
+                          position: "fixed",
+                          left: floatLayout.left,
+                          top: floatLayout.top,
+                          width: floatLayout.width,
+                          height: floatLayout.height,
+                          zIndex: 40,
+                          flexBasis: floatLayout.width,
+                      }
+                    : { width: assistant.width, flexBasis: assistant.width }
+            }
+        >
             <button
                 type="button"
                 className="canvas-assistant-resize"

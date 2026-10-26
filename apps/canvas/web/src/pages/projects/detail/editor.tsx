@@ -482,6 +482,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
                     <div className="flex min-h-0 flex-1 gap-2">
                         {/* 左栏：素材 / 转写（Tab 化） */}
                         <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden rounded-xl bg-[var(--director-sequencer-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+                            <div className="px-2 pt-2"><span className="toiv-editor-pane-label">Library</span></div>
                             <PanelTabs
                                 tabs={[
                                     { id: "asset", label: "素材" },
@@ -499,6 +500,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
 
                         {/* 中栏：预览（占满剩余高度） */}
                         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-[var(--director-sequencer-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+                            <div className="px-2 pt-2"><span className="toiv-editor-pane-label">Stage</span></div>
                             <SlotStack slots={previewSlots} emptyHint="预览插件未加载。" />
                         </main>
 
@@ -577,6 +579,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
 
                     {/* 时间线：横跨编辑面板全宽（左栏到右栏） */}
                     <div className="flex h-full shrink-0 flex-col overflow-hidden rounded-xl bg-[var(--director-sequencer-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.3)]" style={{ height: `${timelineH}px` }}>
+                        <div className="flex items-center gap-2 px-2 pt-1"><span className="toiv-editor-pane-label">Timeline</span></div>
                         <SlotStack slots={timelineSlots} emptyHint="时间线面板插件未加载。" />
                     </div>
                 </div>

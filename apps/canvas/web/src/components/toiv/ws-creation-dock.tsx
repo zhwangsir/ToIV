@@ -138,11 +138,15 @@ export function WsCreationDock({ projectId, pipelineLabel, onJumpShots }: WsCrea
                 <p className="toiv-ws-creation-dock-meta">暂无近史 · 生成后会出现在此</p>
             ) : null}
 
-            {/* LumenX P0.5：三视图/R2V 完整实现后置；此处仅占位入口钩子 */}
+            {/* LumenX@f2a02e2 MIT：三视图/R2V 锁定入口（角色引用卡内完整工作台） */}
             <div className="toiv-ws-creation-dock-row">
-                <span className="toiv-lumenx-hook" title="P0.5：完整三视图/R2V 后续补齐">
-                    scene_asset · 三视图/R2V（入口见下方场景锚点）
-                </span>
+                <Link
+                    className="toiv-lumenx-hook is-ready"
+                    to={projectId ? `/create?project=${encodeURIComponent(projectId)}&section=assets` : "/create"}
+                    title="打开资产：角色三视图 / R2V 锁定"
+                >
+                    scene_asset · 三视图/R2V 锁定
+                </Link>
             </div>
         </section>
     );

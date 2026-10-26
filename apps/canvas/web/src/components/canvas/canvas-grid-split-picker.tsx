@@ -35,6 +35,9 @@ export function CanvasGridSplitPicker({ onPick }: { onPick: (params: ImageSplitP
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
+            <p className="canvas-grid-split-hint" style={{ margin: "0 0 8px", fontSize: 11, opacity: 0.65 }}>
+                镜头网格 · 可切分后标注首尾帧（CineGen 交互节奏重写）
+            </p>
             <div className="canvas-grid-split-presets">
                 {CANVAS_GRID_SPLIT_PRESETS.map((preset) => (
                     <button key={preset.label} type="button" className="canvas-grid-split-item" onMouseDown={(event) => event.preventDefault()} onClick={() => pick(preset.rows, preset.columns)}>

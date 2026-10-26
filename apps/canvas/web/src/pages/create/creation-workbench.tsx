@@ -9,6 +9,7 @@ import { useSearchParams } from "react-router";
 
 import { CreationProjectSwitcher } from "@/components/toiv/creation-project-switcher";
 import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
+import { CreationPhaseStrip } from "@/components/toiv/creation-phase-strip";
 import { WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
 
 const CreatePage = lazy(() => import("./index"));
@@ -22,6 +23,7 @@ export default function CreationWorkbenchPage() {
         <div className="toiv-creation-workbench" data-testid="creation-workbench" data-project={projectId || undefined}>
             <div className="toiv-creation-workbench-chrome">
                 <CreationProjectSwitcher projectId={projectId || null} />
+                <CreationPhaseStrip active={projectId ? "asset" : "generate"} />
                 <ContentModeFallbackTip />
             </div>
             <Suspense fallback={<WorkspaceRouteLoader />}>

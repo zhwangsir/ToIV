@@ -29,4 +29,4 @@
 成人选 NSFW → 切普通 → 回落 Qwen-Rapid-AIO-SFW-v23 / local-wan → 一次性徽标；在途不 abort。
 
 ## Wave2 勾选
-DramaClaw✅ BeefTV✅ Toonflow部分 LumenX占位 P1未做 — 见 absorption-ledger.md
+DramaClaw✅ BeefTV✅ Toonflow✅(MIT) LumenX✅(MIT) P1✅增量 — 见 absorption-ledger.md / NOTICE-ABSORPTION.md

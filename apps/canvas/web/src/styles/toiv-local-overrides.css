@@ -500,3 +500,71 @@ html.dark,
 .settings-slot-table [aria-disabled="true"] {
   filter: grayscale(0.7);
 }
+
+
+/* Wave2 — BigBanana phase IA (rewrite) + Toonflow assistant float hint */
+.toiv-creation-phase-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+}
+.toiv-creation-phase-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toiv-creation-phase-chip.is-active {
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
+}
+.toiv-creation-phase-index {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+  font-weight: 600;
+}
+.toiv-creation-phase-chip.is-active .toiv-creation-phase-index { opacity: 0.9; }
+.toiv-creation-workbench-chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.canvas-assistant-presentation-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.toiv-editor-pane-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--director-dock-fg, var(--muted-foreground));
+  background: color-mix(in oklab, var(--director-control-hover, var(--muted)) 70%, transparent);
+}
+.toiv-lumenx-hook.is-ready {
+  color: var(--foreground);
+  opacity: 0.85;
+}
