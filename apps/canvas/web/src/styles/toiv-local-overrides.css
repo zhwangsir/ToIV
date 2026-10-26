@@ -247,3 +247,185 @@ html.dark,
 .app-product-workspace .app-workspace-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
     background-color: var(--toiv-scroll-thumb-hover) !important;
 }
+
+/* =============================================================================
+   Wave0 Freezone shell — learn DramaClaw/BeefTV rhythm (tokens only, no merge)
+   Dark studio: left rail + full-bleed stage; adult mode = badge only (no pink skin)
+   ============================================================================= */
+html.dark,
+.dark {
+    --background: #0a0c12;
+    --card: #15161d;
+    --popover: #1b1c23;
+    --border: #22232c;
+    --muted-foreground: #8b8d97;
+    --workspace-canvas: #0a0c12;
+    --workspace-page: #0a0c12;
+    --workspace-content: #0c0e14;
+    --workspace-surface: #15161d;
+    --workspace-surface-strong: #1b1c23;
+    --workspace-border: #1f2026;
+    --workspace-border-strong: #2f3036;
+    --workspace-sidebar: #11131a;
+    --workspace-navigation: #11131a;
+    --surface: #15161d;
+    --surface-hover: rgba(255, 255, 255, 0.06);
+    --surface-active: rgba(255, 255, 255, 0.1);
+    --bg-secondary: #0d0e14;
+    --bg-tertiary: #13141b;
+}
+
+/* Full-bleed Freezone: tighten shell gutter; stage fills width beside rail */
+.app-user-workspace .app-workspace-shell {
+    --workspace-shell-gutter: 0px;
+    gap: 0;
+    background: var(--workspace-page);
+}
+
+.app-user-workspace .app-workspace-shell.is-spatial {
+    padding: 0;
+}
+
+.app-user-workspace .app-workspace-sidebar {
+    border-radius: 0;
+    border-right: 1px solid color-mix(in srgb, var(--workspace-border) 88%, transparent);
+    background: color-mix(in srgb, var(--workspace-sidebar) 98%, #000 2%);
+}
+
+.app-user-workspace .app-workspace-stage {
+    border-radius: 0;
+    min-width: 0;
+    background: var(--workspace-content);
+}
+
+/* Overlay / panel rhythm (Toonflow: less page jump) */
+.toiv-freezone-panel {
+    border: 1px solid var(--workspace-border, var(--border));
+    border-radius: var(--r-lg, 14px);
+    background: color-mix(in srgb, var(--workspace-surface, var(--card)) 94%, transparent);
+    box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset;
+}
+
+.toiv-ws-creation-dock {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+}
+
+.toiv-ws-creation-dock-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.toiv-ws-creation-dock-title {
+    font-size: var(--fs-body, 14px);
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.toiv-ws-creation-dock-meta {
+    font-size: var(--fs-tiny, 11px);
+    color: var(--muted-foreground);
+}
+
+.toiv-ws-creation-dock-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.toiv-ws-creation-dock-recent {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.toiv-ws-creation-dock-recent a,
+.toiv-ws-creation-dock-recent button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    border-radius: var(--r-sm, 10px);
+    background: transparent;
+    padding: 6px 8px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.toiv-ws-creation-dock-recent a:hover,
+.toiv-ws-creation-dock-recent button:hover {
+    background: var(--surface-hover);
+}
+
+/* Create: same-screen recent strip (drawer still available) */
+.creation-recent-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 4px 8px;
+    scrollbar-width: thin;
+}
+
+.creation-recent-chip {
+    display: inline-flex;
+    max-width: 180px;
+    min-height: 28px;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--workspace-border, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--workspace-surface, var(--card)) 90%, transparent);
+    padding: 0 10px;
+    color: var(--muted-foreground);
+    font-size: var(--fs-tiny, 11px);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.creation-recent-chip.is-active {
+    border-color: color-mix(in srgb, var(--workspace-accent, #f5f5f5) 35%, var(--border));
+    color: var(--foreground);
+}
+
+.creation-recent-chip-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Failure / guard cards: Freezone panel surface */
+.app-user-workspace .generation-failure-notice[data-failure-slot],
+.app-user-workspace [data-testid="adult-route-guard-card"] {
+    border: 1px solid var(--workspace-border, var(--border));
+    border-radius: var(--r-lg, 14px);
+    background: color-mix(in srgb, var(--workspace-surface, var(--card)) 92%, transparent);
+    padding: 12px 14px;
+}
+
+.app-user-workspace .generation-failure-button.is-primary {
+    background: color-mix(in srgb, var(--workspace-accent, #f5f5f5) 16%, transparent);
+}
+
+/* LumenX P0.5 hook chip */
+.toiv-lumenx-hook {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 999px;
+    padding: 4px 10px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+}

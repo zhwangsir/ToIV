@@ -34,3 +34,31 @@
 }
 .app-workspace-account-item:hover,
 .app-workspace-account-item:focus-visible { background: var(--user-surface-hover, color-mix(in srgb, var(--foreground) 8%, transparent)); outline: none; }
+
+/* Content mode chip (普通|成人) next to account utility */
+.app-workspace-content-mode-chip {
+    display: inline-flex; min-height: 28px; align-items: center; gap: 4px;
+    padding: 0 8px; border: 1px solid var(--user-border, var(--border));
+    border-radius: var(--r-full); background: var(--user-surface-raised, var(--card));
+    color: var(--user-ink-muted, var(--muted-foreground));
+    font-size: var(--fs-caption); font-weight: 600; line-height: 1; text-decoration: none;
+    cursor: pointer; white-space: nowrap;
+}
+.app-workspace-content-mode-chip:hover,
+.app-workspace-content-mode-chip:focus-visible {
+    color: var(--user-ink, var(--foreground));
+    background: var(--user-surface-hover, color-mix(in srgb, var(--foreground) 8%, transparent));
+    outline: none;
+}
+.app-workspace-content-mode-chip:focus-visible {
+    outline: 2px solid var(--user-accent, var(--ring)); outline-offset: 2px;
+}
+.app-workspace-content-mode-chip.is-adult {
+    border-color: color-mix(in srgb, var(--warning, #d97706) 45%, var(--border));
+    color: var(--warning, #d97706);
+}
+.app-workspace-content-mode-chip.is-collapsed {
+    width: 36px; height: 36px; min-height: 36px; padding: 0; justify-content: center;
+    border-radius: var(--r-md);
+}
+.app-workspace-content-mode-chip-label { letter-spacing: 0.02em; }

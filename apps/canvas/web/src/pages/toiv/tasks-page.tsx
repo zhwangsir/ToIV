@@ -12,6 +12,8 @@ import { formatDateTime } from "@/lib/time-format";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { GenerationFailureNotice } from "@/components/generation/generation-failure-notice";
+import { explainGenerationError } from "@/lib/generation-error";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     queued: { tone: "neutral", text: "排队中" },
@@ -48,6 +50,9 @@ type TimelineItem = {
     highlight?: boolean;
     /** Wave P2:回跳短剧工作区 section/shot */
     jumpHref?: string;
+    /** Wave0: 可读失败 + 指纹禁重试 */
+    failureError?: unknown;
+    requestId?: string;
 };
 
 type SourceFilter = "all" | "toiv-job" | "canvas-task" | "agent-run";
@@ -218,6 +223,8 @@ export default function TasksPage() {
                 statusLabel: generationTaskStatusLabel(task),
                 statusTone: canvasStatusTone(task),
                 jumpHref: dramaJumpHref(task),
+                failureError: task.status === "failed" ? (task.error || task.failureDiagnostics || task.errorCode || "生成失败") : undefined,
+                requestId: task.providerRequestId,
             });
         }
         for (const run of agentRuns) {
@@ -306,9 +313,11 @@ export default function TasksPage() {
 
             <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 text-xs text-muted-foreground" aria-label="创作入口引导">
                 <span>任务中心只读追踪进度。</span>
-                <Link to="/toiv/agent" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">需要新任务？去智能体对话</Link>
+                <Link to="/create" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">去创作</Link>
                 <span>·</span>
-                <Link to="/toiv/drama" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">或去短剧项目开始生成</Link>
+                <Link to="/toiv/drama" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">短剧项目</Link>
+                <span>·</span>
+                <Link to="/toiv/agent" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">智能体对话</Link>
             </div>
 
             <div className="flex flex-wrap items-center gap-2" aria-label="任务筛选">
@@ -430,6 +439,18 @@ export default function TasksPage() {
                                         )}
                                     </Tooltip>
                                     <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
+                                    {item.failureError ? (
+                                        <div className="mt-2">
+                                            <GenerationFailureNotice
+                                                explanation={explainGenerationError(item.failureError)}
+                                                context={item.requestId ? { providerRequestId: item.requestId } : undefined}
+                                                compact
+                                                retryBlockedByFingerprint
+                                                retryLabel="新建尝试"
+                                                onRetry={item.jumpHref ? () => { window.location.assign(item.jumpHref!); } : undefined}
+                                            />
+                                        </div>
+                                    ) : null}
                                 </div>
                                 {item.canCancel ? (
                                     <ToolButton

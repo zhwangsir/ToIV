@@ -1252,6 +1252,21 @@ export default function CreatePage() {
             </main>
             </> : <div className="creation-thread-workbench">
                 {demoConversation ? <div className="creation-demo-banner" role="status"><Sparkles />模拟对话流 · 固定数据演示，不会调用真实生成接口</div> : null}
+                {historyConversations.length ? (
+                    <div className="creation-recent-strip" aria-label="近期创作" data-testid="creation-recent-strip">
+                        {historyConversations.slice(0, 8).map((c) => (
+                            <button
+                                key={c.id}
+                                type="button"
+                                className={c.id === activeConversation.id ? "creation-recent-chip is-active" : "creation-recent-chip"}
+                                onClick={() => selectConversation(c)}
+                                title={c.title.trim() || "新创作"}
+                            >
+                                <span className="creation-recent-chip-title">{c.title.trim() || "新创作"}</span>
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
                 {conflictBanner}
                 <CreationWorkspaceToolbar onNewConversation={startNewConversation} onOpenHistory={() => setHistoryOpen(true)} shots={videoShots} onJumpToShot={jumpToShot} onContinueCanvas={() => void continueOnCanvas()} openingCanvas={openingCanvas} />
                 <main ref={threadScrollRef} onScroll={handleThreadScroll} className="creation-thread-scroll creation-scrollbar">

@@ -1,10 +1,11 @@
 import { Bot, ChevronRight, BarChart3,
-    Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon } from "lucide-react";
+    Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
+import { ContentModeChip } from "@/components/layout/content-mode-chip";
 import { WorkspaceSidebarAccount } from "@/components/layout/workspace-sidebar-account";
 import { WorkspaceSidebarUpdate } from "@/components/layout/workspace-sidebar-update";
 import { Kbd } from "@/components/ui/base/kbd";
@@ -41,30 +42,31 @@ function toolItem(slug: NavigationToolSlug, to: string): WorkspaceNavItem {
 }
 
 function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[]; footer: WorkspaceNavItem[] } {
-    // Wave P1 / N4: 进门语义=短剧；稳态序 短剧 → 任务只读 → 工具台 → 自由画布(可折) → 设置
+    // Wave0：创作置顶 → 新建短剧 → 任务/工具台/设置；首页·看板·画布等进高级折起
     void features;
     const groups: WorkspaceNavGroup[] = [
         {
             items: [
+                { id: "create", title: "创作", icon: WandSparkles, to: "/create" },
                 { id: "new", title: "新建短剧", icon: Plus, to: "/toiv/drama?new=1" },
             ],
         },
         {
             items: [
-                { id: "home", title: "首页", icon: Home, to: "/" },
                 { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
-                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
                 { id: "toiv:market", title: "工具台", icon: Store, to: "/toiv/market" },
                 { id: "settings", title: "设置", icon: Settings2, to: "/settings" },
             ],
         },
         {
-            // 专家画布 / 智能体 / 媒体库 / 外部 Agent —— 默认收起，不挡短剧主路径
-            heading: "高级 / 自由画布",
+            // 首页/看板/专家画布/智能体/媒体库 —— 默认收起，不挡双主路径
+            heading: "高级 / 更多",
             items: [
-                { ...toolItem("canvas", "/project"), title: "自由画布" },
-                { id: "canvas:new", title: "新建画布（专家）", icon: Plus, to: "/canvas?mode=new" },
+                { id: "home", title: "首页", icon: Home, to: "/" },
+                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
+                { ...toolItem("canvas", "/project"), title: "画布库" },
+                { id: "canvas:new", title: "新建画布", icon: Plus, to: "/canvas?mode=new" },
                 { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
                 { id: "library", title: "媒体库", icon: Library, to: "/library" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
@@ -245,7 +247,7 @@ function NavItem({
 }
 
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; collapsed: boolean }) {
-    const defaultOpen = group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
+    const defaultOpen = group.heading !== "高级 / 更多" && group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
     const [isOpen, setIsOpen] = useState(defaultOpen);
     const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")) || (item.id === "agents" && activeId === "agents"));
 
@@ -297,11 +299,13 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     // /toiv/ws/:id(六段工作区)归到「短剧工作台」高亮,否则工作区里侧栏无当前位置
     const toivSection = pathParts[1] === "ws" ? "drama" : pathParts[1];
     const activeId =
-        rawSlug === "toiv" && toivSection
-            ? `toiv:${toivSection}`
-            : slug === "settings" && section
-              ? `settings:${section}`
-              : slug;
+        rawSlug === "create"
+            ? "create"
+            : rawSlug === "toiv" && toivSection
+              ? `toiv:${toivSection}`
+              : slug === "settings" && section
+                ? `settings:${section}`
+                : slug;
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const [scrollState, setScrollState] = useState({ hasTopFade: false, hasBottomFade: false });
@@ -343,6 +347,7 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
                     </div>
                 ) : null}
                 <div className={cn("app-workspace-sidebar-utility-row", collapsed && "is-collapsed")}>
+                    <ContentModeChip collapsed={collapsed} />
                     <WorkspaceSidebarAccount collapsed={collapsed} />
                     <WorkspaceSidebarUpdate collapsed={collapsed} />
                     <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} aria-label={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"} title={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"} className="app-workspace-theme-action">

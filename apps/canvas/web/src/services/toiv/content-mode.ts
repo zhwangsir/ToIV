@@ -102,3 +102,19 @@ export function appShowsR18Badge(app: ContentModeApp | null | undefined): boolea
     if (app.is_nsfw === true) return true;
     return normalizeContentModes(app.content_modes).includes("nsfw");
 }
+
+/** 纯成人卡（无普通模式面）：普通模式列表应隐藏，避免漏出。 */
+export function appIsPureNsfw(app: ContentModeApp | null | undefined): boolean {
+    if (!app) return false;
+    const modes = normalizeContentModes(app.content_modes);
+    if (app.is_nsfw === true && !modes.includes("sfw")) return true;
+    if (modes.includes("nsfw") && !modes.includes("sfw")) return true;
+    return false;
+}
+
+/** 普通模式隐藏纯成人应用；成人模式全部可见。双模卡始终可见（提交仍 fail-closed）。 */
+export function appVisibleForContentMode(app: ContentModeApp | null | undefined, r18On: boolean): boolean {
+    if (!app) return false;
+    if (r18On) return true;
+    return !appIsPureNsfw(app);
+}

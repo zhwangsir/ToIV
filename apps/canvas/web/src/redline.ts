@@ -26,6 +26,9 @@ export const COPY_SWITCH_TO_ADULT = "切换到成人模式";
 export const COPY_STAY_NORMAL = "留在普通内容";
 export const COPY_CONFIRM_SWITCH = "确认切换？本机将进入成人内容上下文。";
 export const COPY_SLOT_ADULT = "需成人";
+/** 选型/工具台空态（普通模式藏成人条目时）。 */
+export const COPY_NSFW_MODELS_HIDDEN_EMPTY = "当前为普通模式，成人模型已隐藏";
+export const COPY_NSFW_APPS_HIDDEN_EMPTY = "当前为普通模式，成人应用已隐藏";
 export const SAFE_HOME_PATH = "/";
 
 /** 同页切换成人模式时通知订阅方（storage 事件跨页才触发）。 */

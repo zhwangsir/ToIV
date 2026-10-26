@@ -234,7 +234,9 @@ export { toivCoverImageUrl } from "./cover-url";
 export type { ContentMode } from "./content-mode";
 export {
     CLASSIC_NSFW_TO_MARKET,
+    appIsPureNsfw,
     appShowsR18Badge,
+    appVisibleForContentMode,
     canShowContentModeToggle,
     normalizeContentModes,
     resolveSubmitContentMode,

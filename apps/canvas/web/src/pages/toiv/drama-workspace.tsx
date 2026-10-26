@@ -53,6 +53,7 @@ import { toivMediaUrl } from "@/services/toiv/cover-url";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
 import { SceneAnchorPanel } from "@/components/toiv/scene-anchor-panel";
+import { WsCreationDock } from "@/components/toiv/ws-creation-dock";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
@@ -1115,6 +1116,13 @@ export default function DramaWorkspacePage() {
                 )}
                 <ComputeStatusStrip variant="compact" onDeps={setDeps} />
                 <ControlReadinessLamps lamps={controlLamps} variant="full" />
+                {id ? (
+                    <WsCreationDock
+                        projectId={id}
+                        pipelineLabel={PIPELINE_OPTIONS.find((p) => p.value === renderPipeline)?.label ?? renderPipeline}
+                        onJumpShots={() => goSection("shots")}
+                    />
+                ) : null}
                 <div className="px-1 pb-2">
                     <KpiNorthboundPanel days={30} compact />
                 </div>
