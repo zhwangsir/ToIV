@@ -14,8 +14,11 @@ describe("F12 retired-face deep-link redirects", () => {
         assert.ok(mw.includes('"/studio/toiv/market$1"'));
         assert.ok(mw.includes('"/studio/toiv/tasks$1"'));
         assert.ok(mw.includes('"/studio/toiv$1"'));
-        // R11 strangler → create
-        assert.ok(mw.includes('"/studio/create$1"') || mw.includes('"/studio/create"'));
-        assert.ok(mw.includes("/toiv\\/agent"));
+        // R11/R12 strangler → create (no bare /create; /create/* strips to /studio/create)
+        assert.ok(mw.includes('"/studio/create"'));
+        assert.ok(mw.includes("/toiv\\/agent") || mw.includes("/toiv\\/agent(?:"));
+        // R12① runs keep id
+        assert.ok(mw.includes("run=$1") || mw.includes("?run=$1"));
+        assert.ok(mw.includes("applyRetiredRedirect"));
     });
 });

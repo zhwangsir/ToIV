@@ -40,7 +40,7 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   videoEdit: "/studio/create",
   "video-edit": "/studio/create",
   dub: "/studio/create",
-  // R11: 助手孤面 → 创作台
+  // R11/R12③: 助手孤面唯一收敛轨 → /studio/create（无 LEGACY 双跳）
   assistant: "/studio/create",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
@@ -110,7 +110,8 @@ function HomeContent() {
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const raw = searchParams.get("view");
-    if (raw === "assistant") return "home"; // EXTERNAL 会整页接走 /studio/create；此分支仅防闪经典壳
+    // R12③: assistant 只走 EXTERNAL_VIEW → /studio/create，不进经典壳双轨
+    if (raw && EXTERNAL_VIEW_REDIRECTS[raw]) return "home"; // 占位；effect 立刻 location.replace
     return resolveView(raw) ?? "home";
   });
   // BeefTV studio 切换(2026-10-06 cutover C3 → 2026-10-15 F9 跳转壳):登录态落 home

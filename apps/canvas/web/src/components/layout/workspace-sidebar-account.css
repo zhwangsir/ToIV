@@ -1,3 +1,6 @@
+/* R12 kill content-mode chip — sole switch is topbar LightCurtain */
+.app-workspace-content-mode-chip { display: none !important; }
+
 /* Account menu (ToIV gate). Tokens only: --user-*, --r-*, --fs-*. */
 .app-workspace-account { position: relative; flex: none; }
 .app-workspace-account-trigger {

@@ -36,7 +36,7 @@ export const beefTVCapabilityItems = [
     { id: "audio", label: "音频生成", detail: "配音与声音素材", to: "/canvas?mode=new&add=audio", icon: AudioLines, disabled: false, external: false },
     // ToIV 模块：SPA 原生路由（零整页跳转；旧 classic 外链已退役）
     { id: "drama", label: "短剧工作台", detail: "分镜 · 设定卡 · 成片", to: "/toiv/drama", icon: Clapperboard, disabled: false, external: false },
-    { id: "agent", label: "智能体对话", detail: "对话驱动创作", to: "/create", icon: Bot, disabled: false, external: false },
+    { id: "agent", label: "创作台对话", detail: "对话驱动创作（同屏 /create）", to: "/create", icon: Bot, disabled: false, external: false },
     { id: "market", label: "工具箱", detail: "本地与云端应用一站浏览", to: "/toiv/market", icon: Store, disabled: false, external: false },
     { id: "library", label: "作品库", detail: "成片与分镜作品", to: "/library?source=works", icon: Library, disabled: false, external: false },
     { id: "tasks", label: "任务中心", detail: "作业进度统一查看", to: "/toiv/tasks", icon: ListChecks, disabled: false, external: false },

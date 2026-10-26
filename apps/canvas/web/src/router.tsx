@@ -87,6 +87,23 @@ function ToivWsToCreateRedirect() {
     return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
 }
 
+/** R12①: /toiv/runs/:id → /create?run=:id（保留既有 query） */
+function ToivRunToCreateRedirect() {
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("run", id);
+    const qs = next.toString();
+    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+}
+
+/** R12②: /create/* 子路径漏网 → /create（保留 query） */
+function CreateSubpathRedirect() {
+    const [searchParams] = useSearchParams();
+    const qs = searchParams.toString();
+    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+}
+
 
 
 /**
@@ -116,6 +133,7 @@ export const router = createWorkspaceRouter([
         children: [
             { path: "/", element: deferred(<HomePage />) },
             { path: "/create", element: deferred(<CreationWorkbenchPage />) },
+            { path: "/create/*", element: <CreateSubpathRedirect /> },
             {
                 path: "/tasks",
                 // 任务页暂不开放，保留路由以避免旧链接进入半成品界面。
@@ -142,7 +160,7 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
             { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
-            { path: "/toiv/runs/:id", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },
             { path: "/toiv/audio", element: <Navigate to="/create" replace /> },
             { path: "/toiv/image-tools", element: <Navigate to="/create" replace /> },
             { path: "/toiv/video-tools", element: <Navigate to="/create" replace /> },

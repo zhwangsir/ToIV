@@ -654,6 +654,16 @@
   --toiv-model-nsfw-opacity: var(--toiv-model-mgr-nsfw-opacity);
   --toiv-model-list-max-h: var(--toiv-model-mgr-list-max-h);
 
+  /* ── Layer / z-index R12 (queue > timeline dock > panes) ── */
+  --toiv-z-base: 1;
+  --toiv-z-pane: 10;
+  --toiv-z-timeline: 20;
+  --toiv-z-drawer: 60;
+  --toiv-z-queue-bottom: 70;
+  --toiv-z-queue-panel: 80;
+  --toiv-z-topbar: 90;
+  --toiv-z-modal: 100;
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);

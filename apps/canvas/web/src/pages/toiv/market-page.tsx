@@ -859,10 +859,10 @@ export default function MarketPage() {
                 <h1>工具箱</h1>
                 <p>应用市场 · 生成能力即取即用；作业进任务中心。</p>
                 <div className="fz-desk-actions">
-<Link to="/toiv/audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
-                    <Link to="/toiv/image-tools"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
-                    <Link to="/toiv/video-tools"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频剪辑" /></Link>
-                    <Link to="/toiv/dub-tools"><ToolButton variant="default" icon={<Languages className="size-4" />} label="视频译制" /></Link>
+<Link to="/create"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
+                    <Link to="/create"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
+                    <Link to="/create"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频剪辑" /></Link>
+                    <Link to="/create"><ToolButton variant="default" icon={<Languages className="size-4" />} label="视频译制" /></Link>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />

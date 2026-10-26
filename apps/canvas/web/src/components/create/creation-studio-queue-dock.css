@@ -40,7 +40,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  z-index: 80;
+  z-index: var(--toiv-z-queue-panel, 80);
   width: var(--toiv-job-popover-w, var(--toiv-queue-panel-w, 300px));
   max-height: var(--toiv-queue-panel-max-h, min(70vh, 520px));
   display: flex;
@@ -270,11 +270,11 @@
   padding: 8px;
   border-radius: var(--toiv-job-log-radius, 12px);
   border: 1px solid var(--toiv-border);
-  background: var(--toiv-job-log-bg, #020617);
+  background: var(--toiv-job-log-bg, var(--toiv-bg, #0a0c12));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--toiv-job-log-fs, 12px);
   line-height: 1.45;
-  color: #cbd5e1;
+  color: var(--toiv-text-secondary, #b4b8c4);
   white-space: pre-wrap;
 }
 
@@ -283,7 +283,7 @@
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
-  z-index: 70;
+  z-index: var(--toiv-z-queue-bottom, 70);
   width: min(var(--toiv-job-drawer-w, 736px), calc(100vw - 24px));
   max-height: min(42vh, 420px);
   display: flex;

@@ -25,7 +25,7 @@
     border-radius: 999px;
     border: 1px solid var(--workspace-border, #444);
     background: var(--surface-active, rgba(255, 255, 255, 0.06));
-    color: var(--foreground, #fff);
+    color: var(--toiv-text, var(--foreground, #e8eaf0));
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
 }
@@ -95,7 +95,7 @@
 }
 
 .nas-bind-steps li[data-state="current"] {
-    color: var(--foreground, #fff);
+    color: var(--toiv-text, var(--foreground, #e8eaf0));
     font-weight: 600;
 }
 
@@ -105,7 +105,7 @@
 }
 
 .nas-bind-steps li[data-state="done"] {
-    color: var(--foreground, #fff);
+    color: var(--toiv-text, var(--foreground, #e8eaf0));
     opacity: 0.85;
 }
 

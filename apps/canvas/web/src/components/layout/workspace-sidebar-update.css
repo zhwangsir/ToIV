@@ -217,3 +217,10 @@
 .app-workspace-sidebar-content-mode.is-collapsed {
     align-items: center;
 }
+
+
+/* R12: 光幕主开关只在顶栏右；侧栏脚残留类强制隐藏 */
+.app-workspace-sidebar-content-mode,
+.app-workspace-content-mode-chip {
+  display: none !important;
+}

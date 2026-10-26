@@ -853,8 +853,8 @@ export function CreationViewPresetsMenu({ snapshot, onApply }: { snapshot: Creat
 export function CreationThreeDEntryModal({ open, onClose, onUseImg2Threejs }: { open: boolean; onClose: () => void; onUseImg2Threejs: () => void }) {
     const navigate = useNavigate();
     const entries = [
-        { icon: Box, title: "图生 3D · Hunyuan3D", description: "单图生成 3D 模型(GLB),走 ToIV 既有图生 3D 工作流", action: () => { onClose(); navigate("/toiv/image-tools?tool=hunyuan3d"); } },
-        { icon: Camera, title: "3D 相机 360°", description: "控制方位/俯仰/距离,环绕一圈看全貌(Qwen 相机控制)", action: () => { onClose(); navigate("/toiv/image-tools?tool=camera3d"); } },
+        { icon: Box, title: "图生 3D · Hunyuan3D", description: "单图生成 3D 模型(GLB),走 ToIV 既有图生 3D 工作流", action: () => { onClose(); navigate("/create?tool=hunyuan3d"); } },
+        { icon: Camera, title: "3D 相机 360°", description: "控制方位/俯仰/距离,环绕一圈看全貌(Qwen 相机控制)", action: () => { onClose(); navigate("/create?tool=camera3d"); } },
         { icon: Code2, title: "img2threejs 程序化建模", description: "正典技能直出:参考图重建为可动画的程序化 Three.js 模型(纯代码重建)", action: () => { onClose(); onUseImg2Threejs(); } },
     ];
     return <AppModal open={open} onCancel={onClose} title="3D 工具" footer={null} centered destroyOnHidden width="min(560px, calc(100vw - 32px))" className="creation-threed-modal">

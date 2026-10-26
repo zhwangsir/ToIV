@@ -69,18 +69,21 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-/** F12 + R11 Strangler: 退役面/孤面深链 308 到 canvas；引擎台·助手 → /studio/create。
- *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create。 */
+/** F12 + R11/R12 Strangler: 退役面/孤面深链 308 到 canvas；引擎台·助手 → /studio/create。
+ *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create。
+ *  target 可含 ?query；`$1`/`$2` 替换捕获组。hash 不达服务端，无法保留。 */
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
-  // R11: 公网裸 /create → 正式创作台
-  [/^\/create(\/.*)?$/, "/studio/create$1"],
+  // R12: /create 与 /create/* 一律到正式创作台（不留 /studio/create/foo）
+  [/^\/create(?:\/.*)?$/, "/studio/create"],
   // R11: 助手 / 引擎工具孤面 → 创作台（先于 /toiv 通配）
-  [/^\/toiv\/agent(\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/audio(\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/image-tools(\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/video-tools(\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/dub-tools(\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/runs(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/create"],
+  // R12①: runs 保留 id → ?run=
+  [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio/create?run=$1"],
+  [/^\/toiv\/runs\/?$/, "/studio/create"],
   [/^\/library(\/.*)?$/, "/studio/library$1"],
   [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
   [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
@@ -88,14 +91,33 @@ const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
   [/^\/toiv(\/.*)?$/, "/studio/toiv$1"],
 ];
 
+function applyRetiredRedirect(url: URL, target: string, match: RegExpExecArray, inboundSearch: string) {
+  let resolved = target.replace(/\$(\d+)/g, (_, n: string) => match[Number(n)] ?? "");
+  const q = resolved.indexOf("?");
+  let path = resolved;
+  let inject = "";
+  if (q >= 0) {
+    path = resolved.slice(0, q);
+    inject = resolved.slice(q + 1);
+  }
+  url.pathname = path;
+  const merged = new URLSearchParams(inboundSearch.startsWith("?") ? inboundSearch.slice(1) : inboundSearch);
+  if (inject) {
+    new URLSearchParams(inject).forEach((v, k) => {
+      if (v) merged.set(k, v);
+    });
+  }
+  const qs = merged.toString();
+  url.search = qs ? `?${qs}` : "";
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   for (const [re, target] of RETIRED_FACE_REDIRECTS) {
     const m = re.exec(pathname);
     if (m) {
       const url = req.nextUrl.clone();
-      url.pathname = target.replace("$1", m[1] ?? "");
-      url.search = search;
+      applyRetiredRedirect(url, target, m, search);
       const res = NextResponse.redirect(url, 308);
       res.headers.set("cache-control", "no-store");
       return res;

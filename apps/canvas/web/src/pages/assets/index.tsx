@@ -200,14 +200,6 @@ function AssetsPageSession() {
         return () => document.removeEventListener("pointerdown", dismiss);
     }, [folderDeleteConfirmId]);
 
-    useEffect(() => {
-        const button = document.querySelector<HTMLElement>(".assets-new-button");
-        if (!button) return;
-        button.style.setProperty("background-color", "#fff", "important");
-        button.style.setProperty("color", "#171717", "important");
-        button.style.setProperty("border-color", "rgba(255,255,255,.82)", "important");
-    });
-
     const [formKind, setFormKind] = useState<AssetKind>("text");
     const [imageDraft, setImageDraft] = useState<ImageDraft>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -905,7 +897,7 @@ function AssetsPageSession() {
                                         { key: "image", icon: <Images />, label: "上传资产", onClick: () => assetUploadInputRef.current?.click() },
                                         { key: "folder", icon: <FolderPlus />, label: "新建文件夹", onClick: () => { setFolderName(""); setFolderEditor("new"); } },
                                     ] }}>
-                                        <Button className="assets-new-button" style={{ backgroundColor: "#fff", color: "#171717", borderColor: "rgba(255,255,255,.82)" }} icon={<Plus />}>新建</Button>
+                                        <Button className="assets-new-button" icon={<Plus />}>新建</Button>
                                     </Dropdown>
                                 </div>
                             </div>

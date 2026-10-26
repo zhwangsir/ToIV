@@ -258,19 +258,17 @@
 }
 
 @media (max-width: 900px) {
+  /* R12: 窄屏不露「侧栏导航 + 创作左轨」双表面；左轨收起，仅舞台+详情 */
   .toiv-create-studio {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
   }
   .toiv-create-splitter { display: none; }
-  .toiv-create-rail,
-  .toiv-create-inspector {
-    border: 0;
-    border-bottom: 1px solid var(--toiv-create-divider, var(--toiv-border));
-    max-height: 28vh;
+  .toiv-create-rail {
+    display: none !important;
   }
   .toiv-create-inspector {
-    border-bottom: 0;
+    border: 0;
     border-top: 1px solid var(--toiv-create-divider, var(--toiv-border));
     max-height: 36vh;
   }
@@ -454,7 +452,7 @@
   width: var(--toiv-shot-pip-w, 32%);
   aspect-ratio: var(--toiv-shot-media-aspect-sketch, 2 / 3);
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--toiv-border) 80%, #fff 20%);
+  border: 1px solid color-mix(in srgb, var(--toiv-border) 80%, var(--toiv-text) 20%);
   overflow: hidden;
   background: var(--toiv-bg, #0a0c12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
