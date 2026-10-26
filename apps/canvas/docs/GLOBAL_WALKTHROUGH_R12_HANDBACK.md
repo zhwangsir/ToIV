@@ -3,7 +3,7 @@
 日期：2026-10-26（Asia/Shanghai）  
 分支：`work/p0-fusion-20261016`  
 基 tip：`f0d789a3`（R11）
-最终 tip：本文件同 commit（`git log -1 --format=%h/%H`）
+最终 tip：`git rev-parse HEAD`（本 R12补；基 `ae158cce`）
 DNA：accent `#5ba0ff` / cyan `#00bdcf`；文案普通/成人；光幕只在顶栏。  
 **未 push / 未 deploy。**
 
@@ -68,6 +68,18 @@ DNA：accent `#5ba0ff` / cyan `#00bdcf`；文案普通/成人；光幕只在顶�
 
 ---
 
+
+
+## F. R12补 · TL 收窄落地（叠 tip）
+
+| 项 | 结果 |
+|----|------|
+| timeline zoom | **已修**：`creation-studio-preview-timeline.tsx` 读 `--toiv-timeline-zoom-base-pps`（及 min/max/step）；**禁** `96*zoom` |
+| aceternityMotion | **已修**：`panel: 0.22` = `--toiv-motion-base:220`；fast 0.15；ease `[0.22,1,0.36,1]` |
+| 运维①②③ | 已在 tip `ae158cce`：runs `?run=`；`/create/*`→create；assistant 单 EXTERNAL 轨 |
+| P1-3 时间线能力 | **backlog**：拖片长 / 字幕轨 / PlayerChrome / 可拖坞高（见 `PREVIEW_TIMELINE_R8_HANDBACK` §E） |
+| P2 全项 | **挂账**：nav 窄轨56 / 渠道抽屉420 / 媒体分页·focus / 节点像素门禁 |
+
 ## E. R1–R12 tip 链
 
 | Round | short | 标题 |
@@ -87,5 +99,6 @@ DNA：accent `#5ba0ff` / cyan `#00bdcf`；文案普通/成人；光幕只在顶�
 | R10 | `d7274c16` | settings model inventory list+drawer |
 | R9补+R10补 | `b188df77` | hard-table calibrate（motion/settings） |
 | R11 | `f0d789a3` | strangler converge orphan surfaces to create |
-| R12 | (见 git log -1) | global walkthrough + runs/create/assistant 路由审修 |
+| R12 | `ae158cce` | global walkthrough + runs/create/assistant 路由审修 |
+| R12补 | `git log -1 --format=%h` | timeline zoom token + aceternityMotion 220 |
 

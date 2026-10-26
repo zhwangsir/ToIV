@@ -59,6 +59,13 @@ function formatTick(sec: number): string {
     return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
+function readCssNumber(name: string, fallback: number, el?: Element | null): number {
+    if (typeof window === "undefined") return fallback;
+    const raw = getComputedStyle(el ?? document.documentElement).getPropertyValue(name).trim();
+    const n = parseFloat(raw);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 type LaidClip = TimelinePreviewItem & { startSec: number; endSec: number };
 
 function layoutClips(items: TimelinePreviewItem[]): { video: LaidClip[]; audio: LaidClip[]; durationSec: number } {
@@ -87,7 +94,7 @@ export function CreationStudioPreviewTimeline({ projectId = null, className }: P
     const [collapsed, setCollapsed] = useState(false);
     const [playing, setPlaying] = useState(false);
     const [playhead, setPlayhead] = useState(0);
-    const [zoom, setZoom] = useState(1); // product nail: 0.25–4× · step 1.25 · base 96px/s
+    const [zoom, setZoom] = useState(1); // product nail: zoom × --toiv-timeline-zoom-base-pps
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [payload, setPayload] = useState<TimelinePreviewResponse | null>(null);
     const [contentMode, setContentMode] = useState(getAccountContentMode);
@@ -120,7 +127,11 @@ export function CreationStudioPreviewTimeline({ projectId = null, className }: P
     const items = payload?.items || [];
     const laid = useMemo(() => layoutClips(items), [items]);
     const durationSec = laid.durationSec;
-    const pxPerSec = 96 * zoom; // --toiv-timeline-zoom-base-pps
+    const zoomBasePps = readCssNumber("--toiv-timeline-zoom-base-pps", 96, rootRef.current);
+    const zoomMin = readCssNumber("--toiv-timeline-zoom-min", 0.25, rootRef.current);
+    const zoomMax = readCssNumber("--toiv-timeline-zoom-max", 4, rootRef.current);
+    const zoomStep = readCssNumber("--toiv-timeline-zoom-step", 1.25, rootRef.current);
+    const pxPerSec = zoomBasePps * zoom;
     const canvasWidth = Math.max(320, durationSec * pxPerSec + 48);
 
     const ticks = useMemo(() => {
@@ -233,16 +244,16 @@ export function CreationStudioPreviewTimeline({ projectId = null, className }: P
                             type="button"
                             className="toiv-timeline-btn is-frame"
                             aria-label="缩小"
-                            onClick={() => setZoom((z) => Math.max(0.25, Number((z / 1.25).toFixed(3))))}
+                            onClick={() => setZoom((z) => Math.max(zoomMin, Number((z / zoomStep).toFixed(3))))}
                         >
                             −
                         </button>
                         <input
                             className="toiv-timeline-zoom"
                             type="range"
-                            min={0.25}
-                            max={4}
-                            step={0.25}
+                            min={zoomMin}
+                            max={zoomMax}
+                            step={Math.min(0.25, zoomStep / 5)}
                             value={zoom}
                             aria-label="时间线缩放滑杆"
                             onChange={(e) => setZoom(Number(e.target.value))}
@@ -251,7 +262,7 @@ export function CreationStudioPreviewTimeline({ projectId = null, className }: P
                             type="button"
                             className="toiv-timeline-btn is-frame"
                             aria-label="放大"
-                            onClick={() => setZoom((z) => Math.min(4, Number((z * 1.25).toFixed(3))))}
+                            onClick={() => setZoom((z) => Math.min(zoomMax, Number((z * zoomStep).toFixed(3))))}
                         >
                             +
                         </button>
