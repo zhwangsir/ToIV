@@ -56,7 +56,7 @@ def ctx(tmp_path, monkeypatch):
         s.refresh(user)
         uid = user.id
     client = TestClient(app)
-    yield client, create_token(uid)
+    yield client, create_token(uid), engine, uid
     app.dependency_overrides.clear()
 
 
@@ -85,7 +85,7 @@ def test_image_json_path(ctx, monkeypatch):
         return '{"prompt": "a cinematic portrait", "negative": "blurry, watermark"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.png", "image/png")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -107,12 +107,13 @@ def test_image_nsfw_clause(ctx, monkeypatch):
         return '{"prompt": "x", "negative": ""}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
-    nsfw_intent_var.set(True)
-    try:
-        r = _post(client, token, _PNG, "ref.png", "image/png", **{"X-NSFW": "1"})
-    finally:
-        nsfw_intent_var.set(False)
+    client, token, engine, uid = ctx
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
+    r = _post(client, token, _PNG, "ref.png", "image/png")
     assert r.status_code == 200, r.text
     assert "成人" in calls["system"]
     assert "9304" in calls["base_url"]  # NSFW 图像走 JoyCaption 专线
@@ -130,12 +131,13 @@ def test_image_nsfw_fallback_when_joycaption_unset(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
     settings = reverse.get_settings()
     monkeypatch.setattr(settings, "joycaption_base_url", "")
-    client, token = ctx
-    nsfw_intent_var.set(True)
-    try:
-        r = _post(client, token, _PNG, "ref.png", "image/png", **{"X-NSFW": "1"})
-    finally:
-        nsfw_intent_var.set(False)
+    client, token, engine, uid = ctx
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
+    r = _post(client, token, _PNG, "ref.png", "image/png")
     assert r.status_code == 200, r.text
     assert "9303" in calls["base_url"]
 
@@ -145,7 +147,7 @@ def test_image_non_json_fallback(ctx, monkeypatch):
         return "A woman standing in the rain, cinematic lighting"
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.jpg", "image/jpeg")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -159,7 +161,7 @@ def test_image_truncated_json_salvage(ctx, monkeypatch):
         return '{"prompt": "a busy city street at night, neon signs, crowds walking'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.jpg", "image/jpeg")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -190,7 +192,7 @@ def test_video_path(ctx, monkeypatch):
         return '{"prompt": "tracking shot of a runner at dawn"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _MP4, "clip.mp4", "video/mp4")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -223,7 +225,7 @@ def test_video_nas_staging_mode(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
     settings = reverse.get_settings()
     monkeypatch.setattr(settings, "reverse_video_mac_prefix", "/Users/x/nas_mnt")
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _MP4, "clip.mp4", "video/mp4")
     assert r.status_code == 200, r.text
     assert calls["staged"] == (len(_MP4), ".mp4")
@@ -249,7 +251,7 @@ def test_video_nas_staging_cleanup_on_failure(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
     settings = reverse.get_settings()
     monkeypatch.setattr(settings, "reverse_video_mac_prefix", "/Users/x/nas_mnt")
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _MP4, "clip.mp4", "video/mp4")
     assert r.status_code == 502
     assert calls["removed"] == "/NAS/toiv/reverse_tmp/rev-abc.mp4"
@@ -271,7 +273,7 @@ def test_audio_path(ctx, monkeypatch):
         }
 
     monkeypatch.setattr(reverse, "_sensevoice_analyze", fake_analyze)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _WAV, "voice.wav", "audio/wav")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -302,7 +304,7 @@ def test_audio_music_caption_merged(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
     settings = reverse.get_settings()
     monkeypatch.setattr(settings, "omni_captioner_base_url", "http://spark01:8000/v1")
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _WAV, "song.wav", "audio/wav")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -323,7 +325,7 @@ def test_audio_music_chain_failure_degrades(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "separate_accompaniment", fake_sep)
     settings = reverse.get_settings()
     monkeypatch.setattr(settings, "omni_captioner_base_url", "http://spark01:8000/v1")
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _WAV, "song.wav", "audio/wav")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -337,7 +339,7 @@ def test_audio_empty_result(ctx, monkeypatch):
         return {"text": "", "emotion": "", "events": [], "language": ""}
 
     monkeypatch.setattr(reverse, "_sensevoice_analyze", fake_analyze)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _WAV, "voice.wav", "audio/wav")
     assert r.status_code == 200, r.text
     assert r.json()["prompt"] == "未识别到语音内容"
@@ -347,20 +349,20 @@ def test_audio_empty_result(ctx, monkeypatch):
 
 
 def test_empty_file_400(ctx):
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, b"", "ref.png", "image/png")
     assert r.status_code == 400
 
 
 def test_unsupported_type_400(ctx):
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, b"MZ" + b"\x00" * 32, "app.exe", "application/octet-stream")
     assert r.status_code == 400
 
 
 def test_oversize_413(ctx, monkeypatch):
     monkeypatch.setattr(reverse, "_limit_for", lambda kind: 8)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.png", "image/png")
     assert r.status_code == 413
 
@@ -370,7 +372,7 @@ def test_ext_fallback_when_mime_generic(ctx, monkeypatch):
         return '{"prompt": "x", "negative": "y"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.webp", "application/octet-stream")
     assert r.status_code == 200, r.text
     assert r.json()["kind"] == "image"
@@ -384,7 +386,7 @@ def test_vlm_upstream_502(ctx, monkeypatch):
         raise HTTPException(status_code=502, detail="VLM 反推服务不可达")
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _PNG, "ref.png", "image/png")
     assert r.status_code == 502
 
@@ -394,13 +396,13 @@ def test_sensevoice_upstream_502(ctx, monkeypatch):
         raise HTTPException(status_code=502, detail="音频反推服务不可达")
 
     monkeypatch.setattr(reverse, "_sensevoice_analyze", fake_analyze)
-    client, token = ctx
+    client, token, *_ = ctx
     r = _post(client, token, _WAV, "voice.wav", "audio/wav")
     assert r.status_code == 502
 
 
 def test_unauthenticated_401(ctx):
-    client, _ = ctx
+    client, *_ = ctx
     r = client.post(
         "/api/reverse",
         files={"file": ("ref.png", _PNG, "image/png")},

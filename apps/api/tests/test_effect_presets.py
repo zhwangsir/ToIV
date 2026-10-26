@@ -154,7 +154,7 @@ class _FakeClient:
 
 @pytest.fixture
 def user() -> User:
-    return User(id="u-1", email="tester", hashed_password="x", tenant_id="t-1")
+    return User(id="u-1", email="tester", hashed_password="x", tenant_id="t-1", content_mode="ordinary")
 
 
 @pytest.fixture
@@ -210,10 +210,12 @@ async def test_effect_select_absent_on_image_engines(pool, user):
 
 
 async def test_effect_select_on_nsfw_engines(pool, user):
+    user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
         engines = await list_engines(pool, user)
     finally:
+        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
     for eid in ("h3-nsfw-t2v", "h3-nsfw-i2v", "wan-nsfw-i2v"):
         eng = next(e for e in engines if e["id"] == eid)

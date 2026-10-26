@@ -25,6 +25,7 @@ from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.models import Job, User
+from app.redline import adult_at_submit
 from app.routes.video import _raise_from_comfy_error
 from app.services import hold_queue
 from app.services.resource_budget import ensure_host_ram
@@ -454,6 +455,7 @@ async def submit_h3_job(
     job = Job(
         tenant_id=user.tenant_id,
         user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
         prompt_id=prompt_id,
         worker=client.base_url,
         kind=kind,

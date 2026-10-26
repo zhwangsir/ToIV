@@ -50,11 +50,17 @@ router = APIRouter()
 
 
 def _user_dict(user: User) -> dict:
+    from app.redline import account_content_mode
+
+    updated = getattr(user, "content_mode_updated_at", None)
     return {
         "id": user.id,
         "email": user.email,
         "role": user.role,
-        # [DEPRECATED] 遗留 R18 账户软开关,仅作历史记录透出;不再作为任何判定来源
+        # 账号全局内容模式(ordinary|adult);403 / nsfw_allowed 唯一判据
+        "content_mode": account_content_mode(user),
+        "content_mode_updated_at": updated.isoformat() if updated else None,
+        # [DEPRECATED] 遗留软开关,仅历史透出
         "nsfw_enabled": user.nsfw_enabled,
         "default_agent_id": getattr(user, "default_agent_id", None),
     }

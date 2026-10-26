@@ -33,12 +33,15 @@ class User(SQLModel, table=True):
     hashed_password: str
     tenant_id: str = Field(foreign_key="tenant.id", index=True)
     role: str = "user"  # "user" | "admin"
-    # [DEPRECATED] R18 分区账户软开关:自 2026-08-08 起不再作为任何判定来源
-    # (全站统一读 X-NSFW 请求头,见 redline.nsfw_allowed)。字段与历史数据保留
-    # (不删列、不做迁移),仅作「曾经开启过」的记录;marketplace 已切换到请求上下文。
+    # [DEPRECATED] 遗留 R18 账户软开关:历史记录保留;判定改走 content_mode。
     nsfw_enabled: bool = False
+    # 账号全局内容模式(2026-10-26 TL):ordinary|adult,默认 ordinary。
+    # 后端 403 / nsfw_allowed 唯一判据;X-NSFW 仅审计。未成年硬关优先,不得被成人态覆盖。
+    content_mode: str = Field(default="ordinary", index=True)
+    # 模式切换时间(多设备 ≤30s 一致:客户端轮询 /auth/me 或 /account/content-mode)。
+    content_mode_updated_at: Optional[datetime] = Field(default=None, index=True)
     # 出生日期(可选,空=未填写)。用于未成年防护硬阻断:nsfw_allowed 与
-    # /account/nsfw 开关均会校验,未成年一律不可见 R18。空视为成年以兼容老数据。
+    # content_mode 切换均会校验,未成年一律不可见 R18。空视为成年以兼容老数据。
     birthdate: Optional[date] = Field(default=None, index=True)
     # 当前默认智能体 id(顶栏全局默认;为空=走 kind 默认系统提示)。见 Agent 表。
     # 外键不强制(删除 agent 时此处自然失效, optimize 端兜底为 kind 默认)。
@@ -106,6 +109,8 @@ class Job(SQLModel, table=True):
     prompt: str = ""
     seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT:种子上限 2**63-1(见 workflows/txt2img)
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
+    # 提交瞬间账号是否成人态快照(2026-10-26):切模式不改写、不 cancel 在途。
+    adult_at_submit: bool = False
     result: str = ""  # 完成后的产物 URL 列表(JSON)
     # 失败原因(2026-08-30 P1-1):status=error 时的真实原因(tracker 孤儿/超时回收、
     # ComfyUI execution_error、hold 超时、取消备注等);可空,空=无记录/非失败作业。

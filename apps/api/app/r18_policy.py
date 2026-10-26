@@ -1,15 +1,20 @@
 """薄 re-export —— 策略常量真源已迁至 `app.redline`。
 
-新代码请 `from app.redline import POLICY_ID, REQUEST_HEADER, ...`。
+新代码请 `from app.redline import POLICY_ID, CONTENT_MODE_ADULT, ...`。
 """
 from __future__ import annotations
 
 from app.redline import (  # noqa: F401
+    ACCOUNT_CONTENT_MODE_IS_SOLE_ALLOW,
     ACCOUNT_FLAG_NO_LONGER_ALLOWS,
     CANVAS_IS_SOLE_MAIN_UI,
+    CONTENT_MODE_ADULT,
+    CONTENT_MODE_ORDINARY,
     FAIL_CLOSED,
+    FAIL_CLOSED_WITHOUT_ADULT_MODE,
     FAIL_CLOSED_WITHOUT_HEADER,
     POLICY_DECIDED_AT,
+    POLICY_ENFORCEMENT,
     POLICY_ID,
     REQUEST_HEADER,
     REQUEST_HEADER_VALUE,
@@ -18,11 +23,16 @@ from app.redline import (  # noqa: F401
 )
 
 __all__ = [
+    "ACCOUNT_CONTENT_MODE_IS_SOLE_ALLOW",
     "ACCOUNT_FLAG_NO_LONGER_ALLOWS",
     "CANVAS_IS_SOLE_MAIN_UI",
+    "CONTENT_MODE_ADULT",
+    "CONTENT_MODE_ORDINARY",
     "FAIL_CLOSED",
+    "FAIL_CLOSED_WITHOUT_ADULT_MODE",
     "FAIL_CLOSED_WITHOUT_HEADER",
     "POLICY_DECIDED_AT",
+    "POLICY_ENFORCEMENT",
     "POLICY_ID",
     "REQUEST_HEADER",
     "REQUEST_HEADER_VALUE",

@@ -238,12 +238,9 @@ async def test_nsfw_guard_blocks_without_r18_context():
     assert events == []
     assert calls == [], "被拦时 executor 不应被调用"
 
-    # 放行上下文(X-NSFW)后正常执行
-    token = nsfw_intent_var.set(True)
-    try:
-        text2, events2 = await reg.execute("nsfw_spy", {}, {"user": user})
-    finally:
-        nsfw_intent_var.reset(token)
+    # 账号成人态后正常执行
+    user.content_mode = "adult"
+    text2, events2 = await reg.execute("nsfw_spy", {}, {"user": user})
     assert text2 == "执行成功" and events2 and calls != []
 
 

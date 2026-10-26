@@ -1,0 +1,4 @@
+{
+  "models": {},
+  "_doc": "Optional explicit NSFW flags: true|false|null(unknown). Filename hints are fallback when absent."
+}

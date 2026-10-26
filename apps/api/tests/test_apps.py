@@ -248,16 +248,21 @@ def test_list_public_visible_personal_hidden(ctx):
 
 
 def test_list_nsfw_gated(ctx):
-    c, tokens, _, _ = ctx
+    c, tokens, ids, engine = ctx
     c.post(
         "/api/apps", headers=_h(tokens, "admin"),
         json=_create_body(id="nsfw-app", is_nsfw=True),
     )
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body())
     r = c.get("/api/apps", headers=_h(tokens, "user"))
-    ids = {a["id"] for a in r.json()}
-    assert "nsfw-app" not in ids and "t2i-basic" in ids
-    r2 = c.get("/api/apps", headers=_h(tokens, "user", nsfw=True))
+    got = {a["id"] for a in r.json()}
+    assert "nsfw-app" not in got and "t2i-basic" in got
+    with Session(engine) as s:
+        _u = s.get(User, ids["user"])
+        _u.content_mode = "adult"
+        s.add(_u)
+        s.commit()
+    r2 = c.get("/api/apps", headers=_h(tokens, "user"))
     assert "nsfw-app" in {a["id"] for a in r2.json()}
 
 
@@ -346,10 +351,15 @@ def test_detail_404_and_personal_hidden(ctx):
 
 
 def test_detail_nsfw_hidden_without_header(ctx):
-    c, tokens, _, _ = ctx
+    c, tokens, ids, engine = ctx
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(id="na", is_nsfw=True))
     assert c.get("/api/apps/na", headers=_h(tokens, "user")).status_code == 404
-    assert c.get("/api/apps/na", headers=_h(tokens, "user", nsfw=True)).status_code == 200
+    with Session(engine) as s:
+        _u = s.get(User, ids["user"])
+        _u.content_mode = "adult"
+        s.add(_u)
+        s.commit()
+    assert c.get("/api/apps/na", headers=_h(tokens, "user")).status_code == 200
 
 
 # --------------------------------------------------------------------------- #
@@ -484,10 +494,15 @@ def test_fork_404_for_invisible(ctx):
 
 
 def test_fork_nsfw_gated(ctx):
-    c, tokens, _, _ = ctx
+    c, tokens, ids, engine = ctx
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(id="na", is_nsfw=True))
     assert c.post("/api/apps/na/fork", headers=_h(tokens, "user")).status_code == 404
-    r = c.post("/api/apps/na/fork", headers=_h(tokens, "user", nsfw=True))
+    with Session(engine) as s:
+        _u = s.get(User, ids["user"])
+        _u.content_mode = "adult"
+        s.add(_u)
+        s.commit()
+    r = c.post("/api/apps/na/fork", headers=_h(tokens, "user"))
     assert r.status_code == 200
     assert r.json()["is_nsfw"] is True
 

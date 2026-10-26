@@ -1,14 +1,15 @@
-"""账号设置路由 —— 默认智能体偏好的读写。
+"""账号设置路由 —— 内容模式 / 默认智能体偏好。
 
-[DEPRECATED] `POST /account/nsfw` 是遗留的 R18 账户软开关端点:`nsfw_enabled`
-字段自 2026-08-08 起不再作为任何判定来源(全站统一 X-NSFW 请求头,见 app.redline),
-端点仅为兼容旧客户端保留,仍落库但无实际过滤效果(未成年硬阻断保留)。
-前端已无任何调用处;年龄确认改为 /nsfw 专页前端弹窗(localStorage 记录)。
+`GET|PATCH /me/mode` + `GET|PUT /account/content-mode`:账号全局成人态(ordinary|adult)读写。
+后端 403 / nsfw_allowed 以本字段为唯一判据;切换只写库,不 cancel 在途任务。
+多设备:写后更新 content_mode_updated_at,客户端 ≤30s 轮询本端点或 /auth/me。
 
-另:`PUT /api/account/preferences` 改当前用户默认智能体 id(顶栏全局默认),
-optimize 端点在未显式传 agent_id 时读此值。
+[DEPRECATED] `POST /account/nsfw` 遗留软开关:仍落库 nsfw_enabled,但若 enabled=True
+会同步将 content_mode 置 adult(兼容旧客户端);判定真源仍是 content_mode。
 """
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -17,13 +18,25 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
-from app.redline import is_underage
+from app.redline import (
+    CONTENT_MODE_ADULT,
+    CONTENT_MODE_ORDINARY,
+    CONTENT_MODES,
+    UNDERAGE_BLOCK_DETAIL,
+    account_content_mode,
+    is_underage,
+    normalize_content_mode,
+)
 
 router = APIRouter()
 
 
 class NsfwToggleRequest(BaseModel):
     enabled: bool
+
+
+class ContentModeRequest(BaseModel):
+    content_mode: str = Field(..., max_length=16)
 
 
 class PreferencesRequest(BaseModel):
@@ -35,23 +48,106 @@ class PreferencesRequest(BaseModel):
     style_cards: str | None = Field(default=None, max_length=400_000)
 
 
+def _mode_payload(user: User) -> dict:
+    mode = account_content_mode(user)
+    updated = getattr(user, "content_mode_updated_at", None)
+    return {
+        "content_mode": mode,
+        "updated_at": updated.isoformat() if updated else None,
+    }
+
+
+def _set_content_mode(user: User, mode: str, session: Session) -> User:
+    mode = normalize_content_mode(mode)
+    if mode == CONTENT_MODE_ADULT and is_underage(user):
+        raise HTTPException(status_code=403, detail=UNDERAGE_BLOCK_DETAIL)
+    prev = account_content_mode(user)
+    user.content_mode = mode
+    # 兼容遗留列:成人态时标记曾经开启
+    # 同步遗留列(兼容 /auth/me.nsfw_enabled 透出)
+    user.nsfw_enabled = mode == CONTENT_MODE_ADULT
+    if mode != prev:
+        user.content_mode_updated_at = datetime.now(timezone.utc)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@router.get("/account/content-mode")
+def get_content_mode(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """拉取账号全局内容模式(多设备轮询用;含 updated_at)。"""
+    return _mode_payload(user)
+
+
+@router.put("/account/content-mode")
+def set_content_mode(
+    body: ContentModeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """切换账号全局内容模式。不 cancel 任何在途任务;403 只影响后续新请求。"""
+    raw = (body.content_mode or "").strip().lower()
+    # 接受 ordinary|adult 与过渡别名 sfw|nsfw|r18
+    if raw not in CONTENT_MODES and raw not in ("sfw", "nsfw", "r18"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"content_mode 须为 {CONTENT_MODE_ORDINARY} 或 {CONTENT_MODE_ADULT}",
+        )
+    user = _set_content_mode(user, raw, session)
+    return _mode_payload(user)
+
+
 @router.post("/account/nsfw")
 def set_nsfw(
     body: NsfwToggleRequest,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """[DEPRECATED] 遗留 R18 账户软开关:仅落库记录,不再影响任何 NSFW 判定。
+    """[DEPRECATED] 遗留开关:enabled=True → content_mode=adult;False → ordinary。
 
-    全站 R18 语义统一为 X-NSFW 请求头(redline.nsfw_allowed);本端点只为
-    兼容旧客户端保留。未成年硬阻断仍保留,防止遗留开关被未成年账户置位。"""
-    # 未成年硬阻断:即便绕过前端也无法开启 R18,服务端兜底拒绝
-    if body.enabled and is_underage(user):
-        raise HTTPException(status_code=403, detail="未成年用户不可开启 R18 模式")
-    user.nsfw_enabled = body.enabled
-    session.add(user)
-    session.commit()
-    return {"nsfw_enabled": user.nsfw_enabled}
+    仍写 nsfw_enabled;判定真源为 content_mode。未成年硬阻断保留。
+    """
+    mode = CONTENT_MODE_ADULT if body.enabled else CONTENT_MODE_ORDINARY
+    user = _set_content_mode(user, mode, session)
+    return {
+        "nsfw_enabled": user.nsfw_enabled,
+        "content_mode": account_content_mode(user),
+        "updated_at": (
+            user.content_mode_updated_at.isoformat()
+            if user.content_mode_updated_at
+            else None
+        ),
+    }
+
+
+
+
+@router.get("/me/mode")
+def get_me_mode(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """账号全局内容模式(前端 redline 真源轮询)。等价 GET /account/content-mode。"""
+    return _mode_payload(user)
+
+
+@router.patch("/me/mode")
+def patch_me_mode(
+    body: ContentModeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """切换账号全局内容模式。不 cancel 在途;403 只拦后续新请求。"""
+    raw = (body.content_mode or "").strip().lower()
+    if raw not in CONTENT_MODES and raw not in ("sfw", "nsfw", "r18"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"content_mode 须为 {CONTENT_MODE_ORDINARY} 或 {CONTENT_MODE_ADULT}",
+        )
+    user = _set_content_mode(user, raw, session)
+    return _mode_payload(user)
 
 
 @router.put("/account/preferences")
@@ -63,12 +159,10 @@ def set_preferences(
     """设置当前用户的默认智能体 id(顶栏全局默认;None=走 kind 默认系统提示)。
 
     不校验 agent 是否存在 / 是否 NSFW:默认智能体只是偏好,optimize 端点在解析时
-    才做存在性/NSFW/applies_to 校验(用户可能设了个后被删的智能体,此时 optimize
-    兜底为 kind 默认)。NSFW 智能体作为默认也只会在 /nsfw 专页(带 X-NSFW)下生效。
+    才做存在性/NSFW/applies_to 校验。NSFW 智能体作为默认也只会在成人态下生效。
     """
     user.default_agent_id = body.default_agent_id or None
     session.add(user)
-    # 偏好同步:upsert(行可能不存在)
     from app.models import UserPreference
     pref = session.get(UserPreference, user.id)
     if pref is None:

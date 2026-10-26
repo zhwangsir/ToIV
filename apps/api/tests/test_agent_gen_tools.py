@@ -334,7 +334,9 @@ async def test_submit_r18_engine_allowed_with_nsfw(db_env, monkeypatch):
         return {"prompt_id": "h3pid", "client_id": "", "worker": "http://h3:8195", "seed": 1}
 
     monkeypatch.setattr("app.routes.h3_studio.generate_h3_t2v", fake_h3_t2v)
-    token = nsfw_intent_var.set(True)
+    user.content_mode = "adult"
+    s.add(user)
+    s.commit()
     try:
         reg = get_ctx().service("tools")
         text, events = await reg.execute(
@@ -342,7 +344,9 @@ async def test_submit_r18_engine_allowed_with_nsfw(db_env, monkeypatch):
             _ctx(_FakePool(_FakeClient()), user, s),
         )
     finally:
-        nsfw_intent_var.reset(token)
+        user.content_mode = "ordinary"
+        s.add(user)
+        s.commit()
     assert "作业已提交" in text
     job = s.exec(select(Job).where(Job.prompt_id == "h3pid")).first()
     assert job is not None and job.nsfw is True
@@ -781,12 +785,11 @@ async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
     _name = next(sp for sp in _specs() if sp["id"] == "h3-t2v")["name"]
     assert "h3-t2v" in text and _name in text
     assert "h3-nsfw-t2v" not in text
-    # R18 上下文可见 NSFW
-    token = nsfw_intent_var.set(True)
-    try:
-        text2, _ = await reg.execute("list_apps", {"category": "video"}, _ctx(_FakePool(_FakeClient()), user, s))
-    finally:
-        nsfw_intent_var.reset(token)
+    # 账号成人态可见 NSFW
+    user.content_mode = "adult"
+    s.add(user)
+    s.commit()
+    text2, _ = await reg.execute("list_apps", {"category": "video"}, _ctx(_FakePool(_FakeClient()), user, s))
     assert "h3-nsfw-t2v" in text2 and "h3-t2v" in text2
 
 

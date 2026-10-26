@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
-from app.redline import nsfw_allowed
+from app.redline import nsfw_allowed, adult_at_submit
 from app.ratelimit import enforce_generation_rate_limit
 # ComfyUI 错误码统一语义(2026-08-30 P2-7):worker 4xx 透传、5xx/无状态 → 502,
 # 消除与 routes/video.py 同场景 4xx/502 不一致;pool.pick 无可用 worker 仍 503。
@@ -111,7 +111,7 @@ def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
     """
     nsfw = is_nsfw(ckpt_name)
     if nsfw and not nsfw_allowed(user):
-         raise HTTPException(status_code=403, detail="该底模属 R18 分区,须在 R18 上下文(X-NSFW)下使用")
+         raise HTTPException(status_code=403, detail="该底模属 R18 分区,须切换到成人模式")
     return nsfw
 
 
@@ -175,7 +175,8 @@ async def _submit_forge_txt2img(
          loras=[(l.name, float(l.weight)) for l in (req.loras or [])],
     )
     session.add(Job(
-         tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,
+         tenant_id=user.tenant_id, user_id=user.id,
+        adult_at_submit=adult_at_submit(user), prompt_id=prompt_id,
          worker=settings.forge_base, kind="txt2img", status="queued",
          prompt=req.positive, seed=seed_used, nsfw=job_nsfw,
          params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
@@ -326,6 +327,7 @@ async def _submit_txt2img(
     job = Job(
          tenant_id=user.tenant_id,
          user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
          prompt_id=prompt_id,
          worker=client.base_url,
          kind="txt2img",
@@ -514,6 +516,7 @@ async def generate_txt2video(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="wan_t2v",
@@ -575,6 +578,7 @@ async def generate_hunyuan_video_i2v(
         Job(
             tenant_id=user.tenant_id,
             user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
             prompt_id=prompt_id,
             worker=client.base_url,
             kind="hunyuan_i2v",
@@ -727,6 +731,7 @@ async def generate_img2img(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="img2img",
@@ -819,6 +824,7 @@ async def generate_controlnet(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="controlnet",
@@ -883,6 +889,7 @@ async def generate_upscale(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="upscale",
@@ -956,6 +963,7 @@ async def generate_facedetailer(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="facedetailer",
@@ -1027,7 +1035,7 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
               for s in _iter_input_strings(value):
                    if s.lower().endswith(_MODEL_REF_EXTS) and _is_nsfw_model_ref(s):
                         any_nsfw = True
-    # header-only R18 语义:与 _gate_nsfw_ckpt 同一信号(X-NSFW 头),账户开关不再放行
+    # 账号 content_mode 语义:与 _gate_nsfw_ckpt 同一信号(redline.nsfw_allowed)
     if any_nsfw and not nsfw_allowed(user):
          raise HTTPException(
               status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
@@ -1073,6 +1081,7 @@ async def generate_raw(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="raw",
@@ -1129,6 +1138,7 @@ async def generate_removebg(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="removebg",
@@ -1199,6 +1209,7 @@ async def generate_inpaint(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="inpaint",
@@ -1324,6 +1335,7 @@ async def generate_qwen_edit(
         Job(
             tenant_id=user.tenant_id,
             user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
             prompt_id=prompt_id,
             worker=client.base_url,
             kind="qwen_edit",
@@ -1389,6 +1401,7 @@ async def generate_frame_interpolate(
          Job(
               tenant_id=user.tenant_id,
               user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
               prompt_id=prompt_id,
               worker=client.base_url,
               kind="frame_interpolate",

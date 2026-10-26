@@ -1,3 +1,91 @@
+## 2026-10-26 11:25 CST · ui_refresh 跨端一次回传入账
+
+## 2026-10-26 Asia/Shanghai · Wave1 账号全局 content_mode（后端 tip）
+
+- **tip**: pending（本提交）
+- **口径**: `User.content_mode` = `ordinary`|`adult`（默认 ordinary）；`nsfw_allowed`/403 **仅账号态**；`X-NSFW` 仅审计
+- **API**: `GET|PATCH /api/me/mode`、`GET|PUT /api/account/content-mode`；`/auth/me` 透出 `content_mode` + `content_mode_updated_at`
+- **快照**: `Job.adult_at_submit`；切模式不 cancel 在途
+- **inventory**: 显式元数据优先 / 文件名兜底 / unknown 普通藏成人显（`nsfw_inventory`）
+- **softening**: `should_apply_softening` / `maybe_soften_prompt` 成人物理跳过
+- **pytest**: test_r18* + raw/engine/reverse/agent/harness/effect 相关 **204 passed**
+- **未 push**
+
+
+- 动作：更新 `ui_refresh_2026_10_26`（不切支/不 commit/不 push/不改生产）
+- tip_fe: `f40ff28a`（叠 ac217052/7664f3b2/f2f6d12b/9d9f0f3b）
+- tip_fe_stack: ac217052 → 7664f3b2 → f2f6d12b → 9d9f0f3b → f40ff28a
+- wave0: `done`（目标态硬收）
+- wave1_fe: `done`（me/mode 占位；真接线开放）
+- wave1_backend: `in_progress`（后端 tip 另挂；基线 8ed240a7）
+- wave2: `in_progress`；progress DramaClaw=done / BeefTV=done / Toonflow=partial / LumenX=placeholder / P1=pending
+- handback: MateBook `apps/canvas/docs/WAVE0_1_2_HANDBACK.md`（1268B）+ box `/workspace/WAVE0_1_2_HANDBACK.md`（2065B）
+- ledger_canvas: `apps/canvas/docs/absorption-ledger.md`（2819B）
+- 文件核：上述三者均存在；gaps=[]
+- updated_at: 2026-10-26T11:25:00+08:00
+- source: 技术负责人 · 跨端一次回传
+- git: uncommitted；管家未 commit/push、未改生产、未切支
+
+## 2026-10-26 11:22 CST · Wave2 ledger 路径补全（box + Page 权威；MateBook 已镜像）
+
+- 动作：更新 `ui_refresh_2026_10_26.wave2_inputs` / `evidence.wave2` / `ledger_local`（不切支/不 commit/不 push/不改生产）
+- ledger_box_path: `/workspace/drama-absorb/WAVE2_ABSORB_LEDGER.md`（4539 bytes）
+- ledger_page: `https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/cd3cf4be-afef-41c2-a11d-3f346b47d919`（当前权威）
+- matebook_path: `docs/WAVE2_ABSORB_LEDGER.md`（abs `/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/WAVE2_ABSORB_LEDGER.md`；分支 work/p0-fusion-20261016 本地未 push；逆向安全落盘确认）
+- ledger_local: 权威在 box + Page；MateBook 已镜像 docs/WAVE2_ABSORB_LEDGER.md（逆向安全落盘确认）
+- updated_at: 2026-10-26T11:22:00+08:00
+- source: 技术负责人路径补；逆向安全落盘确认
+- git: uncommitted；管家未 commit/push、未改生产、未切支
+
+## 2026-10-26 11:19 CST · ui_refresh Wave2 输入齐入账
+
+- 动作：更新 `ui_refresh_2026_10_26`（不切支/不 commit/不 push/不改生产）
+- wave2: `in_progress`
+- waves.2: 许可吸收 · in_progress + 台账指针
+- wave2_inputs / evidence.wave2:
+  - ledger_page: `https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/cd3cf4be-afef-41c2-a11d-3f346b47d919`（page_id=`cd3cf4be-afef-41c2-a11d-3f346b47d919`；标题 Wave2 抽并台账）
+  - ledger_local: `WAVE2_ABSORB_LEDGER.md（路径待核）`（MateBook find/rg/mdfind 未命中实体文件）
+  - license_rules_locked: true
+  - p0_to_p1_order_locked: true
+  - executor_wave2: 跨端设计
+- updated_at: 2026-10-26T11:19:00+08:00
+- 来源：技术负责人 STATE 指令
+
+## 项目管家入账 · 2026-10-26 11:16 Asia/Shanghai
+
+- **ui_refresh 目标态重开**（非仅 P1；source=技术负责人称用户死令重开执行）
+- **wave0 / wave1 / wave1_backend** → **in_progress**（目标态缺口中）
+- **wave0_complete_pending_p1** → **false**；`reopen_note=目标态重开（非仅 P1）`
+- **tip 基线**：wave0=`ac217052` / wave1_backend=`8ed240a7` / fe_403_copy=`f2f6d12b`
+- **补充**：账号全局成人态；在途快照不杀；多端≤30s；灰化+锁+NSFW标签；回落 Qwen-Rapid-AIO-SFW-v23 / local-wan；创作台合并与侧栏序锁死；许可台账
+- **已派**：跨端 Wave0收口+Wave1 UX+Wave2 吸收；后端 Wave1 账号态/快照/403/元数据过滤
+- **evidence.wave0_checklist.remaining** → `["目标态重开执行中"]`
+- **updated_at**：2026-10-26T11:16:00+08:00
+- **git**：uncommitted；管家**未** commit/push、**未**改生产、**未**切支、**未**重复派工
+
+## 项目管家入账 · 2026-10-26 10:43 Asia/Shanghai
+
+- **403 文案核对** tip `f2f6d12b` → **done**
+- **ui_refresh**：`fe_403_copy_tip=f2f6d12b`；`evidence.wave0_checklist.remaining` 去掉「403 文案核对」→ 仅「P1 未做」；`wave0_complete_pending_p1=true`；`phase_note=pending_p1`
+- **status** 仍 `in_progress`（remaining 仅 P1）
+- **updated_at**：2026-10-26T10:43:00+08:00
+- **git**：uncommitted；管家**未** commit/push、**未**改生产、**未**切支
+
+## 项目管家入账 · 2026-10-26 10:38 Asia/Shanghai
+
+- **Wave0** tip `ac217052` → **done**（本地；**未 push**）
+- **ui_refresh**：`wave0=done`；`wave0_tip=ac217052`；`waves.0` 已标 done；`evidence.wave0_checklist` 挂要点（remaining：403 文案核对、P1 未做；page_checklist→Page 2b37d548）
+- **status** 仍 `in_progress`（403 文案核对 + P1 未做）
+- **updated_at**：2026-10-26T10:38:00+08:00
+- **git**：uncommitted；管家**未** commit/push、**未**改生产、**未**切支
+
+## 项目管家入账 · 2026-10-26 10:36 Asia/Shanghai
+
+- **Wave1 后端双闸** tip `8ed240a7` → **done**（本地；**未 push**）
+- **ui_refresh** 合并：`backend_403_tip=8ed240a7`；`wave1_backend=done`；`evidence.user_unlock` widget `t37s1`（quote「不做任何限制，我只要最优秀的成品」via 技术负责人口令核销）；`revised_unlocked=true`（Page 2b37d548 解禁版已覆盖）
+- **updated_at**：2026-10-26T10:36:00+08:00；**status** 仍 `in_progress`
+- **git**：uncommitted；管家**未** commit/push、**未**改生产、**未**切支
+
 ## 2026-10-26 Asia/Shanghai — Wave1 双闸：恢复 API NSFW 硬闸 403（本地 commit）
 
 - 分支：`work/p0-fusion-20261016`（未切支 / **本地 commit** / **未 push** / 未部署）
@@ -11,6 +99,72 @@
 - 互补：后端 API 直调硬拦；前端路由守卫仍出卡（双闸）
 - 未覆盖：任务中心/创作页 retry 指纹等前端缺口仍属跨端；列表软过滤（marketplace/jobs）仍靠 `nsfw_allowed` 隐藏而非一律 403
 - **未 push / 未部署**
+
+## 项目管家入账 · 2026-10-26 10:33 Asia/Shanghai
+
+- **ui_refresh 解禁口径入账** `STATE.ui_refresh_2026_10_26`（保留 `in_progress` / P0 / page / executor）
+- **scope**=`unrestricted_excellence`；**policy**=`former_nogoals_unlocked`
+- **waves**：0 壳主序 / 1 双闸内容 / 2 许可吸收
+- **main_path**：`/create` 一级 + 短剧 ws（覆盖旧「新建短剧+/toiv/ws」；旧 not_promote 已废）
+- **softening**：普通 only；**backend_403**：on
+- **Page**：https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/2b37d548-21c3-4794-901f-5493ff40f7ef
+- **source**：技术负责人（称用户解禁）；管家**未**当面核用户口令
+- **git**：uncommitted；管家**未** commit/push、**未**改生产、**未**切支
+
+## 项目管家入账 · 2026-10-26 10:30 Asia/Shanghai
+
+- **ui_refresh P0** `STATE.ui_refresh_2026_10_26` → **`in_progress`**
+- **Page**：https://cursor.com/canvas/store-2a7cb835-7fcb-4cd4-b2c8-cb0ee07b899c/2b37d548-21c3-4794-901f-5493ff40f7ef
+- **主路径**：新建短剧 + `/toiv/ws`（**不升** `/create` 侧栏）
+- **executor**：跨端设计（`3ea4a167-f770-478a-a8b5-4682f5c30ab2`）；前端已派跨端，**勿重复派工**
+- **refs**：`absorb_gate_2026_10_26` / `design_ui_ref_2026_10_26` / `competitor_research_20_2026_10_26`；归档 `ALLProject/.archive/toiv-docs-20261026/`
+- **git**：uncommitted；管家**未** commit/push、**未**改生产
+
+## 项目管家入账 · 2026-10-26 10:14 Asia/Shanghai
+
+- **Mega NSFW v12.2** `STATE.mega_nsfw_v12_2_2026_10_26` → **`landed`**
+- **证据（source=模型调研/TL 回报；管家本轮未复探 NAS 文件）**：`wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors`；NAS `/home/merlin/nas_mount/toiv/comfyui-models/checkpoints/…`；bytes `23284018448`；sha256 `97c9f3f993c463e22497a6f85bc428dda047bd2d381383a8e77e26ded6312b1e`（HF LFS 一致，据报）
+- **双轨**：SFW v12（23284017800）+ v11（24334498767）仍在、未覆盖
+- **账本**：`docs/MODEL_SOURCES.json` totals ok **672** / blocked **384** / total **1057**；条目与 ops 笔记对齐；**无** `docs/MODEL_SOURCES.md`
+- **ops**：`docs/ops/MEGA_NSFW_V12_2_HF_LAND_20261026.md`（工作区未跟踪）
+- **现网**：默认 keep；未重启；模型调研未 commit/push
+- 管家**未**改生产、**未** commit/push
+
+## 项目管家入账 · 2026-10-26 09:32 Asia/Shanghai
+
+- **部署窗收口** `STATE.deploy_window_2026_10_26` → **`closed_done`**；`pending_api_bundle` → **`done`**
+- **运维证据（据报）**：未回滚；smoke 始终 0；api 捆绑生产 **MATCH `bd437818`**（未 rsync）；`OPENTALKING=false`；T1 LongCat→GPU3、VLM→GPU0；健康 12/12；备份 `/home/merlin/toiv-ops-backups/t1-longcat-gpu3-20261026/`
+- **未部署**：红线 ahead（本地 tip 链未进本轮现网）
+- 管家**未**改生产；证据未本轮复探，以运维回报为准
+
+## 项目管家入账 · 2026-10-26 09:29 Asia/Shanghai
+
+- **分工** `STATE.role_split_fe_be_2026_10_26` = **active**：前后端分开
+  - **前端** → **跨端设计**（兼前端开发）
+  - **后端** → **全栈开发**（偏后端）
+- 管家派活/对接按此路由；未改生产、未 commit/push
+
+## 2026-10-26 09:31 Asia/Shanghai · 网络运维 · running=0 部署窗落地（api 捆绑核验 + OPENTALKING + T1）
+
+- **gate**：`GET /api/admin/apps/smoke/status` → `running=false` / `running_cards.count=0`（执行前 09:27、执行后 09:31 均复确认）
+- **api 捆绑（DramaScene / SVML / img2threejs / registry）**：**未重启 api、未 rsync**。对照 tip `bd437818`（避开本地 ahead 红线 tip `5929efdb..163c1af3`）与 core `/home/merlin/toiv/api` 关键文件 sha256 **全 MATCH**（`drama_scenes.py` / `svml_lite.py` / `skills/registry.py` / `img2threejs/SKILL.md` / `models.py`）。生产已含捆绑，本窗无需再推。
+- **未推红线**：本地 `work/p0-fusion-20261016` 相对 `github/work/p0-fusion-20261016` ahead≥4（R18 前端守卫等）**未**纳入本窗；未 `deploy.sh`、未 push。
+- **OPENTALKING**：core `deploy/.env` 已是 `TOIV_OPENTALKING_ENABLED=false`（本窗只核对，未改成 true，未改其它密钥）。
+- **T1 LongCat→GPU3**（workstation）：
+  - 备份：`/home/merlin/toiv-ops-backups/t1-longcat-gpu3-20261026/*-20261026-092839`
+  - `comfyui-longcat` drop-in `gpu0.conf`：`CUDA_VISIBLE_DEVICES=GPU-91a1da03-c97d-8401-e87b-dc64fbf48630`（GPU3）；进程 environ 已核
+  - **伴迁**：GPU3 原有 VLM ~44G，空闲不足 LongCat 常驻；`toiv-vlm` 经 drop-in `gpu-pin.conf` 改 `CUDA_VISIBLE_DEVICES=0`（GPU0）。属 T1 必要条件，已记回滚路径
+  - 核验：`:8197` / `:9311` 200；LongCat CVD=GPU3 UUID；VLLM::EngineCore 在 GPU0
+- **健康矩阵 09:31 Asia/Shanghai（12/12 200）**：core api/web/admin、smoke、llm:8888、vlm:9311、longcat:8197、h3:8264、lb:8188、animate2:8199、tts:9200、embed:9302
+- **回滚要点**（未触发）：恢复 `$BAK/gpu0.conf.bak-20261026-092839` → 删 `toiv-vlm.service.d/gpu-pin.conf` → `daemon-reload` → restart longcat+vlm；api 本窗未改故无 api 回滚
+- **未做**：160 社区包安装 / object_info 全扫（超出本窗明示范围）；未改 AGENTS 长文以外 STATE 管家专属字段由管家收口亦可
+- **异常**：无
+
+## 项目管家入账 · 2026-10-26 09:28 Asia/Shanghai
+
+- **Wire 对齐** `STATE.wire_align_2026_10_26` tip=`163c1af3`（ahead 4 **未 push**）；**不进本轮现网 api 捆绑**
+- 部署窗 `deploy_window_2026_10_26` 仍 **in_progress** 等运维
+- 本机 HEAD 核见 STATE；管家**未** commit/push、**未**改生产
 
 ## 2026-10-26 Asia/Shanghai — Wire 对齐：普通/成人文案 + route_guard_adult（本地 commit）
 

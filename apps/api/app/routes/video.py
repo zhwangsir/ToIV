@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
-from app.redline import job_nsfw_from_intent, nsfw_allowed
+from app.redline import R18_CONTEXT_REQUIRED_DETAIL, adult_at_submit, job_nsfw_from_intent, nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
@@ -200,6 +200,7 @@ async def generate_video(
         Job(
             tenant_id=user.tenant_id,
             user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
             prompt_id=prompt_id,
             worker=client.base_url,
             kind="wan_i2v",
@@ -240,10 +241,10 @@ async def generate_video(
 # ──────────────────────────────────────────────────────────────────
 
 def _gate_ltx_nsfw(user: User) -> None:
-    """LTX 视频端点 R18 门槛:须请求级 X-NSFW(D-U1=B canvas R18 模式)。
-    10Eros 默认底模属 R18,无头一律 403(fail-closed)。"""
+    """LTX 视频端点 R18 门槛:须账号 content_mode=adult。
+    10Eros 默认底模属 R18,账号非成人态一律 403(fail-closed)。"""
     if not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="LTX 视频生成为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
+        raise HTTPException(status_code=403, detail=R18_CONTEXT_REQUIRED_DETAIL)
 
 
 def reject_nsfw_ltx_t2v() -> None:
@@ -524,6 +525,7 @@ async def _submit_ltx_job(
         Job(
             tenant_id=user.tenant_id,
             user_id=user.id,
+        adult_at_submit=adult_at_submit(user),
             prompt_id=prompt_id,
             worker=client.base_url,
             kind=kind,

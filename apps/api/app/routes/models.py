@@ -23,6 +23,7 @@ from app.services.provenance import (
     redact_wiki_card,
 )
 from app.redline import nsfw_allowed
+from app.services.nsfw_inventory import filter_names_for_account
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
 from app.workflows.ace_step import AceStep15Params
@@ -98,13 +99,13 @@ def _video_models() -> list[str]:
 
 
 def _sfw_only(names: list[str]) -> list[str]:
-    """剔除文件名命中 NSFW 判定的项(用户未开 R18 时服务端强制过滤)。"""
-    return [n for n in names if not is_nsfw(n)]
+    """普通模式可见:已知 SFW;藏 NSFW 与 unknown。"""
+    return filter_names_for_account(names, adult=False)
 
 
 def _nsfw_only(names: list[str]) -> list[str]:
-    """仅保留 NSFW 模型(/nsfw 专页:只展示成人向模型,不混入 SFW)。"""
-    return [n for n in names if is_nsfw(n)]
+    """成人模式可见:NSFW + unknown(已知 SFW 不进成人专列)。"""
+    return filter_names_for_account(names, adult=True)
 
 
 async def _pick_live_client(pool: WorkerPool):
@@ -143,7 +144,7 @@ async def list_models(
     # 次世代族排前(可发现性:它们是 A 期升级的推荐底模,列表首位默认落在次世代)
     image_ckpts = _nextgen_image_models(all_unets) + _image_checkpoints(all_ckpts)
 
-    # 模型过滤:/nsfw 专页只显示 NSFW 模型,主站只显示 SFW 模型。
+    # 模型过滤:成人态→NSFW+unknown;普通→仅已知 SFW(显式优先/文件名兜底)。
     if nsfw_allowed(user):
         image_ckpts = _nsfw_only(image_ckpts)
     else:
@@ -219,7 +220,7 @@ async def local_models(
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
-    # 模型过滤:/nsfw 专页只显示 NSFW 模型,主站只显示 SFW 模型。
+    # 模型过滤:成人态→NSFW+unknown;普通→仅已知 SFW(显式优先/文件名兜底)。
     if nsfw_allowed(user):
         for key in ("checkpoints", "loras"):
             names = out.get(key, [])

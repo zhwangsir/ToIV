@@ -415,13 +415,13 @@ def create_app() -> FastAPI:
         )
         return response
 
-    # D-U1=B:按请求 R18 放行标记(X-NSFW: 1,canvas R18 模式)→ ContextVar;gate/模型列表据此放行,账户开关不放行。
-    # 决策真源 app.redline;中间件只置位,禁止路由私自解头。
+    # D-U1=B 账号全局:X-NSFW → ContextVar **仅审计**;403/放行看 User.content_mode(redline)。
+    # 决策真源 app.redline;中间件禁止把头当判据。
     @app.middleware("http")
     async def _nsfw_intent_mw(request, call_next):
         from app.redline import REQUEST_HEADER, header_means_nsfw_intent, nsfw_intent_var
 
-        # Starlette 头键小写;常量 REQUEST_HEADER 仍为 canonical "X-NSFW"
+        # Starlette 头键小写;常量 REQUEST_HEADER 仍为 canonical "X-NSFW"(审计旁路)
         token = nsfw_intent_var.set(
             header_means_nsfw_intent(request.headers.get(REQUEST_HEADER.lower()))
         )

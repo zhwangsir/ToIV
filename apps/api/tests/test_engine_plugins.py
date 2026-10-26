@@ -65,7 +65,7 @@ def live_pool() -> WorkerPool:
 
 @pytest.fixture()
 def user() -> User:
-    return User(id="u-1", email="tester", hashed_password="x", tenant_id="t-1")
+    return User(id="u-1", email="tester", hashed_password="x", tenant_id="t-1", content_mode="ordinary")
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +84,7 @@ async def test_populate_registry_fills_entries(live_pool, user):
     assert len(engines_sfw) == 24, f"SFW 引擎条目数应为 24,实得 {len(engines_sfw)}"
 
     # R18 上下文:全量 34 条
+    user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
         engines_r18 = await list_engines(live_pool, user)
@@ -106,6 +107,7 @@ async def test_populate_registry_fills_entries(live_pool, user):
 async def test_lazy_ensure_registry_no_double_fill(live_pool, user):
     """惰性填充不重复;多次 populate_registry 幂等(条目数不翻倍)。"""
     _ensure_registry()
+    user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
         engines = await list_engines(live_pool, user)
@@ -113,6 +115,7 @@ async def test_lazy_ensure_registry_no_double_fill(live_pool, user):
         nsfw_intent_var.reset(token)
     assert len(engines) == 34
     populate_registry()  # 再次调用不应重复
+    user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
         engines2 = await list_engines(live_pool, user)
@@ -171,6 +174,7 @@ async def test_disabled_engines_skip_probe(live_pool, user, monkeypatch):
 async def test_submit_passthrough_in_r18_context(live_pool, user):
     """R18 上下文下 nsfw 引擎也带 submit 字段。"""
     populate_registry()
+    user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
         engines = await list_engines(live_pool, user)

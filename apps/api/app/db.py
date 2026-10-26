@@ -147,6 +147,10 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioproject", "bgm_duck", "bgm_duck BOOLEAN NOT NULL DEFAULT TRUE"),
     # Wave P2:跳过口型标注(BOOLEAN 默认 FALSE, PG 不认 0)
     ("studioshot", "lipsync_skipped", "lipsync_skipped BOOLEAN NOT NULL DEFAULT FALSE"),
+    # 账号全局成人态(2026-10-26):User.content_mode ordinary|adult + 切换时间;Job 提交快照
+    ('"user"', "content_mode", "content_mode VARCHAR NOT NULL DEFAULT 'ordinary'"),
+    ('"user"', "content_mode_updated_at", "content_mode_updated_at TIMESTAMP"),
+    ("job", "adult_at_submit", "adult_at_submit BOOLEAN NOT NULL DEFAULT FALSE"),
 )
 
 

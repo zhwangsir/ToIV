@@ -2,8 +2,8 @@
 
 覆盖:
   - 迁移幂等(SQLite ADD COLUMN 重复执行不报错、不丢数据)
-  - GET /auth/me 含 nsfw_enabled
-  - POST /api/account/nsfw 改值并持久化
+  - GET /auth/me 含 content_mode + updated_at
+  - PUT /api/account/content-mode + 遗留 POST /account/nsfw
   - GET /api/models、/api/models/local 关/开过滤(剔除成人底模 + 成人 LoRA)
   - GET /api/marketplace/search 关闭时强制 nsfw=false
   - GET /api/jobs 关闭时剔除 Job.nsfw==True
@@ -31,22 +31,38 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 
 
-def _seed_user(session: Session, email: str, nsfw_enabled: bool = False, role: str = "user") -> str:
+def _seed_user(
+    session: Session,
+    email: str,
+    nsfw_enabled: bool = False,
+    role: str = "user",
+    content_mode: str | None = None,
+) -> str:
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
     session.refresh(tenant)
+    mode = content_mode if content_mode is not None else ("adult" if nsfw_enabled else "ordinary")
     user = User(
         email=email,
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
         nsfw_enabled=nsfw_enabled,
+        content_mode=mode,
         role=role,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
     return user.id
+
+
+def _set_mode(session: Session, uid: str, mode: str) -> None:
+    user = session.get(User, uid)
+    assert user is not None
+    user.content_mode = mode
+    session.add(user)
+    session.commit()
 
 
 @pytest.fixture
@@ -247,7 +263,7 @@ def test_models_nsfw_only_when_nsfw_enabled(client):
     /nsfw 专页只展示成人向模型,SFW 底模(DreamShaper_8)不混入。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "r18user", nsfw_enabled=True)
+        uid = _seed_user(s, "r18user", content_mode="adult")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     token = create_token(uid)
     r = c.get("/api/models", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"})
@@ -263,7 +279,7 @@ def test_local_models_filters_nsfw_loras(client):
     c, engine = client
     with Session(engine) as s:
         uid_off = _seed_user(s, "loralocal_off", nsfw_enabled=False)
-        uid_on = _seed_user(s, "loralocal_on", nsfw_enabled=True)
+        uid_on = _seed_user(s, "loralocal_on", content_mode="adult")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
 
     off = c.get(
@@ -313,7 +329,7 @@ def test_marketplace_account_flag_no_longer_allows_nsfw(client, monkeypatch):
     """语义统一:账户开关 nsfw_enabled 已废弃,即使为 True,不带 X-NSFW 头仍强制 SFW。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "mktlegacy", nsfw_enabled=True)  # 账户开关已废弃
+        uid = _seed_user(s, "mktlegacy", nsfw_enabled=True, content_mode="ordinary")  # 遗留旗标不放行
 
     captured: dict = {}
 
@@ -335,7 +351,7 @@ def test_marketplace_allows_nsfw_when_enabled(client, monkeypatch):
     """带 X-NSFW 头(/nsfw 专页)时,nsfw 参数原样透传给 Civitai。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "mkton", nsfw_enabled=False)  # 账户开关不再参与
+        uid = _seed_user(s, "mkton", content_mode="adult")
 
     captured: dict = {}
 
@@ -398,7 +414,7 @@ def test_jobs_full_when_nsfw_enabled(client):
     """新语义:带 X-NSFW 头(/nsfw 专页)才能看到 R18 作品。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "jobson", nsfw_enabled=True)
+        uid = _seed_user(s, "jobson", content_mode="adult")
         user = s.get(User, uid)
         _seed_jobs(s, user)
     r = c.get(
@@ -456,7 +472,7 @@ def test_generate_nsfw_ckpt_allowed_when_enabled(client, monkeypatch):
     """显式成人底模 + X-NSFW:放行并打 nsfw 标。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "genon", nsfw_enabled=True)
+        uid = _seed_user(s, "genon", content_mode="adult")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
@@ -540,7 +556,7 @@ def test_generate_nsfw_preset_still_gated_on_main_site(client, monkeypatch):
     """真 NSFW 预设(nsfw_anime→autismmix):主站(无 X-NSFW)仍 403;带 X-NSFW 放行并打标。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "gennsfwpreset", nsfw_enabled=False)
+        uid = _seed_user(s, "gennsfwpreset", content_mode="ordinary")  # 先普通再切成人
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
@@ -549,9 +565,11 @@ def test_generate_nsfw_preset_still_gated_on_main_site(client, monkeypatch):
     r = c.post("/api/generate/txt2img", headers={"Authorization": f"Bearer {token}"}, json=body)
     assert r.status_code == 403, r.text
 
+    with Session(engine) as s:
+        _set_mode(s, uid, "adult")
     r2 = c.post(
         "/api/generate/txt2img",
-        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {token}"},
         json=body,
     )
     assert r2.status_code == 200, r2.text
@@ -595,18 +613,20 @@ def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
 
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "manjugate", nsfw_enabled=False)
+        uid = _seed_user(s, "manjugate", content_mode="ordinary")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(manju_route, "spawn_tracker", lambda *a, **k: None)
     token = create_token(uid)
     body = {"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"}
 
     r = c.post("/api/manju/shot", headers={"Authorization": f"Bearer {token}"}, json=body)
-    assert r.status_code == 403  # 主站无 X-NSFW 头 → 拒
+    assert r.status_code == 403  # 普通模式 → 拒
 
+    with Session(engine) as s:
+        _set_mode(s, uid, "adult")
     r2 = c.post(
         "/api/manju/shot",
-        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {token}"},
         json=body,
     )
     assert r2.status_code == 200, r2.text
@@ -615,11 +635,11 @@ def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
         assert job is not None and job.nsfw is True  # 打标 → 主站作品库/版本链可滤
 
 
-def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
-    """raw 工作流门槛已切 header-only:遗留账户开关不放行,X-NSFW 头才放行。"""
+def test_raw_gate_uses_account_mode_not_legacy_flag(client, monkeypatch):
+    """raw 门槛:遗留 nsfw_enabled 不放行;账号 content_mode=adult 才放行。X-NSFW 头无效。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "rawgate", nsfw_enabled=True)  # 账户开关已废弃
+        uid = _seed_user(s, "rawgate", nsfw_enabled=True, content_mode="ordinary")  # 遗留旗标不放行
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda *a, **k: None)
     token = create_token(uid)
@@ -628,12 +648,14 @@ def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
         "2": {"class_type": "SaveImage", "inputs": {}},
     }
 
-    r = c.post("/api/generate/raw", headers={"Authorization": f"Bearer {token}"}, json={"graph": graph})
-    assert r.status_code == 403  # 无头 → 拒(即使账户开关为 True)
+    r = c.post("/api/generate/raw", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"}, json={"graph": graph})
+    assert r.status_code == 403  # 头+遗留旗标仍拒
 
+    with Session(engine) as s:
+        _set_mode(s, uid, "adult")
     r2 = c.post(
         "/api/generate/raw",
-        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {token}"},
         json={"graph": graph},
     )
     assert r2.status_code == 200, r2.text
@@ -661,7 +683,7 @@ def test_nsfw_recommendations_include_10eros_loras(client):
     """
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "recs", role="admin")
+        uid = _seed_user(s, "recs", role="admin", content_mode="adult")
     token = create_token(uid)
     r = c.get(
         "/api/models/nsfw-recommendations",
@@ -688,7 +710,7 @@ def test_nsfw_recommendations_include_h3_loras(client):
     """
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "recs-h3", role="admin")
+        uid = _seed_user(s, "recs-h3", role="admin", content_mode="adult")
     token = create_token(uid)
     r = c.get(
         "/api/models/nsfw-recommendations",
@@ -721,3 +743,129 @@ def test_nsfw_recommendations_include_h3_loras(client):
         assert "需安装" in it["desc"]
         # 多版本模型须带 version_id 精确指定 H3 版
         assert it.get("version_id"), f"{name} 缺 version_id"
+
+
+# --------------------------------------------------------------------------- #
+# 10) 账号全局 content_mode API + 切模式不 cancel + 快照
+# --------------------------------------------------------------------------- #
+
+
+def test_content_mode_get_put_and_me(client):
+    c, eng = client
+    with Session(eng) as s:
+        uid = _seed_user(s, "modeuser")
+    h = {"Authorization": f"Bearer {create_token(uid)}"}
+    g = c.get("/api/account/content-mode", headers=h)
+    assert g.status_code == 200
+    assert g.json()["content_mode"] == "ordinary"
+    assert g.json()["updated_at"] is None
+
+    bad = c.put("/api/account/content-mode", headers=h, json={"content_mode": "normal"})
+    assert bad.status_code == 422
+
+    put = c.put("/api/account/content-mode", headers=h, json={"content_mode": "adult"})
+    assert put.status_code == 200
+    assert put.json()["content_mode"] == "adult"
+    assert put.json()["updated_at"]
+
+    me = c.get("/api/auth/me", headers=h).json()["user"]
+    assert me["content_mode"] == "adult"
+    assert me["content_mode_updated_at"]
+
+    # 切回 ordinary 不触发任何 job cancel(无在途也可验收端点不 5xx)
+    back = c.put("/api/account/content-mode", headers=h, json={"content_mode": "ordinary"})
+    assert back.status_code == 200
+    assert back.json()["content_mode"] == "ordinary"
+
+
+def test_mode_switch_does_not_cancel_inflight_job(client):
+    """切模式只写账号字段;既有 queued Job 保持原 status / adult_at_submit。"""
+    c, eng = client
+    with Session(eng) as s:
+        uid = _seed_user(s, "inflight", content_mode="adult")
+        job = Job(
+            tenant_id=s.get(User, uid).tenant_id,
+            user_id=uid,
+            prompt_id="p-inflight",
+            worker="http://fake",
+            kind="txt2img",
+            status="queued",
+            nsfw=True,
+            adult_at_submit=True,
+        )
+        s.add(job)
+        s.commit()
+        jid = job.id
+    h = {"Authorization": f"Bearer {create_token(uid)}"}
+    r = c.put("/api/account/content-mode", headers=h, json={"content_mode": "ordinary"})
+    assert r.status_code == 200
+    with Session(eng) as s:
+        job = s.get(Job, jid)
+        assert job is not None
+        assert job.status == "queued"
+        assert job.adult_at_submit is True
+
+
+def test_softening_skipped_for_adult():
+    from app.services.softening import maybe_soften_prompt
+    from types import SimpleNamespace
+
+    adult = SimpleNamespace(birthdate=None, content_mode="adult")
+    ordinary = SimpleNamespace(birthdate=None, content_mode="ordinary")
+    assert maybe_soften_prompt("raw nsfw prompt", adult) == "raw nsfw prompt"
+    assert maybe_soften_prompt("raw nsfw prompt", ordinary) == "raw nsfw prompt"
+
+
+def test_inventory_unknown_ordinary_hide_adult_show():
+    from app.services.nsfw_inventory import classify_model_nsfw, filter_names_for_account, _MISSING
+
+    # explicit unknown
+    assert classify_model_nsfw("mystery.safetensors", explicit=None) == "unknown"
+    names = ["DreamShaper_8.safetensors", "autismmixSDXL.safetensors", "mystery.safetensors"]
+    # force mystery unknown via explicit map simulation
+    from app.services import nsfw_inventory as inv
+
+    def fake_lookup(name: str):
+        if "mystery" in name:
+            return None
+        return _MISSING
+
+    inv.lookup_explicit_nsfw = fake_lookup  # type: ignore
+    inv._explicit_registry.cache_clear()
+    ordinary = filter_names_for_account(
+        ["DreamShaper_8.safetensors", "autismmixSDXL_autismmixPony.safetensors", "mystery.safetensors"],
+        adult=False,
+    )
+    adult = filter_names_for_account(
+        ["DreamShaper_8.safetensors", "autismmixSDXL_autismmixPony.safetensors", "mystery.safetensors"],
+        adult=True,
+    )
+    assert "mystery.safetensors" not in ordinary
+    assert "mystery.safetensors" in adult
+    assert "autismmixSDXL_autismmixPony.safetensors" not in ordinary
+    assert "autismmixSDXL_autismmixPony.safetensors" in adult
+
+
+def test_me_mode_get_patch(client):
+    """GET/PATCH /api/me/mode 可 curl 验收;枚举 ordinary|adult;别名 nsfw→adult。"""
+    c, eng = client
+    with Session(eng) as s:
+        uid = _seed_user(s, "memode")
+    h = {"Authorization": f"Bearer {create_token(uid)}"}
+    g = c.get("/api/me/mode", headers=h)
+    assert g.status_code == 200
+    assert g.json()["content_mode"] == "ordinary"
+
+    # 别名 nsfw → adult
+    p1 = c.patch("/api/me/mode", headers=h, json={"content_mode": "nsfw"})
+    assert p1.status_code == 200
+    assert p1.json()["content_mode"] == "adult"
+    assert p1.json()["updated_at"]
+
+    # 真值 ordinary
+    p2 = c.patch("/api/me/mode", headers=h, json={"content_mode": "ordinary"})
+    assert p2.status_code == 200
+    assert p2.json()["content_mode"] == "ordinary"
+
+    # 非法
+    assert c.patch("/api/me/mode", headers=h, json={"content_mode": "normal"}).status_code == 422
