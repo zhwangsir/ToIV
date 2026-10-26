@@ -1,3 +1,101 @@
+## 2026-10-27 03:30 Asia/Shanghai · 项目管家 · P0 push+deploy 授权
+
+- **source**：技术负责人转述用户口令
+- **目标 tip**：`50252fe7`（studioGuard 热修）
+- **push_authorized**=true；**deploy_authorized**=true
+- **执行**：已派跨端 push；运维待 remote 齐后 deploy
+- **await_user**=`push_then_deploy`
+- **现网**：仍 `8bd97534`（待替换）
+
+---
+
+## 2026-10-27 03:28 Asia/Shanghai · 项目管家 · P0 热修 tip 本地完成
+
+- **source**：技术负责人
+- **fe_fix_tip**：`50252fe7`（本地完成；ahead 1）
+- **根因**：`studioGuard` SPA 无 cookie → 踢 `/?view=home`
+- **await_user**=`push_deploy_auth`
+- **push_authorized**=false；**deploy_authorized**=false（仍等口令）
+- **A**：暂缓
+- **现网**：仍 `8bd97534`（创作台 302 未修上线）
+
+---
+
+## 2026-10-27 03:24 Asia/Shanghai · 项目管家 · P0 现网创作台 302
+
+- **source**：技术负责人
+- **症状**：现网 `/studio/create` 被 **302** 打回 `/?view=home`；创作台不可达
+- **BUILD / prod tip**：`8bd97534`（`BUILD_ID=20261026-174816-8bd97534`）已确认
+- **处置**：已派跨端设计热修
+- **await_user**=`fe_fix_tip`
+- **push_authorized**=false；**deploy_authorized**=false（热修 tip 仍等口令再推/部署）
+
+---
+
+## 2026-10-27 01:50 Asia/Shanghai · 项目管家 · deploy 关账归档
+
+- **source**：技术负责人「deploy 关账」
+- **prod tip**：`8bd97534`（full `8bd9753441ffa3a7f449dc723cb177cf0a9d3367`）；**自** `c452d284…`
+- **BUILD_ID**：`20261026-174816-8bd97534`
+- **健康**：api / web / 公网 version ok；canvas LAN ok
+- **rollback**：`deploy.sh --rollback core` + pre-8bd97534 时戳备份
+- **deploy_authorized** 复位 false；**await_user**=null
+- **workspace dirty 另记**：`STATE.json` / `TEST_LOG.md` 仍可能未提交
+
+---
+
+## 2026-10-27 01:47 Asia/Shanghai · 项目管家 · deploy 授权入账
+
+## 2026-10-27 · deploy tip→8bd97534（用户口令·立刻 deploy）
+- **双远端**：origin(Gitee)+github 均 `8bd9753441ffa3a7f449dc723cb177cf0a9d3367`（齐）
+- **命令**：`DEPLOY_DRAIN_WAIT_SEC=120 ./deploy/deploy.sh --all core` → ✅「部署完成」；未 FORCE；**未改 OpenResty/frpc/Caddy**
+- **线上 BUILD_ID**：`20261026-174816-8bd97534`（自 `20261026-054140-c452d284`）
+- **健康**：api `:8090/api/health` ok；web `:3100` 200 + `/version.json`=`8bd97534`；canvas-api-pg `:8290/api/health/live` 就绪
+- **回滚**：`./deploy/deploy.sh --rollback core`（覆盖 api-app / web-next / canvas-*）；窗内 `.rollback-previous`=发前 c452 快照；时戳备份 `/home/merlin/toiv-ops-backups/rollback-previous-pre-8bd97534-20261027-014812`
+- **CDN 308**：发后抽测旧链请**硬刷新**（浏览器/CDN 可能缓存 308）；口径记入手册，不阻塞本波
+- updated_at 2026-10-27T01:49:15+08:00
+- **source**：技术负责人转述用户口令
+- **deploy_authorized**=true；**deploy_auth_at**=01:47
+- **目标 tip**：`8bd97534`（full `8bd9753441ffa3a7f449dc723cb177cf0a9d3367`）
+- **执行**：已派网络运维（管家不自部署）
+- **await_user**=`deploy_result`
+- **前置**：push 已关账；Gitee+GitHub ahead0；原 prod `c452d284…` 待替换
+
+---
+
+## 2026-10-27 01:09 Asia/Shanghai · 项目管家 · push 关账归档
+
+- **source**：技术负责人「push 关账」+ 本机核验
+- **remote tip**：`8bd97534`（full `8bd9753441ffa3a7f449dc723cb177cf0a9d3367`）
+  - 含 chain_final `ebf8cdf1` + docs archive（R9–R12 visual + dualgate）
+  - 本机：`origin` / `github` / `HEAD` 均为 `8bd97534`；ahead 0；`ebf8cdf1` ⊂ ancestor
+- **deploy_authorized**=false；**prod_tip** 仍 `c452d284…`（未部署）
+- **await_user**=null（push 闭环；若要显式等部署可改 `await_deploy_auth`）
+- **workspace dirty（未提交）**：`STATE.json`、`TEST_LOG.md`（本波五件套入账；另记，未 commit）
+- **半程（已并入）**：后端曾报 Gitee `8bd97534`（含 45ebdab4）；终态双远程 ahead0
+
+---
+
+## 2026-10-27 01:06 Asia/Shanghai · 项目管家 · STATE 纠偏 await=remote_tip_from_fe_be
+
+- **纠偏**：`await_user` → `remote_tip_from_fe_be`（原 remote_tip_confirm）
+- **确认**：`push_authorized=true`；`deploy_authorized=false`；用户口令时点 01:03
+- **目标**：tip `ebf8cdf1` / `work/p0-fusion-20261016`；跨端+后端已在推
+- **保留**：限制仅前端；BE 闸挂账删项不变
+
+---
+
+## 2026-10-27 01:06 Asia/Shanghai · 项目管家 · push 授权入账（仅 push / 不部署）
+
+- **source**：技术负责人转述用户口令
+- **push_authorized**=true；**deploy_authorized**=false
+- **目标**：tip `ebf8cdf1` / 分支 `work/p0-fusion-20261016`
+- **执行**：已派跨端设计 + 后端开发双远程 push（管家不自推）
+- **await**：`remote_tip_confirm` — 等 remote tip 回传后归档
+- **口径不变**：限制/红线仅前端；BE 闸挂账已删；prod 仍 `c452d284…`（本波不部署）
+
+---
+
 ## 2026-10-27 01:05 Asia/Shanghai · 项目管家 · 挂账口径变更（限制/红线仅前端）
 
 - **source**：技术负责人转述用户口径
