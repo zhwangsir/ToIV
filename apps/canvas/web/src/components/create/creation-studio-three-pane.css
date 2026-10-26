@@ -1,0 +1,245 @@
+/* Creation studio three-pane — R3; consumes --toiv-create-*; no second shell */
+
+.toiv-create-studio {
+  display: grid;
+  grid-template-columns:
+    var(--toiv-create-rail-w, 240px)
+    minmax(0, 1fr)
+    minmax(var(--toiv-create-inspector-w-min, 240px), var(--toiv-create-inspector-w, 280px));
+  gap: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  height: 100%;
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
+  border-top: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+}
+
+.toiv-create-rail,
+.toiv-create-inspector {
+  min-height: 0;
+  overflow: auto;
+  background: var(--toiv-create-panel-bg, var(--toiv-surface, #15161d));
+  color: var(--toiv-text, #e8eaf0);
+}
+
+.toiv-create-rail {
+  border-right: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+}
+
+.toiv-create-inspector {
+  border-left: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+}
+
+.toiv-create-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
+}
+
+.toiv-create-stage > * {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* Tighten drama form wall when hosted in center stage */
+.toiv-create-stage .toiv-drama-workspace .mx-auto.max-w-7xl {
+  max-width: none;
+  padding: var(--toiv-create-pad, 12px);
+}
+.toiv-create-stage .toiv-drama-workspace .toiv-ws-creation-dock {
+  margin-bottom: var(--toiv-create-section-gap, 12px);
+}
+
+.toiv-create-rail-inner,
+.toiv-create-inspector-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--toiv-create-section-gap, 12px);
+  padding: var(--toiv-create-pad, 12px);
+}
+
+.toiv-create-rail-head,
+.toiv-create-inspector-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toiv-create-rail-title,
+.toiv-create-inspector-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toiv-create-rail-meta,
+.toiv-create-inspector-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+.toiv-create-rail-block {
+  min-width: 0;
+}
+
+.toiv-create-rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toiv-create-rail-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--toiv-radius-card, 12px);
+  border: 1px solid transparent;
+  color: inherit;
+  text-decoration: none;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.toiv-create-rail-link svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  flex: none;
+  color: var(--toiv-accent-cyan, #00bdcf);
+}
+.toiv-create-rail-link span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.toiv-create-rail-link strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.toiv-create-rail-link em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+.toiv-create-rail-link:hover,
+.toiv-create-rail-link.is-primary {
+  border-color: var(--toiv-create-panel-border, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1b1c23) 80%, transparent);
+}
+
+.toiv-create-rail-footnote,
+.toiv-create-inspector-hint,
+.toiv-create-inspector-status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+.toiv-create-inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--toiv-create-panel-radius, 16px);
+  border: 1px solid var(--toiv-create-panel-border, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
+  box-shadow: var(--toiv-shadow-inner-glow, none);
+}
+
+.toiv-create-inspector-section-title {
+  margin: 0;
+  font-size: var(--toiv-create-section-title-fs, 12px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--toiv-text, #e8eaf0);
+}
+
+.toiv-create-inspector-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toiv-create-inspector-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+.toiv-create-inspector-list em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #6f7079);
+}
+
+/* create-mode tabs: map product CSS to --toiv-create-mode-* (no NSFW glow) */
+.toiv-create-studio .creation-mode-tabs,
+[data-testid="creation-workbench"] .creation-mode-tabs {
+  padding: var(--toiv-create-mode-pad, 4px);
+  border-radius: calc(var(--toiv-create-mode-radius, 14px) + 4px);
+  background: var(--toiv-create-mode-bg);
+  box-shadow: none; /* isolate from switch glow */
+}
+.toiv-create-studio .creation-mode-button,
+[data-testid="creation-workbench"] .creation-mode-button {
+  min-height: var(--toiv-create-mode-h, 36px);
+  height: var(--toiv-create-mode-h, 36px);
+  border-radius: var(--toiv-create-mode-radius-item, 12px);
+  font-size: var(--toiv-create-mode-fs, 13px);
+  font-weight: var(--toiv-create-mode-fw, 600);
+  color: var(--toiv-create-mode-fg);
+  transition: color var(--toiv-create-mode-dur, 200ms) var(--toiv-create-mode-ease);
+}
+.toiv-create-studio .creation-mode-button[aria-pressed="true"],
+[data-testid="creation-workbench"] .creation-mode-button[aria-pressed="true"] {
+  color: var(--toiv-create-mode-fg-active);
+}
+.toiv-create-studio .creation-mode-indicator,
+[data-testid="creation-workbench"] .creation-mode-indicator {
+  border-radius: var(--toiv-create-mode-radius-item, 12px);
+  background: var(--toiv-create-mode-item-active-bg);
+  box-shadow: none;
+}
+
+@media (max-width: 1100px) {
+  .toiv-create-studio {
+    grid-template-columns:
+      var(--toiv-create-rail-w-collapsed, 56px)
+      minmax(0, 1fr)
+      minmax(200px, 240px);
+  }
+  .toiv-create-rail-link span em,
+  .toiv-create-rail-footnote,
+  .toiv-create-rail-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .toiv-create-studio {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .toiv-create-rail,
+  .toiv-create-inspector {
+    border: 0;
+    border-bottom: 1px solid var(--toiv-create-divider, var(--toiv-border));
+    max-height: 28vh;
+  }
+  .toiv-create-inspector {
+    border-bottom: 0;
+    border-top: 1px solid var(--toiv-create-divider, var(--toiv-border));
+    max-height: 32vh;
+  }
+}

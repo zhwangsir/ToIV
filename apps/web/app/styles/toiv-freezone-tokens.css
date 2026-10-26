@@ -142,6 +142,37 @@
   --toiv-light-curtain-w-compact: 56px;
   --toiv-light-curtain-fs: var(--toiv-switch-fs);
 
+
+  /* ── Create studio three-pane (R3) · isolated from --toiv-switch-* NSFW glow ── */
+  --toiv-create-rail-w: 240px;
+  --toiv-create-rail-w-collapsed: 56px;
+  --toiv-create-inspector-w: 280px;
+  --toiv-create-inspector-w-min: 240px;
+  --toiv-create-gap: var(--toiv-space-2, 8px);
+  --toiv-create-pad: var(--toiv-space-3, 12px);
+  --toiv-create-panel-bg: var(--toiv-surface);
+  --toiv-create-panel-border: var(--toiv-border);
+  --toiv-create-panel-radius: var(--toiv-radius-panel, 16px);
+  --toiv-create-divider: var(--toiv-border);
+  --toiv-create-stage-bg: var(--toiv-bg);
+  --toiv-create-section-gap: var(--toiv-space-3, 12px);
+  --toiv-create-section-title-fs: var(--toiv-fs-caption, 12px);
+
+  /* create-mode segmented (文/图/视频) — NO NSFW glow */
+  --toiv-create-mode-h: 36px;
+  --toiv-create-mode-pad: 4px;
+  --toiv-create-mode-radius: 14px;
+  --toiv-create-mode-radius-item: 12px;
+  --toiv-create-mode-fs: 13px;
+  --toiv-create-mode-fw: 600;
+  --toiv-create-mode-bg: color-mix(in srgb, var(--toiv-surface) 88%, transparent);
+  --toiv-create-mode-item-active-bg: var(--toiv-surface-raised);
+  --toiv-create-mode-fg: var(--toiv-text-muted);
+  --toiv-create-mode-fg-active: var(--toiv-text);
+  --toiv-create-mode-dur: 200ms;
+  --toiv-create-mode-ease: var(--toiv-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  /* intentionally no --toiv-create-mode-glow; never alias --toiv-switch-glow-nsfw */
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);
