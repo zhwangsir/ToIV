@@ -399,26 +399,79 @@
   --toiv-asset-adult-geometry: var(--toiv-media-adult-geometry);
 
 
-  /* ── Generation queue (R7 · GENERATION_QUEUE) ──
-     顶栏旁 /create 底栏抽屉；进度条 + 失败重试 + 日志抽屉；
-     普通态 NSFW 任务灰锁；成人可见可操作；成人几何 unchanged。 */
+
+  /* ── Job / generation queue (R7 · VISUAL_JOB_QUEUE_R7 hard nail) ──
+     行高92 · 缩略84×60 · 进度条3px fill #5ba0ff @420ms（禁假满条）·
+     重试 hit 32×32 · 抽屉~736 / 日志 max-h240 · 侧栏快览320 ·
+     入场 280ms translateX(24→0)；成人几何 unchanged。
+     --toiv-queue-* 为兼容别名 → 本块。 */
+  --toiv-job-row-min-h: 92px;
+  --toiv-job-row-pad-y: 12px;
+  --toiv-job-row-pad-x: 14px;
+  --toiv-job-row-gap: 18px;
+  --toiv-job-row-cols: 84px 1fr 120px 104px;
+  --toiv-job-row-cols-narrow: 60px 1fr 36px;
+  --toiv-job-row-radius: 12px;
+  --toiv-job-row-list-gap: 8px;
+  --toiv-job-row-hover-bg: color-mix(in srgb, var(--toiv-text) 4%, transparent);
+  --toiv-job-thumb-w: 84px;
+  --toiv-job-thumb-h: 60px;
+  --toiv-job-thumb-compact: 64px 36px;
+  --toiv-job-thumb-expand: 120px 68px;
+  --toiv-job-title-fs: 14px;
+  --toiv-job-title-fw: 560;
+  --toiv-job-title-max: 68ch;
+  --toiv-job-meta-fs: 11px;
+  --toiv-job-status-fs: 10px;
+  --toiv-job-dot-d: 7px;
+  --toiv-job-progress-h: 3px;
+  --toiv-job-progress-h-toast: 4px;
+  --toiv-job-progress-h-segment: 6px;
+  --toiv-job-progress-max-w: 420px;
+  --toiv-job-progress-radius: 999px;
+  --toiv-job-progress-track: color-mix(in srgb, var(--toiv-text) 9%, transparent);
+  --toiv-job-progress-fill: var(--toiv-accent, #5ba0ff);
+  --toiv-job-progress-dur: 420ms;
+  --toiv-job-progress-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-job-retry-hit: 32px;
+  --toiv-job-retry-icon: 14px;
+  --toiv-job-cancel-hit: 28px;
+  --toiv-job-drawer-w: 736px;
+  --toiv-job-drawer-header-h: 70px;
+  --toiv-job-log-max-h: 240px;
+  --toiv-job-log-radius: 12px;
+  --toiv-job-log-bg: #020617;
+  --toiv-job-log-fs: 12px;
+  --toiv-job-side-w: 320px;
+  --toiv-job-side-w-wide: 344px;
+  --toiv-job-side-enter-dur: 280ms;
+  --toiv-job-side-enter-from: 24px;
+  --toiv-job-popover-w: 300px;
+  --toiv-job-popover-radius: 16px;
+  --toiv-job-popover-list-max-h: 256px;
+  --toiv-job-tab-h: 32px;
+  --toiv-job-page-size: 20;
+  --toiv-job-poll-ms: 4000;
+  --toiv-job-adult-geometry: unchanged;
+
+  /* Compat aliases (R7 tip used --toiv-queue-* first) */
   --toiv-queue-trigger-h: 36px;
   --toiv-queue-trigger-radius: 12px;
-  --toiv-queue-panel-w: 360px;
+  --toiv-queue-panel-w: var(--toiv-job-popover-w);
   --toiv-queue-panel-max-h: min(70vh, 520px);
-  --toiv-queue-panel-radius: 14px;
+  --toiv-queue-panel-radius: var(--toiv-job-popover-radius);
   --toiv-queue-panel-pad: 10px;
-  --toiv-queue-row-gap: 8px;
-  --toiv-queue-row-radius: 12px;
-  --toiv-queue-row-pad: 12px;
-  --toiv-queue-progress-h: 6px;
-  --toiv-queue-progress-radius: 999px;
+  --toiv-queue-row-gap: var(--toiv-job-row-list-gap);
+  --toiv-queue-row-radius: var(--toiv-job-row-radius);
+  --toiv-queue-row-pad: var(--toiv-job-row-pad-y);
+  --toiv-queue-progress-h: var(--toiv-job-progress-h);
+  --toiv-queue-progress-radius: var(--toiv-job-progress-radius);
   --toiv-queue-drawer-h: min(42vh, 380px);
-  --toiv-queue-log-max-h: 180px;
-  --toiv-queue-title-fs: 12px;
-  --toiv-queue-meta-fs: 11px;
-  --toiv-queue-poll-ms: 4000;
-  --toiv-queue-adult-geometry: unchanged;
+  --toiv-queue-log-max-h: var(--toiv-job-log-max-h);
+  --toiv-queue-title-fs: var(--toiv-job-title-fs);
+  --toiv-queue-meta-fs: var(--toiv-job-meta-fs);
+  --toiv-queue-poll-ms: var(--toiv-job-poll-ms);
+  --toiv-queue-adult-geometry: var(--toiv-job-adult-geometry);
 
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);

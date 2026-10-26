@@ -47,9 +47,12 @@ function statusClass(status: GenerationTask["status"]) {
 
 function progressPct(task: GenerationTask): number | undefined {
     if (!generationTaskShowsProgress(task)) return undefined;
-    if (typeof task.progress === "number") return Math.max(0, Math.min(100, Math.round(task.progress)));
+    // Only trust server progress — never invent a full bar.
+    if (typeof task.progress === "number" && Number.isFinite(task.progress)) {
+        return Math.max(0, Math.min(100, Math.round(task.progress)));
+    }
     if (task.status === "queued") return 0;
-    return undefined;
+    return undefined; // running without % → indeterminate shimmer
 }
 
 /** Topbar-adjacent generation queue + optional /create bottom drawer. */
@@ -176,57 +179,92 @@ export function CreationStudioQueueDock() {
                         <article
                             key={task.id}
                             role="listitem"
-                            className={cn("toiv-queue-row", locked && "is-nsfw-locked")}
+                            className={cn("toiv-queue-row", locked && "is-nsfw-locked", task.status === "failed" && "is-failed")}
                             data-task-id={task.id}
                             data-nsfw={nsfw ? "1" : "0"}
                             data-locked={locked ? "1" : "0"}
                         >
-                            <div className="toiv-queue-row-top">
-                                <div className="min-w-0 flex-1">
-                                    <p className="toiv-queue-row-title" title={formatTaskKind(task)}>
-                                        {formatTaskKind(task)}
-                                    </p>
-                                    <p className="toiv-queue-row-meta">{generationTaskStageLabel(task)}</p>
-                                </div>
-                                {locked ? <NsfwLockBadge compact /> : null}
-                                <span className={cn("toiv-queue-badge", statusClass(task.status))}>{generationTaskStatusLabel(task)}</span>
+                            <div className="toiv-queue-thumb" aria-hidden>
+                                {task.previewUrl ? (
+                                    task.previewKind === "video" ? (
+                                        <video src={task.previewUrl} muted playsInline preload="metadata" poster={task.previewPosterUrl || undefined} />
+                                    ) : (
+                                        <img src={task.previewUrl} alt="" loading="lazy" />
+                                    )
+                                ) : (
+                                    <ListTodo className="size-4 opacity-40" />
+                                )}
                             </div>
-                            {generationTaskShowsProgress(task) ? (
-                                <div
-                                    className={cn("toiv-queue-progress", indeterminate && "is-indeterminate")}
-                                    role="progressbar"
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
-                                    aria-valuenow={pct}
-                                    aria-label="生成进度"
-                                >
-                                    <span style={{ width: `${pct ?? 28}%` }} />
-                                </div>
-                            ) : null}
-                            {task.error && task.status === "failed" ? (
-                                <p className="toiv-queue-row-meta" style={{ color: "var(--toiv-danger)" }}>
-                                    {task.error}
+                            <div className="toiv-queue-row-main">
+                                <p className="toiv-queue-row-title" title={formatTaskKind(task)}>
+                                    {formatTaskKind(task)}
                                 </p>
-                            ) : null}
+                                <div className="toiv-queue-row-statusline">
+                                    <span className={cn("toiv-queue-dot", task.status === "running" && "is-running")} aria-hidden />
+                                    <span className={cn("toiv-queue-badge", statusClass(task.status))}>{generationTaskStatusLabel(task)}</span>
+                                    {locked ? <NsfwLockBadge compact /> : null}
+                                </div>
+                                <p className="toiv-queue-row-meta">{generationTaskStageLabel(task)}</p>
+                                {generationTaskShowsProgress(task) ? (
+                                    <>
+                                        <div
+                                            className={cn("toiv-queue-progress", indeterminate && "is-indeterminate")}
+                                            role="progressbar"
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-valuenow={pct ?? undefined}
+                                            aria-label="生成进度"
+                                        >
+                                            {/* Determinate only when server sends % — never fake a full bar. */}
+                                            <span style={pct === undefined ? undefined : { width: `${pct}%` }} />
+                                        </div>
+                                        <div className="toiv-queue-progress-meta">
+                                            <span>{indeterminate ? "进行中…" : generationTaskStageLabel(task)}</span>
+                                            <span>{pct === undefined ? "—" : `${pct}%`}</span>
+                                        </div>
+                                    </>
+                                ) : null}
+                                {task.error && task.status === "failed" ? (
+                                    <p className="toiv-queue-row-meta" style={{ color: "var(--toiv-danger)" }}>
+                                        {task.error}
+                                    </p>
+                                ) : null}
+                                {locked ? (
+                                    <p className="toiv-queue-row-meta">
+                                        当前为{COPY_MODE_NORMAL}：NSFW 任务已锁定。切到顶栏「{COPY_MODE_ADULT}」后可重试/取消。
+                                    </p>
+                                ) : null}
+                                {logTaskId === task.id ? (
+                                    <pre className="toiv-queue-log" aria-live="polite">
+                                        {logBusy
+                                            ? "加载日志…"
+                                            : logs.length
+                                              ? logs.map((log) => formatTaskLog(log)).join("\n")
+                                              : "暂无日志"}
+                                    </pre>
+                                ) : null}
+                            </div>
                             <div className="toiv-queue-row-actions">
                                 <button
                                     type="button"
                                     className="toiv-queue-action"
                                     disabled={locked || logBusy}
+                                    title={logTaskId === task.id ? "收起日志" : "查看日志"}
+                                    aria-label={logTaskId === task.id ? "收起日志" : "查看日志"}
                                     onClick={() => void openLogs(task.id)}
                                 >
-                                    <FileText className="mr-1 inline size-3" aria-hidden />
-                                    {logTaskId === task.id ? "收起日志" : "日志"}
+                                    <FileText aria-hidden />
                                 </button>
                                 {task.status === "failed" ? (
                                     <button
                                         type="button"
                                         className="toiv-queue-action"
                                         disabled={locked || busyId === task.id}
+                                        title={locked ? "NSFW 已锁定" : "重试"}
+                                        aria-label="重试"
                                         onClick={() => void onRetry(task)}
                                     >
-                                        <RotateCcw className="mr-1 inline size-3" aria-hidden />
-                                        重试
+                                        {busyId === task.id ? <LoaderCircle className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}
                                     </button>
                                 ) : null}
                                 {task.status === "queued" || task.status === "running" ? (
@@ -234,26 +272,14 @@ export function CreationStudioQueueDock() {
                                         type="button"
                                         className="toiv-queue-action is-danger"
                                         disabled={locked || busyId === task.id}
+                                        title="取消"
+                                        aria-label="取消"
                                         onClick={() => void onCancel(task)}
                                     >
-                                        取消
+                                        <X aria-hidden />
                                     </button>
                                 ) : null}
                             </div>
-                            {logTaskId === task.id ? (
-                                <pre className="toiv-queue-log" aria-live="polite">
-                                    {logBusy
-                                        ? "加载日志…"
-                                        : logs.length
-                                          ? logs.map((log) => formatTaskLog(log)).join("\n")
-                                          : "暂无日志"}
-                                </pre>
-                            ) : null}
-                            {locked ? (
-                                <p className="toiv-queue-row-meta">
-                                    当前为{COPY_MODE_NORMAL}：NSFW 任务已锁定。切到顶栏「{COPY_MODE_ADULT}」后可重试/取消。
-                                </p>
-                            ) : null}
                         </article>
                     );
                 })}

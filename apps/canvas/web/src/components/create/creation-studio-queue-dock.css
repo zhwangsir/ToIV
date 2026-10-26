@@ -1,4 +1,4 @@
-/* R7 Generation queue dock — Freezone progress / retry / log drawer */
+/* R7 Job queue — --toiv-job-* nail; --toiv-queue-* aliases */
 
 .toiv-queue-root { position: relative; display: inline-flex; align-items: center; }
 
@@ -41,16 +41,24 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: 80;
-  width: var(--toiv-queue-panel-w, 360px);
-  max-height: var(--toiv-queue-panel-max-h);
+  width: var(--toiv-job-popover-w, var(--toiv-queue-panel-w, 300px));
+  max-height: var(--toiv-queue-panel-max-h, min(70vh, 520px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--toiv-queue-panel-radius, 14px);
+  border-radius: var(--toiv-job-popover-radius, 16px);
   border: 1px solid var(--toiv-border);
   background: color-mix(in srgb, var(--toiv-surface) 96%, transparent);
   backdrop-filter: blur(16px);
   box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 280ms) var(--toiv-job-progress-ease, ease-out) both;
+}
+@keyframes toiv-job-side-enter {
+  from { opacity: 0; transform: translateX(var(--toiv-job-side-enter-from, 24px)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toiv-queue-panel { animation: none; }
 }
 
 .toiv-queue-panel-head {
@@ -58,74 +66,74 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--toiv-border);
 }
-.toiv-queue-panel-title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
+.toiv-queue-panel-title { margin: 0; font-size: 13px; font-weight: 600; }
 .toiv-queue-panel-actions { display: flex; gap: 6px; align-items: center; }
 .toiv-queue-ghost {
-  border: 0;
-  background: transparent;
-  color: var(--toiv-accent);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  border: 0; background: transparent; color: var(--toiv-accent);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
 }
 .toiv-queue-icon-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--toiv-text-muted);
-  cursor: pointer;
+  display: grid; place-items: center;
+  width: var(--toiv-job-cancel-hit, 28px);
+  height: var(--toiv-job-cancel-hit, 28px);
+  border-radius: 8px; border: 1px solid transparent;
+  background: transparent; color: var(--toiv-text-muted); cursor: pointer;
 }
-.toiv-queue-icon-btn:hover {
-  border-color: var(--toiv-border);
-  color: var(--toiv-text);
-}
+.toiv-queue-icon-btn:hover { border-color: var(--toiv-border); color: var(--toiv-text); }
 
 .toiv-queue-list {
   display: flex;
   flex-direction: column;
-  gap: var(--toiv-queue-row-gap, 8px);
+  gap: var(--toiv-job-row-list-gap, 8px);
   padding: var(--toiv-queue-panel-pad, 10px);
   overflow: auto;
   min-height: 0;
+  max-height: var(--toiv-job-popover-list-max-h, 256px);
 }
 
 .toiv-queue-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: var(--toiv-queue-row-pad, 12px);
-  border-radius: var(--toiv-queue-row-radius, 12px);
+  display: grid;
+  grid-template-columns: var(--toiv-job-thumb-w, 84px) minmax(0, 1fr) auto;
+  gap: var(--toiv-job-row-gap, 18px);
+  align-items: center;
+  min-height: var(--toiv-job-row-min-h, 92px);
+  padding: var(--toiv-job-row-pad-y, 12px) var(--toiv-job-row-pad-x, 14px);
+  border-radius: var(--toiv-job-row-radius, 12px);
   border: 1px solid var(--toiv-border);
   background: color-mix(in srgb, var(--toiv-bg) 55%, transparent);
+  transition: background 150ms ease;
 }
-.toiv-queue-row.is-nsfw-locked {
-  opacity: 0.72;
-  filter: grayscale(0.35);
+.toiv-queue-row:hover { background: var(--toiv-job-row-hover-bg); }
+.toiv-queue-row.is-nsfw-locked { opacity: 0.72; filter: grayscale(0.35); }
+.toiv-queue-row.is-failed { background: color-mix(in srgb, var(--toiv-danger, #ea4335) 4%, transparent); }
+
+.toiv-queue-thumb {
+  width: var(--toiv-job-thumb-w, 84px);
+  height: var(--toiv-job-thumb-h, 60px);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--toiv-bg);
+  display: grid;
+  place-items: center;
+  color: var(--toiv-text-muted);
+  flex: none;
 }
-.toiv-queue-row-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.toiv-queue-thumb img,
+.toiv-queue-thumb video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
+
+.toiv-queue-row-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .toiv-queue-row-title {
   margin: 0;
-  flex: 1;
-  min-width: 0;
-  font-size: var(--toiv-queue-title-fs, 12px);
-  font-weight: 600;
+  max-width: var(--toiv-job-title-max, 68ch);
+  font-size: var(--toiv-job-title-fs, 14px);
+  font-weight: var(--toiv-job-title-fw, 560);
   color: var(--toiv-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -134,15 +142,39 @@
 }
 .toiv-queue-row-meta {
   margin: 0;
-  font-size: var(--toiv-queue-meta-fs, 11px);
+  font-size: var(--toiv-job-meta-fs, 11px);
   color: var(--toiv-text-muted);
 }
+.toiv-queue-row-statusline {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+.toiv-queue-dot {
+  width: var(--toiv-job-dot-d, 7px);
+  height: var(--toiv-job-dot-d, 7px);
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+.toiv-queue-dot.is-running {
+  color: var(--toiv-accent);
+  animation: toiv-job-dot-pulse 1.6s ease-out infinite;
+}
+@keyframes toiv-job-dot-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(91 160 255 / 0.45); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toiv-queue-dot.is-running { animation: none; }
+}
+
 .toiv-queue-badge {
   flex: none;
   padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  font-size: 10px;
+  font-size: var(--toiv-job-status-fs, 10px);
   font-weight: 700;
 }
 .toiv-queue-badge.is-running { color: var(--toiv-accent); }
@@ -151,55 +183,73 @@
 .toiv-queue-badge.is-succeeded { color: var(--toiv-ok, #51bf6f); }
 .toiv-queue-badge.is-cancelled { color: var(--toiv-text-muted); }
 
+/* Progress: true % only; indeterminate when unknown — never fake 100% */
 .toiv-queue-progress {
-  height: var(--toiv-queue-progress-h, 6px);
-  border-radius: var(--toiv-queue-progress-radius);
-  background: color-mix(in srgb, var(--toiv-border) 80%, transparent);
+  width: 100%;
+  max-width: var(--toiv-job-progress-max-w, 420px);
+  height: var(--toiv-job-progress-h, 3px);
+  border-radius: var(--toiv-job-progress-radius, 999px);
+  background: var(--toiv-job-progress-track);
   overflow: hidden;
 }
 .toiv-queue-progress > span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--toiv-accent), var(--toiv-accent-cyan, #00bdcf));
-  transition: width 280ms var(--toiv-media-ease-out, ease-out);
+  background: var(--toiv-job-progress-fill, #5ba0ff);
+  transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease);
 }
 .toiv-queue-progress.is-indeterminate > span {
-  width: 32% !important;
-  animation: toiv-queue-indeterminate 1.2s ease-in-out infinite;
+  width: 28% !important;
+  animation: toiv-job-indeterminate 1.2s ease-in-out infinite;
 }
-@keyframes toiv-queue-indeterminate {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(320%); }
+@keyframes toiv-job-indeterminate {
+  0% { transform: translateX(-130%); }
+  100% { transform: translateX(360%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .toiv-queue-progress.is-indeterminate > span { animation: none; width: 40% !important; }
+  .toiv-queue-progress.is-indeterminate > span { animation: none; width: 35% !important; }
+}
+.toiv-queue-progress-meta {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 42px;
+  gap: 8px;
+  font-size: var(--toiv-job-meta-fs, 11px);
+  color: var(--toiv-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .toiv-queue-row-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 6px;
 }
 .toiv-queue-action {
-  height: 26px;
-  padding: 0 10px;
+  display: inline-grid;
+  place-items: center;
+  width: var(--toiv-job-retry-hit, 32px);
+  height: var(--toiv-job-retry-hit, 32px);
+  padding: 0;
   border-radius: 8px;
   border: 1px solid var(--toiv-border);
   background: transparent;
   color: var(--toiv-text);
-  font-size: 11px;
-  font-weight: 600;
   cursor: pointer;
 }
+.toiv-queue-action.is-text {
+  width: auto;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.toiv-queue-action svg { width: var(--toiv-job-retry-icon, 14px); height: var(--toiv-job-retry-icon, 14px); }
 .toiv-queue-action:hover:not(:disabled) {
   border-color: var(--toiv-accent);
   color: var(--toiv-accent);
 }
-.toiv-queue-action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+.toiv-queue-action:disabled { opacity: 0.45; cursor: not-allowed; }
 .toiv-queue-action.is-danger:hover:not(:disabled) {
   border-color: var(--toiv-danger);
   color: var(--toiv-danger);
@@ -213,44 +263,55 @@
 }
 
 .toiv-queue-log {
-  max-height: var(--toiv-queue-log-max-h, 180px);
+  grid-column: 1 / -1;
+  max-height: var(--toiv-job-log-max-h, 240px);
   overflow: auto;
   margin: 0;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: var(--toiv-job-log-radius, 12px);
   border: 1px solid var(--toiv-border);
-  background: var(--toiv-bg);
+  background: var(--toiv-job-log-bg, #020617);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: var(--toiv-job-log-fs, 12px);
   line-height: 1.45;
-  color: var(--toiv-text-muted);
+  color: #cbd5e1;
   white-space: pre-wrap;
 }
 
-/* /create bottom drawer */
 .toiv-queue-bottom {
   position: fixed;
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
   z-index: 70;
-  width: min(720px, calc(100vw - 24px));
-  max-height: var(--toiv-queue-drawer-h);
+  width: min(var(--toiv-job-drawer-w, 736px), calc(100vw - 24px));
+  max-height: min(42vh, 420px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--toiv-queue-panel-radius);
+  border-radius: var(--toiv-job-popover-radius, 16px);
   border: 1px solid var(--toiv-border);
   background: color-mix(in srgb, var(--toiv-surface) 96%, transparent);
   backdrop-filter: blur(16px);
   box-shadow: 0 16px 48px rgb(0 0 0 / 0.4);
+  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 280ms) var(--toiv-job-progress-ease) both;
 }
 .toiv-queue-bottom[hidden] { display: none !important; }
 .toiv-queue-bottom-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  min-height: var(--toiv-job-drawer-header-h, 70px);
+  padding: 8px 16px;
   border-bottom: 1px solid var(--toiv-border);
   cursor: pointer;
+}
+.toiv-queue-bottom .toiv-queue-list { max-height: none; }
+
+@media (max-width: 720px) {
+  .toiv-queue-row {
+    grid-template-columns: 60px minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .toiv-queue-thumb { width: 60px; height: 44px; }
 }

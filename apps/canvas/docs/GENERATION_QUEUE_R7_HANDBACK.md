@@ -26,7 +26,7 @@
 | 项 | 值 |
 |----|-----|
 | 挂载 | 顶栏旁（LightCurtain **之前**）+ `/create` 底栏 |
-| 进度 | 确定 % 或 indeterminate 扫描条（`--toiv-queue-progress-h: 6`） |
+| 进度 | 真实 `%` 或 indeterminate（`--toiv-job-progress-h: 3`）；**禁假满条** |
 | 失败 | 「重试」→ `retryGenerationTask` |
 | 日志 | 行内抽屉 → `listTaskLogs` / `formatTaskLog` |
 | 普通 NSFW | 灰化 + `NsfwLockBadge`；禁重试/取消 |
@@ -42,7 +42,7 @@
 |----|------|
 | 坞 | `components/create/creation-studio-queue-dock.tsx` + `.css` |
 | 顶栏 | `components/layout/workspace-top-bar.tsx` |
-| Token | `toiv-freezone-tokens.css` `--toiv-queue-*`（canvas↔web） |
+| Token | `toiv-freezone-tokens.css` `--toiv-job-*` + `--toiv-queue-*` 别名（canvas↔web） |
 | API | `@/services/api/task-center` |
 
 ---
@@ -63,3 +63,26 @@
 - 底栏与顶栏共享同一列表状态（同组件双表面）；窄屏可能叠画布内容。
 - NSFW 判定依赖 prompt/model 字符串兜底，无显式 `is_nsfw` 字段时可能漏标。
 - **未 push**。
+
+---
+
+## F. R7 硬表校准（`--toiv-job-*`）
+
+日期：2026-10-26（Asia/Shanghai）  
+基 tip：`1b132535`（R7 功能 tip）  
+TL：可 alias `--toiv-queue-*`；**禁假满条**；禁 push。
+
+| 钉 | 值 |
+|----|-----|
+| 行 min-h | 92px |
+| 缩略 | 84×60 |
+| 进度条 | 3px / `#5ba0ff` / 420ms ease |
+| 重试 hit | 32×32 icon |
+| 抽屉宽 | 736（token 预留）；坞 popover 300 |
+| 日志 max-h | 240 |
+| 侧栏 / 入场 | 320 / 280ms |
+| 进度规则 | `task.progress` 有限数 → 定宽；running 无 % → `is-indeterminate`；**从不写死 100%** |
+| 别名 | `--toiv-queue-*` → `--toiv-job-*` |
+
+改动文件：双端 `toiv-freezone-tokens.css`、`creation-studio-queue-dock.{tsx,css}`、本 handback、`docs/ops/VISUAL_JOB_QUEUE_R7_20261026.md`。
+
