@@ -22,7 +22,7 @@ import "./settings-visual.css";
 export type ConfigSectionKey = "common" | "compute" | "advanced";
 
 const configSections: Array<{ key: ConfigSectionKey; label: string; description: string; icon: ReactNode }> = [
-    { key: "common", label: "常用", description: "自选角色槽、算力与 R18", icon: <Sparkles className="size-4" /> },
+    { key: "common", label: "常用", description: "自选角色槽、算力与内容模式", icon: <Sparkles className="size-4" /> },
     { key: "compute", label: "模型与算力", description: "库存与 NAS 换权重", icon: <RadioTower className="size-4" /> },
     { key: "advanced", label: "高级", description: "自定义渠道、云端与诊断", icon: <Settings2 className="size-4" /> },
 ];

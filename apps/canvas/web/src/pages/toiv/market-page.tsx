@@ -46,6 +46,7 @@ import {
     type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
+import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
 import {
     LOCAL_MARKET_FEATURED,
@@ -373,7 +374,7 @@ function LorasField({
                                     </span>
                                     {o.nsfw ? (
                                         <span className="rounded bg-[var(--destructive)]/15 px-1 text-[10px] text-[var(--destructive)]">
-                                            R18
+                                            {COPY_MODE_ADULT}
                                         </span>
                                     ) : null}
                                 </label>
@@ -884,7 +885,7 @@ export default function MarketPage() {
                         {key === "all"
                             ? `全部 ${n}`
                             : key === "r18"
-                              ? `R18 ${n}`
+                              ? `${COPY_MODE_ADULT} ${n}`
                               : `${CATEGORY_META[key] ?? key} ${n}`}
                     </button>
                 ))}
@@ -972,7 +973,7 @@ export default function MarketPage() {
                                         </p>
                                         {local && <LocalBadges badge={local} />}
                                         {r18On && appShowsR18Badge(app) && (
-                                            <StatusBadge variant="filled" tone="warning" label="R18" size="sm" />
+                                            <StatusBadge variant="filled" tone="warning" label={COPY_MODE_ADULT} size="sm" />
                                         )}
                                         {isMarketAudioUnavailableApp(app) && !LOCAL_AUDIO_HAS_SENSEVOICE && (
                                             <StatusBadge variant="filled" tone="warning" label="音频未接" size="sm" />
@@ -1040,7 +1041,7 @@ export default function MarketPage() {
                                         <StatusBadge variant="filled" tone="warning" label={LOCAL_AUDIO_UNAVAILABLE_LABEL} size="sm" />
                                     )}
                                     {r18On && appShowsR18Badge(detail) && (
-                                        <StatusBadge variant="filled" tone="warning" label="R18" size="sm" />
+                                        <StatusBadge variant="filled" tone="warning" label={COPY_MODE_ADULT} size="sm" />
                                     )}
                                 </div>
                                 {canShowContentModeToggle(detail, r18On) && (
@@ -1049,8 +1050,8 @@ export default function MarketPage() {
                                         <div className="flex flex-wrap gap-1.5">
                                             {(
                                                 [
-                                                    { id: "sfw" as const, label: "SFW" },
-                                                    { id: "nsfw" as const, label: "R18" },
+                                                    { id: "sfw" as const, label: COPY_MODE_NORMAL },
+                                                    { id: "nsfw" as const, label: COPY_MODE_ADULT },
                                                 ] as const
                                             ).map((m) => {
                                                 const active = contentMode === m.id;
@@ -1071,13 +1072,13 @@ export default function MarketPage() {
                                             })}
                                         </div>
                                         <p className="text-[11px] text-[var(--muted-foreground)]">
-                                            R18 使用软隐藏孪生工作流；关闭设置里的 R18 模式后不会提交成人向。
+                                            成人模式使用软隐藏孪生工作流；切回普通模式后不会提交成人向。
                                         </p>
                                     </div>
                                 )}
                                 {r18On && detail.is_nsfw && !canShowContentModeToggle(detail, r18On) && (
-                                    <Callout tone="warning" title="R18 专用应用">
-                                        本卡仅成人向工作流；须保持 R18 模式开启才能运行。
+                                    <Callout tone="warning" title="成人专用应用">
+                                        本卡仅成人向工作流；须保持成人模式开启才能运行。
                                     </Callout>
                                 )}
                                 {audioBlocked && (
@@ -1151,7 +1152,7 @@ export default function MarketPage() {
                                                 >
                                                     <span>
                                                         常用高级（{paramSplit.advanced.length}）
-                                                        {r18On && appShowsR18Badge(detail) ? " · R18 可调" : ""}
+                                                        {r18On && appShowsR18Badge(detail) ? ` · ${COPY_MODE_ADULT}可调` : ""}
                                                     </span>
                                                     <span className="text-[11px] text-[var(--muted-foreground)]">
                                                         {advOpen ? "收起 ▴" : "展开 ▾"}

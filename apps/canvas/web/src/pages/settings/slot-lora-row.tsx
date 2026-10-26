@@ -15,6 +15,7 @@ import {
     type SlotLoraKey,
     type SlotLoraPick,
 } from "@/lib/slot-lora";
+import { COPY_MODE_ADULT } from "@/redline";
 
 type Props = {
     slot: SlotLoraKey;
@@ -196,7 +197,7 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
                                                 ) : heuristic ? (
                                                     <span className="settings-lora-pill is-warn">{c.compatBadge || "命名推断"}</span>
                                                 ) : null}
-                                                {c.nsfw ? <span className="settings-lora-pill is-nsfw">R18</span> : null}
+                                                {c.nsfw ? <span className="settings-lora-pill is-nsfw">{COPY_MODE_ADULT}</span> : null}
                                             </div>
                                             {c.purposeZh ? <p className="settings-lora-card__purpose">{c.purposeZh}</p> : null}
                                             {formatLoraConflictHint(c.conflicts) ? (
