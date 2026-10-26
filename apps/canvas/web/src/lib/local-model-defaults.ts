@@ -1,4 +1,4 @@
-import { filterNsfwVisibleAssets } from "@/redline";
+import { filterNsfwListableAssets } from "@/redline";
 /** Local-first model/compute defaults for Studio「模型与算力」— aligned to真机. */
 
 /** Product defaults (Pipeline C seven-piece int8). Protocol ids stay h3/h3-t2v; UI shows these basenames. */
@@ -189,7 +189,7 @@ export function filterImagePickerEntries<T extends { rel_path?: string; basename
         if (rel.startsWith("h3/")) return false;
         return purpose.includes("出图");
     });
-    return filterNsfwVisibleAssets(scoped, (e) => ({
+    return filterNsfwListableAssets(scoped, (e) => ({
         basename: e.basename,
         rel_path: e.rel_path,
         用途: e.用途,
@@ -204,7 +204,7 @@ export function filterVideoPickerEntries<T extends { rel_path?: string; basename
         if (rel.startsWith("h3/")) return false;
         return purpose.includes("出视频");
     });
-    return filterNsfwVisibleAssets(scoped, (e) => ({
+    return filterNsfwListableAssets(scoped, (e) => ({
         basename: e.basename,
         rel_path: e.rel_path,
         用途: e.用途,

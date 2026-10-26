@@ -21,6 +21,7 @@ import {
 import { marketAppToLoraSlot, resolvePinnedLorasForGenerate } from "@/lib/slot-lora";
 import {
     appShowsR18Badge,
+    appVisibleForContentMode,
     appUploadKind,
     applyMarketConvenienceChange,
     asMarketMediaList,
@@ -46,7 +47,7 @@ import {
     type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
-import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
+import { COPY_MODE_ADULT, COPY_MODE_NORMAL, shouldApplyContentSoftening } from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
 import {
     LOCAL_MARKET_FEATURED,
@@ -699,7 +700,10 @@ export default function MarketPage() {
     }, [apps, r18On]);
 
     const filtered = useMemo(() => {
+        const soften = shouldApplyContentSoftening(); // 成人路径物理上不进软化
         const base = apps.filter((a) => {
+            // 普通态软化：藏纯成人卡；成人态不做软化过滤
+            if (soften && !appVisibleForContentMode(a, r18On)) return false;
             if (category === "r18") {
                 if (!r18On || !appShowsR18Badge(a)) return false;
             } else if (category !== "all" && (a.category || "other") !== category) {
@@ -1072,7 +1076,7 @@ export default function MarketPage() {
                                             })}
                                         </div>
                                         <p className="text-[11px] text-[var(--muted-foreground)]">
-                                            成人模式使用软隐藏孪生工作流；切回普通模式后不会提交成人向。
+                                            普通模式可对孪生工作流软隐藏；成人模式禁用软化，直接使用成人面。
                                         </p>
                                     </div>
                                 )}

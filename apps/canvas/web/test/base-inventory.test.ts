@@ -20,10 +20,13 @@ describe("base-inventory P1b", () => {
         expect(items.length).toBe(meta.count);
         const unknown = items.filter((i) => !i.familyResolved);
         expect(unknown.length).toBe(meta.familyUnknown);
-        // 普通模式（默认）应隐藏文件名含 nsfw 的基座
+        // includeNsfw:false → 强制不含 NSFW；默认列表则保留已知 NSFW（灰化锁定由 UI）
         const sfwOnly = listBaseInventory({ includeNsfw: false });
         expect(sfwOnly.every((i) => !/nsfw/i.test(i.basename))).toBe(true);
         expect(sfwOnly.length).toBeLessThan(items.length);
+        const defaultList = listBaseInventory();
+        const nsfwInDefault = defaultList.filter((i) => /nsfw/i.test(i.basename));
+        expect(nsfwInDefault.length).toBeGreaterThan(0);
         for (const u of unknown.slice(0, 5)) {
             expect(u.family).toBeNull();
         }
@@ -59,7 +62,7 @@ describe("base-inventory P1b", () => {
         expect(familyOfBaseInventory(qwen!.basename)).toBe("qwen-image");
         expect(familyOfBaseInventory(`toiv-image::${qwen!.basename}`)).toBe("qwen-image");
     });
-    it("hides NSFW basenames in 普通 mode including mega nsfw naming", () => {
+    it("includeNsfw:false strips NSFW; default keeps known NSFW listable; mega naming marker", () => {
         const all = listBaseInventory({ includeNsfw: true });
         const nsfw = all.filter((i) => /nsfw/i.test(i.basename));
         expect(nsfw.length).toBeGreaterThan(0);

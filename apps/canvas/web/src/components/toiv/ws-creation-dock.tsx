@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router";
 
 import { ModelPicker } from "@/components/model-picker";
+import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
+import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
 import { COPY_MODE_ADULT, COPY_MODE_NORMAL, COPY_NSFW_MODELS_HIDDEN_EMPTY, R18_SETTINGS_GATE_PATH, subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot } from "@/redline";
 import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
@@ -59,6 +61,7 @@ export function WsCreationDock({ projectId, pipelineLabel, onJumpShots }: WsCrea
 
     return (
         <section className="toiv-freezone-panel toiv-ws-creation-dock" data-testid="ws-creation-dock" aria-label="创作坞">
+            <ContentModeFallbackTip />
             <div className="toiv-ws-creation-dock-head">
                 <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="toiv-ws-creation-dock-title">创作坞</span>
@@ -95,8 +98,9 @@ export function WsCreationDock({ projectId, pipelineLabel, onJumpShots }: WsCrea
                 />
             </div>
             {emptyNsfwHint ? (
-                <p className="toiv-ws-creation-dock-meta">
-                    {emptyNsfwHint} ·{" "}
+                <p className="toiv-ws-creation-dock-meta flex flex-wrap items-center gap-2">
+                    <NsfwLockBadge />
+                    <span>{emptyNsfwHint}</span> ·{" "}
                     <Link to={R18_SETTINGS_GATE_PATH} className="underline underline-offset-2">
                         去设置切换成人
                     </Link>
@@ -119,7 +123,7 @@ export function WsCreationDock({ projectId, pipelineLabel, onJumpShots }: WsCrea
                         const shot = (task.clientContext?.shotId || "").trim();
                         const q = new URLSearchParams({ section: "shots" });
                         if (shot) q.set("shot", shot);
-                        const href = `/toiv/ws/${encodeURIComponent(projectId)}?${q.toString()}`;
+                        const href = `/create?project=${encodeURIComponent(projectId)}&${q.toString()}`;
                         return (
                             <li key={task.id}>
                                 <Link to={href}>

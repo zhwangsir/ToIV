@@ -13,7 +13,7 @@ import {
     LOCAL_VIDEO_CHANNEL_NAME,
 } from "@/lib/local-model-defaults";
 import { LOCAL_H3_CHANNEL_ID } from "@/services/toiv/local-capability-surface";
-import { filterNsfwVisibleAssets, isNsfwAssetVisible } from "@/redline";
+import { classifyAssetContent, filterNsfwListableAssets, isNsfwAssetListable, isNsfwAssetSelectable } from "@/redline";
 
 export type BaseInventorySlot = "image" | "video-primary" | "video-motion";
 
@@ -29,6 +29,10 @@ export type BaseInventoryItem = {
     slots: BaseInventorySlot[];
     bytes?: number | null;
     purposeZh?: string | null;
+    /** 显式成人标记（元数据优先；缺省则 redline 用文件名兜底） */
+    is_nsfw?: boolean | null;
+    nsfw?: boolean | null;
+    content_rating?: string | null;
 };
 
 type InventoryFile = {
@@ -42,6 +46,13 @@ type InventoryFile = {
 };
 
 const FILE = inventory as InventoryFile;
+
+function enrichNsfwMeta(item: BaseInventoryItem): BaseInventoryItem {
+    if (item.is_nsfw != null || item.nsfw != null || item.content_rating != null) return item;
+    // 无显式元数据时不在此写 is_nsfw=true（交给 redline 文件名兜底）；仅标 unknown 不在 JSON 内伪造
+    return item;
+}
+
 
 export function baseInventoryMeta() {
     return {
@@ -61,7 +72,7 @@ export function listBaseInventory(opts?: {
     /** true=含 NSFW；false=强制普通；默认跟随成人模式 */
     includeNsfw?: boolean;
 }): BaseInventoryItem[] {
-    let items = FILE.items || [];
+    let items = (FILE.items || []).map(enrichNsfwMeta);
     if (opts?.slot) {
         items = items.filter((i) => (i.slots || []).includes(opts.slot!));
     }
@@ -70,11 +81,20 @@ export function listBaseInventory(opts?: {
         items = items.filter((i) => i.family === fam);
     }
     if (opts?.includeNsfw === true) return items;
+    // 默认：已知 NSFW 仍列表可见（灰化锁定）；未知元数据普通藏
+    const pick = (i: BaseInventoryItem) => ({
+        is_nsfw: i.is_nsfw,
+        nsfw: i.nsfw,
+        content_rating: i.content_rating,
+        basename: i.basename,
+        label: i.label,
+        relPath: i.relPath,
+        purposeZh: i.purposeZh,
+    });
     if (opts?.includeNsfw === false) {
-        return filterNsfwVisibleAssets(items, (i) => i.basename || i.label || i.relPath);
+        return items.filter((i) => classifyAssetContent(pick(i)) !== "nsfw" && classifyAssetContent(pick(i)) !== "unknown");
     }
-    // 默认跟随红线：普通模式隐藏 NSFW checkpoint
-    return filterNsfwVisibleAssets(items, (i) => i.basename || i.label || i.relPath);
+    return filterNsfwListableAssets(items, pick);
 }
 
 /** Channel::basename ref for settings slot dropdown. */
@@ -94,7 +114,16 @@ export function baseInventoryOptionLabel(item: BaseInventoryItem): string {
             ? item.familyLabel || familyLabel(item.family)
             : "族未解析";
     const liveTag = "";
-    return `${item.label} · ${fam}${liveTag}`;
+    const pick = {
+        is_nsfw: item.is_nsfw,
+        nsfw: item.nsfw,
+        content_rating: item.content_rating,
+        basename: item.basename,
+        label: item.label,
+        relPath: item.relPath,
+    };
+    const locked = classifyAssetContent(pick) === "nsfw" && !isNsfwAssetSelectable(pick);
+    return `${item.label} · ${fam}${liveTag}${locked ? " · NSFW 🔒" : ""}`;
 }
 
 export function baseInventoryChannelName(item: BaseInventoryItem): string {
@@ -115,7 +144,7 @@ export function mergeSlotOptionsWithBaseInventory(
     existing: Array<{ value: string; label: string; title?: string }>,
     slot: BaseInventorySlot,
 ): Array<{ value: string; label: string; title?: string }> {
-    const visibleExisting = existing.filter((o) => isNsfwAssetVisible(o.value) || isNsfwAssetVisible(o.label) || isNsfwAssetVisible(o.title));
+    const visibleExisting = existing.filter((o) => isNsfwAssetListable(o.value) || isNsfwAssetListable(o.label) || isNsfwAssetListable(o.title));
     const seen = new Set(visibleExisting.map((o) => o.value.toLowerCase()));
     const basenameSeen = new Set(
         visibleExisting.map((o) => {

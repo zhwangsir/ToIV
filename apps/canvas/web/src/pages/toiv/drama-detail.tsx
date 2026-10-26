@@ -382,7 +382,7 @@ export default function DramaDetailPage() {
 
             <footer className="flex items-center gap-2">
                 <Link to="/toiv/drama"><ToolButton variant="default" icon={<ArrowLeft />} label="返回项目列表" /></Link>
-                <Link to={`/toiv/ws/${id}`}><ToolButton variant="default" icon={<Layers />} label="v2 工作区" /></Link>
+                <Link to={`/create?project=${id}`}><ToolButton variant="default" icon={<Layers />} label="v2 工作区" /></Link>
             </footer>
             <AppDrawer open={!!charDetail} onClose={() => setCharDetail(null)} width={480} title={charDetail?.char?.name || "角色"}>
                 {charDetail && (

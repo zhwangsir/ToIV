@@ -35,7 +35,7 @@ export function HomeDashboard({
         setActionError(null);
         try {
             const project = await createStudioProject({ title: "未命名短剧" });
-            navigate(`/toiv/ws/${encodeURIComponent(project.id)}?section=script`);
+            navigate(`/create?project=${encodeURIComponent(project.id)}&section=script`);
         } catch (e) {
             setActionError(e instanceof Error ? e.message : "新建短剧失败，请稍后重试");
         } finally {
@@ -49,7 +49,7 @@ export function HomeDashboard({
         setActionError(null);
         try {
             const sample = await seedRainNightSample();
-            navigate(`/toiv/ws/${encodeURIComponent(sample.id)}?section=script`);
+            navigate(`/create?project=${encodeURIComponent(sample.id)}&section=script`);
         } catch (e) {
             setActionError(e instanceof Error ? e.message : "打开雨夜示例失败，请稍后重试");
         } finally {
@@ -132,7 +132,7 @@ export function HomeDashboard({
                 ) : (
                     <div className="toiv-recent-grid">
                         {loading ? Array.from({ length: 4 }, (_, index) => <div className="toiv-recent-card is-loading" key={index} />) : projects.length ? projects.map((project) => (
-                            <Link to={`/toiv/ws/${encodeURIComponent(project.id)}`} className="toiv-recent-card" key={project.id}>
+                            <Link to={`/create?project=${encodeURIComponent(project.id)}`} className="toiv-recent-card" key={project.id}>
                                 <span className="toiv-recent-preview"><Clapperboard /></span>
                                 <span className="toiv-recent-copy">
                                     <strong>{project.title || project.premise?.slice(0, 24) || "未命名短剧"}</strong>

@@ -14,6 +14,7 @@ const HomePage = lazy(loadHomePage);
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
 const CreatePage = lazy(loadCreatePage);
+const CreationWorkbenchPage = lazy(() => import("@/pages/create/creation-workbench"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
@@ -82,6 +83,16 @@ function ToivLibraryDetailRedirect() {
     return <Navigate to={`/library/works/${id ?? ""}`} replace />;
 }
 
+function ToivWsToCreateRedirect() {
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("project", id);
+    const qs = next.toString();
+    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+}
+
+
 
 /**
  * DEV 专用实验室路由。
@@ -109,7 +120,7 @@ export const router = createWorkspaceRouter([
         errorElement: <RouteErrorPage />,
         children: [
             { path: "/", element: deferred(<HomePage />) },
-            { path: "/create", element: deferred(<CreatePage />) },
+            { path: "/create", element: deferred(<CreationWorkbenchPage />) },
             {
                 path: "/tasks",
                 // 任务页暂不开放，保留路由以避免旧链接进入半成品界面。
@@ -145,7 +156,8 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
             { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
             // v2 六段工作区骨架(S2/W1.1):独立路由并行于经典详情,迁移齐后对调
-            { path: "/toiv/ws/:id", element: deferred(<ToivDramaWorkspacePage />) },
+            // 永久重定向：旧 /toiv/ws/:id → /create?project=:id（单一创作台）
+            { path: "/toiv/ws/:id", element: <ToivWsToCreateRedirect /> },
             { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />) },
             {
                 path: "/projects",

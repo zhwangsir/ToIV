@@ -42,17 +42,12 @@ function toolItem(slug: NavigationToolSlug, to: string): WorkspaceNavItem {
 }
 
 function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[]; footer: WorkspaceNavItem[] } {
-    // Wave0：创作置顶 → 新建短剧 → 任务/工具台/设置；首页·看板·画布等进高级折起
+    // 死令：一级仅 创作/短剧项目/任务中心/工具台/设置；新建短剧降为台内动作；kpi 进高级
     void features;
     const groups: WorkspaceNavGroup[] = [
         {
             items: [
                 { id: "create", title: "创作", icon: WandSparkles, to: "/create" },
-                { id: "new", title: "新建短剧", icon: Plus, to: "/toiv/drama?new=1" },
-            ],
-        },
-        {
-            items: [
                 { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, to: "/toiv/drama" },
                 { id: "toiv:tasks", title: "任务中心", icon: ListChecks, to: "/toiv/tasks" },
                 { id: "toiv:market", title: "工具台", icon: Store, to: "/toiv/market" },
@@ -60,16 +55,16 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             ],
         },
         {
-            // 首页/看板/专家画布/智能体/媒体库 —— 默认收起，不挡双主路径
+            // 画布库/新建画布/媒体库/Agent/外部 Agent/学习看板 —— 高级折起
             heading: "高级 / 更多",
             items: [
                 { id: "home", title: "首页", icon: Home, to: "/" },
-                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
                 { ...toolItem("canvas", "/project"), title: "画布库" },
                 { id: "canvas:new", title: "新建画布", icon: Plus, to: "/canvas?mode=new" },
-                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
                 { id: "library", title: "媒体库", icon: Library, to: "/library" },
+                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
+                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
             ],
         },
     ];
@@ -296,7 +291,7 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     const slug = rawSlug === "project" ? "canvas" : rawSlug;
     const section = searchParams.get("section");
     // /toiv/agent|drama|market|library|tasks → toiv:agent 等，侧栏高亮对齐
-    // /toiv/ws/:id(六段工作区)归到「短剧工作台」高亮,否则工作区里侧栏无当前位置
+    // /create?project= 归「创作」；旧 /toiv/ws 已永久重定向
     const toivSection = pathParts[1] === "ws" ? "drama" : pathParts[1];
     const activeId =
         rawSlug === "create"

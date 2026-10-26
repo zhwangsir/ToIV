@@ -37,9 +37,11 @@ import {
     mergeSlotOptionsWithBaseInventory,
 } from "@/lib/base-inventory";
 import {
+    COPY_NSFW_LOCK_LABEL,
     getR18ModeSnapshot,
     getServerR18ModeSnapshot,
-    isNsfwAssetVisible,
+    isNsfwAssetListable,
+    isNsfwAssetSelectable,
     subscribeR18Mode,
     visibleSelectionOrFallback,
 } from "@/redline";
@@ -91,7 +93,13 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
             const base = localMode
                 ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, imageModels), "image")
                 : toSelectOptions(config, imageModels);
-            return base.filter((o) => isNsfwAssetVisible(o.value));
+            return base
+                .filter((o) => isNsfwAssetListable(o.value))
+                .map((o) =>
+                    isNsfwAssetSelectable(o.value)
+                        ? o
+                        : { ...o, label: `${o.label} · ${COPY_NSFW_LOCK_LABEL} 🔒`, disabled: true },
+                );
         },
         [config, imageModels, localMode, adultOn],
     );
@@ -100,7 +108,13 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
             const base = localMode
                 ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, primaryVideoModels), "video-primary")
                 : toSelectOptions(config, primaryVideoModels);
-            return base.filter((o) => isNsfwAssetVisible(o.value));
+            return base
+                .filter((o) => isNsfwAssetListable(o.value))
+                .map((o) =>
+                    isNsfwAssetSelectable(o.value)
+                        ? o
+                        : { ...o, label: `${o.label} · ${COPY_NSFW_LOCK_LABEL} 🔒`, disabled: true },
+                );
         },
         [config, primaryVideoModels, localMode, adultOn],
     );
@@ -109,7 +123,13 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
             const base = localMode
                 ? mergeSlotOptionsWithBaseInventory(toSelectOptions(config, motionVideoModels), "video-motion")
                 : toSelectOptions(config, motionVideoModels);
-            return base.filter((o) => isNsfwAssetVisible(o.value));
+            return base
+                .filter((o) => isNsfwAssetListable(o.value))
+                .map((o) =>
+                    isNsfwAssetSelectable(o.value)
+                        ? o
+                        : { ...o, label: `${o.label} · ${COPY_NSFW_LOCK_LABEL} 🔒`, disabled: true },
+                );
         },
         [config, motionVideoModels, localMode, adultOn],
     );
@@ -127,7 +147,7 @@ export function ModelSlotTable({ config, onChange, onMotionChange, onOpenChannel
         if (config.videoModel && nextVideo !== config.videoModel) {
             onChange("videoModel", nextVideo);
         }
-        if (motionSelected && !isNsfwAssetVisible(motionSelected)) {
+        if (motionSelected && !isNsfwAssetSelectable(motionSelected)) {
             setMotionSelected("");
             onMotionChange?.("");
             writeMotionModel("");
@@ -328,7 +348,7 @@ function SlotSelect({
 }: {
     ariaLabel: string;
     value?: string;
-    options: Array<{ value: string; label: string; title?: string }>;
+    options: Array<{ value: string; label: string; title?: string; disabled?: boolean }>;
     empty: string;
     onOpenEmpty?: () => void;
     onChange: (model: string) => void;
@@ -361,6 +381,8 @@ function SlotSelect({
                     onClear?.();
                     return;
                 }
+                const hit = options.find((o) => o.value === v);
+                if (hit?.disabled) return; // 普通态 NSFW：可见不可点
                 onChange(v);
             }}
         />

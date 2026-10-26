@@ -11,7 +11,7 @@ import { defaultModelCapabilityConfig, workflowFieldRole, workflowFieldSafeToOve
 import { useUserStore } from "@/stores/use-user-store";
 import type { CapabilitySpec } from "@/services/api/logical-models";
 import { isLocalToivChannelId } from "@/lib/local-model-defaults";
-import { filterNsfwVisibleAssets } from "@/redline";
+import { filterNsfwListableAssets } from "@/redline";
 
 export type ApiCallFormat = "openai" | "gemini" | "claude";
 export type ChannelInterfaceType = ModelProtocol;
@@ -592,7 +592,7 @@ export function selectableModelsByCapability(config: AiConfig, capability?: Mode
     const models = modelOptionsFromChannels(config.channels);
     const byCap = capability ? filterModelsByCapability(models, capability, config.channels) : models;
     // 普通模式隐藏 NSFW checkpoint/模型名（与 redline 资产可见性对齐）
-    return filterNsfwVisibleAssets(byCap, (m) => m);
+    return filterNsfwListableAssets(byCap, (m) => m);
 }
 
 export function configuredModelMatchesCapability(config: AiConfig, model: string, capability?: ModelCapability) {

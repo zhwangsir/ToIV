@@ -1,16 +1,29 @@
 /**
- * 普通/成人内容模式设置（Wire 2026-10-26）。
- * focus=r18 深链：滚动到本 pane 并打开既有 confirming 两步闸（失败卡不另起对话框）。
- * 技术键仍用 r18；用户可见文案用「普通 / 成人」。
+ * 普通/成人内容模式设置（死令 2026-10-26）。
+ * focus=r18 深链：滚动到本 pane 并打开既有 confirming 两步闸。
+ * 账号全局：对此账号所有设备生效；≤30s 他端同步；切模式不中断在途。
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { COPY_CONFIRM_SWITCH, COPY_MODE_ADULT, COPY_MODE_NORMAL, isR18Mode, isUnderage, setR18Mode } from "@/redline";
+import {
+    COPY_ACCOUNT_GLOBAL,
+    COPY_ACCOUNT_SYNC_HINT,
+    COPY_CONFIRM_SWITCH,
+    COPY_IN_FLIGHT_SAFE,
+    COPY_MODE_ADULT,
+    COPY_MODE_NORMAL,
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    isUnderage,
+    setR18Mode,
+    subscribeR18Mode,
+} from "@/redline";
 import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
+import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
 
 export function R18SettingsPane() {
-    const [enabled, setEnabled] = useState<boolean>(() => isR18Mode());
+    const enabled = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const [confirming, setConfirming] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const paneRef = useRef<HTMLElement | null>(null);
@@ -19,7 +32,7 @@ export function R18SettingsPane() {
     useEffect(() => {
         if (focusParam !== "r18") return;
         paneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (!isR18Mode()) setConfirming(true);
+        if (!enabled) setConfirming(true);
         const next = new URLSearchParams(searchParams);
         if (!next.has("focus")) return;
         next.delete("focus");
@@ -30,16 +43,13 @@ export function R18SettingsPane() {
     const enable = () => {
         if (isUnderage()) {
             setConfirming(false);
-            setEnabled(false);
             return;
         }
-        const ok = setR18Mode(true);
-        setEnabled(ok);
+        setR18Mode(true);
         setConfirming(false);
     };
     const disable = () => {
         setR18Mode(false);
-        setEnabled(false);
         setConfirming(false);
     };
 
@@ -54,7 +64,11 @@ export function R18SettingsPane() {
                     )}
                     <div className="min-w-0">
                         <h3>内容模式</h3>
-                        <p>{enabled ? `${COPY_MODE_ADULT} · 成人内容可见` : `${COPY_MODE_NORMAL} · 默认`}</p>
+                        <p>
+                            {enabled ? `${COPY_MODE_ADULT} · 成人内容可见` : `${COPY_MODE_NORMAL} · 默认`}
+                            <span className="mx-1 text-foreground/30">·</span>
+                            <span className="text-foreground/70">{COPY_ACCOUNT_GLOBAL}</span>
+                        </p>
                     </div>
                 </div>
                 {enabled ? (
@@ -62,6 +76,7 @@ export function R18SettingsPane() {
                         type="button"
                         onClick={disable}
                         className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
+                        data-testid="r18-settings-disable"
                     >
                         切回{COPY_MODE_NORMAL}
                     </button>
@@ -77,11 +92,16 @@ export function R18SettingsPane() {
                 )}
             </div>
 
+            <p className="mt-2 text-[11px] leading-5 text-[var(--muted-foreground)]" data-testid="r18-account-global-hint">
+                {COPY_ACCOUNT_GLOBAL}。{COPY_ACCOUNT_SYNC_HINT}。{COPY_IN_FLIGHT_SAFE}。
+            </p>
+
+            <ContentModeFallbackTip />
+
             {confirming && (
                 <div className="mt-2 rounded-lg border border-[var(--border)] p-3" role="alertdialog" aria-label="确认切换到成人模式" data-testid="r18-settings-confirm">
-                    <p className="text-xs leading-5 text-foreground">
-                        {COPY_CONFIRM_SWITCH}
-                    </p>
+                    <p className="text-xs leading-5 text-foreground">{COPY_CONFIRM_SWITCH}</p>
+                    <p className="mt-1 text-[11px] text-[var(--muted-foreground)]">{COPY_ACCOUNT_GLOBAL} · {COPY_ACCOUNT_SYNC_HINT}</p>
                     <div className="mt-2 flex gap-2">
                         <button type="button" onClick={enable} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground" data-testid="r18-settings-confirm-enable">
                             确认切换

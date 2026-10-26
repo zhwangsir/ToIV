@@ -429,3 +429,74 @@ html.dark,
     color: var(--muted-foreground);
     font-size: 11px;
 }
+
+
+/* —— 死令 Wave0/1：NSFW 锁定徽标 / 回落提示 / 创作台壳 —— */
+.toiv-nsfw-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background: color-mix(in oklab, var(--muted) 35%, transparent);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  user-select: none;
+}
+.toiv-nsfw-lock-badge-label { line-height: 1; }
+.toiv-nsfw-lock-badge.is-compact { padding: 0.05rem 0.3rem; }
+
+.toiv-content-mode-fallback-tip {
+  margin: 0.35rem 0 0;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--r-md, 8px);
+  border: 1px solid color-mix(in oklab, var(--workspace-accent, #c4a265) 35%, var(--border));
+  background: color-mix(in oklab, var(--workspace-accent, #c4a265) 12%, transparent);
+  color: var(--foreground);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.toiv-creation-workbench {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.toiv-creation-workbench-chrome {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem 0;
+}
+.toiv-creation-project-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.toiv-creation-project-switcher-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.toiv-creation-project-select {
+  min-width: 12rem;
+  max-width: 24rem;
+  flex: 1 1 auto;
+  height: 2rem;
+  border-radius: var(--r-md, 8px);
+  border: 1px solid var(--border);
+  background: var(--surface, transparent);
+  color: var(--foreground);
+  font-size: 12px;
+  padding: 0 0.5rem;
+}
+
+/* 普通态 NSFW 选项视觉：配合 Select disabled */
+[data-testid="creation-workbench"] .opacity-55,
+.settings-slot-table [aria-disabled="true"] {
+  filter: grayscale(0.7);
+}

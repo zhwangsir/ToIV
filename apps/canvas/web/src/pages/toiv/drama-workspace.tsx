@@ -248,8 +248,9 @@ function StageRail({ section, nextStep }: { section: SectionKey; nextStep?: stri
     );
 }
 
-export default function DramaWorkspacePage() {
-    const { id } = useParams<{ id: string }>();
+export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOverride?: string } = {}) {
+    const params = useParams<{ id: string }>();
+    const id = (projectIdOverride || params.id || "").trim() || undefined;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const section = normalizeSection(searchParams.get("section") ?? undefined);
@@ -326,7 +327,13 @@ export default function DramaWorkspacePage() {
         void load();
     }, [load]);
 
-    const goSection = (key: SectionKey) => navigate(`/toiv/ws/${id}?section=${key}`, { replace: true });
+    const goSection = (key: SectionKey) => {
+        if (!id) return;
+        const next = new URLSearchParams(searchParams);
+        next.set("project", id);
+        next.set("section", key);
+        navigate(`/create?${next.toString()}`, { replace: true });
+    };
     const shots = detail?.shots ?? [];
     const characters = detail?.characters ?? [];
 

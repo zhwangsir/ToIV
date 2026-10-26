@@ -16,6 +16,8 @@ function installBrowserStub(r18: string | null, birthdate: string | null = null)
         dispatchEvent: () => true,
         addEventListener() {},
         removeEventListener() {},
+        setInterval: () => 0,
+        clearInterval() {},
     };
     const dataset: Record<string, string> = {};
     (globalThis as Record<string, unknown>).document = { documentElement: { dataset } };
@@ -25,7 +27,6 @@ function installBrowserStub(r18: string | null, birthdate: string | null = null)
 describe("redline guard", () => {
     test("default SFW; setR18Mode toggles header + dataset", () => {
         const { dataset } = installBrowserStub(null);
-        // fresh module each time via require cache bust
         const id = require.resolve("../src/redline");
         delete require.cache[id];
         const mod = require("../src/redline");
@@ -76,9 +77,8 @@ describe("redline guard", () => {
         expect(b.isR18Mode).toBe(a.isR18Mode);
         expect(b.nsfwHeaderEnabled).toBe(a.nsfwHeaderEnabled);
     });
-});
 
-    test("Wire copy uses 普通/成人; CTA points at settings gate", () => {
+    test("Wire copy uses 普通/成人; CTA points at settings gate; account-global copy", () => {
         installBrowserStub(null);
         const id = require.resolve("../src/redline");
         delete require.cache[id];
@@ -90,12 +90,15 @@ describe("redline guard", () => {
         expect(mod.COPY_SWITCH_TO_ADULT).toBe("切换到成人模式");
         expect(mod.COPY_STAY_NORMAL).toBe("留在普通内容");
         expect(mod.COPY_CONFIRM_SWITCH).toContain("确认切换");
+        expect(mod.COPY_ACCOUNT_GLOBAL).toContain("所有设备");
         expect(mod.R18_SETTINGS_GATE_PATH).toContain("focus=r18");
+        expect(mod.MODE_SWITCH_DOES_NOT_ABORT_INFLIGHT).toBe(true);
+        expect(mod.ACCOUNT_MODE_POLL_MS).toBe(30_000);
     });
-
+});
 
 describe("redline NSFW asset visibility", () => {
-    test("filename nsfw marker + adult gate", () => {
+    test("known NSFW listable but not selectable in 普通; unknown hidden", () => {
         installBrowserStub(null);
         const id = require.resolve("../src/redline");
         delete require.cache[id];
@@ -104,12 +107,22 @@ describe("redline NSFW asset visibility", () => {
         expect(mod.isNsfwAssetMarker("wan2.2-rapid-mega-aio-v12.safetensors")).toBe(false);
         expect(mod.isNsfwAssetMarker("Qwen-Rapid-AIO-SFW-v23.safetensors")).toBe(false);
         expect(mod.assetLooksNsfw({ nsfw: true, basename: "foo.safetensors" })).toBe(true);
-        expect(mod.isNsfwAssetVisible("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(false);
-        const list = mod.filterNsfwVisibleAssets([
+        expect(mod.classifyAssetContent({ is_nsfw: true, basename: "clean.safetensors" })).toBe("nsfw");
+        expect(mod.classifyAssetContent({ content_rating: "unknown" })).toBe("unknown");
+        // 已知 NSFW：列表可见、不可选
+        expect(mod.isNsfwAssetListable("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
+        expect(mod.isNsfwAssetSelectable("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(false);
+        expect(mod.isNsfwAssetVisible("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(false); // alias=selectable
+        const list = mod.filterNsfwListableAssets([
             "wan2.2-rapid-mega-aio-v12.safetensors",
             "wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors",
         ]);
-        expect(list).toEqual(["wan2.2-rapid-mega-aio-v12.safetensors"]);
+        expect(list).toEqual([
+            "wan2.2-rapid-mega-aio-v12.safetensors",
+            "wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors",
+        ]);
+        // 未知：普通藏
+        expect(mod.isNsfwAssetListable({ content_rating: "unknown", basename: "x.safetensors" })).toBe(false);
         expect(
             mod.visibleSelectionOrFallback(
                 "wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors",
@@ -117,7 +130,27 @@ describe("redline NSFW asset visibility", () => {
             ),
         ).toBe("Qwen-Rapid-AIO-SFW-v23.safetensors");
         mod.setR18Mode(true);
-        expect(mod.isNsfwAssetVisible("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
-        expect(mod.filterNsfwVisibleAssets(["a-nsfw-b.safetensors", "ok.safetensors"]).length).toBe(2);
+        expect(mod.isNsfwAssetSelectable("wan2.2-rapid-mega-aio-nsfw-v12.2.safetensors")).toBe(true);
+        expect(mod.isNsfwAssetListable({ content_rating: "unknown" })).toBe(true);
+        expect(mod.filterNsfwListableAssets(["a-nsfw-b.safetensors", "ok.safetensors"]).length).toBe(2);
+        expect(mod.shouldApplyContentSoftening()).toBe(false);
+        mod.setR18Mode(false);
+        expect(mod.shouldApplyContentSoftening()).toBe(true);
+    });
+
+    test("explicit metadata beats filename; fallback tip on switch to 普通", () => {
+        installBrowserStub("1");
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.classifyAssetContent({ is_nsfw: false, basename: "foo-nsfw-bar.safetensors" })).toBe("sfw");
+        expect(mod.classifyAssetContent({ is_nsfw: true, basename: "clean.safetensors" })).toBe("nsfw");
+        expect(mod.isR18Mode()).toBe(true);
+        mod.setR18Mode(false);
+        expect(mod.peekFallbackTip()).toBe(true);
+        expect(mod.consumeFallbackTip()).toBe(true);
+        expect(mod.consumeFallbackTip()).toBe(false);
+        expect(mod.FALLBACK_IMAGE_BASENAME).toContain("Qwen-Rapid-AIO-SFW-v23");
+        expect(mod.FALLBACK_VIDEO_MODEL).toBe("local-wan");
     });
 });

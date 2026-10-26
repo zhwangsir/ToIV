@@ -80,7 +80,7 @@ function dramaJumpHref(task: GenerationTask): string | undefined {
     const shot = (ctx?.shotId || "").trim();
     const q = new URLSearchParams({ section: "shots" });
     if (shot) q.set("shot", shot);
-    return `/toiv/ws/${encodeURIComponent(pid)}?${q.toString()}`;
+    return `/create?project=${encodeURIComponent(pid)}&${q.toString()}`;
 }
 
 /** Wave P2 残余:ToIV Job(含 studio_batch_render)透出 project_id → 回跳 ws */
@@ -91,7 +91,7 @@ function toivJobJumpHref(job: ToivJob): string | undefined {
     if ((job.kind || "").includes("batch") || job.kind === "studio_batch_render") {
         q.set("from", "batch");
     }
-    return `/toiv/ws/${encodeURIComponent(pid)}?${q.toString()}`;
+    return `/create?project=${encodeURIComponent(pid)}&${q.toString()}`;
 }
 
 function detailLine(job: ToivJob): string {

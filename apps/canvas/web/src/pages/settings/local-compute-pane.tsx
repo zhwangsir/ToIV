@@ -47,7 +47,7 @@ import { useConfigStore } from "@/stores/use-config-store";
 import {
     getR18ModeSnapshot,
     getServerR18ModeSnapshot,
-    isNsfwAssetVisible,
+    isNsfwAssetSelectable,
     subscribeR18Mode,
 } from "@/redline";
 
@@ -180,8 +180,8 @@ export function LocalComputePane({ onBackToCommon }: { onBackToCommon?: () => vo
     // 普通模式下若选中/已绑 NSFW 权重，清空选中（不自动改 NAS 绑定，避免误写）
     useEffect(() => {
         if (adultOn) return;
-        if (imageSelected && !isNsfwAssetVisible(imageSelected)) setImageSelected(undefined);
-        if (videoSelected && !isNsfwAssetVisible(videoSelected)) setVideoSelected(undefined);
+        if (imageSelected && !isNsfwAssetSelectable(imageSelected)) setImageSelected(undefined);
+        if (videoSelected && !isNsfwAssetSelectable(videoSelected)) setVideoSelected(undefined);
     }, [adultOn, imageSelected, videoSelected]);
 
     const h3Options = useMemo(

@@ -19,7 +19,7 @@ import {
     COPY_MODE_ADULT,
     getR18ModeSnapshot,
     getServerR18ModeSnapshot,
-    isNsfwAssetVisible,
+    isNsfwAssetSelectable,
     subscribeR18Mode,
 } from "@/redline";
 
@@ -49,14 +49,14 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     useEffect(() => {
         if (adultOn) return;
         const current = readSlotLoras(slot);
-        const cleaned = current.filter((p) => isNsfwAssetVisible(p.name));
+        const cleaned = current.filter((p) => isNsfwAssetSelectable(p.name));
         if (cleaned.length !== current.length) {
             writeSlotLoras(slot, cleaned);
             setPicks(cleaned);
         }
-        setDraft((d) => d.filter((p) => isNsfwAssetVisible(p.name)));
+        setDraft((d) => d.filter((p) => isNsfwAssetSelectable(p.name)));
         setCandidates((list) =>
-            list.filter((c) => isNsfwAssetVisible({ nsfw: c.nsfw, value: c.value, label: c.label })),
+            list.filter((c) => isNsfwAssetSelectable({ nsfw: c.nsfw, value: c.value, label: c.label })),
         );
     }, [adultOn, slot]);
 
@@ -76,7 +76,7 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     }, [candidates]);
 
     const visible = useMemo(() => {
-        const gated = candidates.filter((c) => isNsfwAssetVisible({ nsfw: c.nsfw, value: c.value, label: c.label }));
+        const gated = candidates.filter((c) => isNsfwAssetSelectable({ nsfw: c.nsfw, value: c.value, label: c.label }));
         if (filterTag === "all") return gated;
         return gated.filter((c) => c.typeTag === filterTag);
     }, [candidates, filterTag, adultOn]);

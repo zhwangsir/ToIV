@@ -67,7 +67,7 @@ export default function DramaPage() {
         setActionNote(null);
         try {
             const project = await createStudioProject({ title: "未命名短剧" });
-            navigate(`/toiv/ws/${encodeURIComponent(project.id)}?section=script`);
+            navigate(`/create?project=${encodeURIComponent(project.id)}&section=script`);
         } catch (e) {
             setActionNote(e instanceof Error ? e.message : "新建短剧失败");
         } finally {
@@ -79,7 +79,7 @@ export default function DramaPage() {
         setActionNote(null);
         try {
             const sample = await seedRainNightSample();
-            navigate(`/toiv/ws/${encodeURIComponent(sample.id)}?section=script`);
+            navigate(`/create?project=${encodeURIComponent(sample.id)}&section=script`);
         } catch (e) {
             setActionNote(e instanceof Error ? e.message : "打开雨夜示例失败");
         }
@@ -124,7 +124,7 @@ export default function DramaPage() {
                 <FromImageDialog
                     open
                     onClose={() => setFromImageOpen(false)}
-                    onProjectCreated={(pid) => { setFromImageOpen(false); void load(); navigate(`/toiv/ws/${pid}`); }}
+                    onProjectCreated={(pid) => { setFromImageOpen(false); void load(); navigate(`/create?project=${pid}`); }}
                 />
             )}
 
@@ -148,7 +148,7 @@ export default function DramaPage() {
                             const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
                             return (
                                 // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
-                                <Link key={p.id} to={`/toiv/ws/${p.id}`}
+                                <Link key={p.id} to={`/create?project=${p.id}`}
                                     className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent)]">
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />

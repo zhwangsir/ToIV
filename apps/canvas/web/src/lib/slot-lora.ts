@@ -16,7 +16,7 @@ import {
     type CompatStatus,
 } from "@/lib/model-compat";
 import { toivHttp } from "@/services/toiv/client";
-import { filterNsfwVisibleAssets } from "@/redline";
+import { filterNsfwListableAssets } from "@/redline";
 
 export const SLOT_LORA_STORAGE_KEY = "toiv.model-mix.slotLoras";
 export const SLOT_LORA_CAP = 3;
@@ -307,7 +307,7 @@ export async function fetchSlotLoraCandidates(
         };
     });
     // 普通模式隐藏 NSFW LoRA（与 checkpoint 同一红线）
-    return filterNsfwVisibleAssets(attached, (c) => ({ nsfw: c.nsfw, value: c.value, label: c.label }));
+    return filterNsfwListableAssets(attached, (c) => ({ nsfw: c.nsfw, value: c.value, label: c.label }));
 }
 
 export function slotLoraInventoryFooter(slot: SlotLoraKey, opts?: { baseHint?: string | null; shown?: number }): string {
