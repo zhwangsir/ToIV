@@ -86,11 +86,12 @@ function unwrapTransportError(error: unknown): never {
     }
     if (axios.isAxiosError<BackendEnvelope<unknown>>(error)) {
         const status = error.response?.status;
-        const code = error.response?.data?.code;
-        throw new ApiError(error.response?.data?.msg || transportFailureMessage(status, error.message), {
+        const data = error.response?.data as (BackendEnvelope<unknown> & { detail?: unknown }) | undefined;
+        const code = data?.code;
+        throw new ApiError(axiosErrorMessage(data, status, error.message), {
             status,
             code,
-            reason: error.response?.data?.reason,
+            reason: data?.reason,
             retryable: isRetryableStatus(status) || isRetryableStatus(code),
             retryAfterMs: retryAfterMilliseconds(error.response?.headers),
             cause: error,
@@ -110,6 +111,31 @@ function transportFailureMessage(status?: number, fallback?: string) {
         default:
             return fallback || "请求失败";
     }
+}
+
+/** FastAPI 用 detail；业务信封用 msg。成人闸 403 必须把 detail 带进 ApiError，否则会丢成裸 permission。 */
+function axiosErrorMessage(data: (BackendEnvelope<unknown> & { detail?: unknown }) | undefined, status?: number, fallback?: string) {
+    if (data && typeof data === "object") {
+        if (typeof data.msg === "string" && data.msg.trim()) return data.msg.trim();
+        const detail = data.detail;
+        if (typeof detail === "string" && detail.trim()) return detail.trim();
+        if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+            const nested = detail as { message?: unknown; msg?: unknown };
+            if (typeof nested.message === "string" && nested.message.trim()) return nested.message.trim();
+            if (typeof nested.msg === "string" && nested.msg.trim()) return nested.msg.trim();
+        }
+        if (Array.isArray(detail)) {
+            const parts = detail
+                .map((item) => {
+                    if (typeof item === "string") return item.trim();
+                    if (item && typeof item === "object" && "msg" in item) return String((item as { msg: unknown }).msg || "").trim();
+                    return "";
+                })
+                .filter(Boolean);
+            if (parts.length) return parts.join("; ");
+        }
+    }
+    return transportFailureMessage(status, fallback);
 }
 
 function isRetryableStatus(status?: number) {

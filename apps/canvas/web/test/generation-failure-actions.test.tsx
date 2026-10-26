@@ -86,3 +86,29 @@ test("route_guard_adult explicit category guides switch CTA", () => {
     expect(html).toContain("切换到成人模式");
     expect(html).toContain('data-failure-slot="route_guard_adult"');
 });
+
+test("non-content 403 slots never render adult CTA", () => {
+    for (const err of [
+        { status: 403, data: { detail: "需要管理员权限" } },
+        { status: 403, data: { detail: "请求过于频繁，请稍后再试" } },
+        { status: 403, data: { detail: "账号额度不足，请充值后重试" } },
+        { status: 403, data: { detail: "服务令牌无权访问该接口" } },
+    ]) {
+        const explanation = explainGenerationError(err);
+        expect(explanation.guideEnableR18).toBe(false);
+        const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} />);
+        expect(html).not.toContain("切换到成人模式");
+        expect(html).not.toContain('data-testid="generation-failure-enable-r18"');
+    }
+});
+
+test("adult-gate 403 detail still renders switch CTA", () => {
+    const explanation = explainGenerationError({
+        status: 403,
+        data: { detail: "该操作为 R18 内容,须在 R18 上下文(X-NSFW)下使用" },
+    });
+    expect(explanation.guideEnableR18).toBe(true);
+    const html = renderToStaticMarkup(<GenerationFailureNotice explanation={explanation} />);
+    expect(html).toContain("切换到成人模式");
+    expect(html).toContain('data-failure-slot="route_guard_adult"');
+});

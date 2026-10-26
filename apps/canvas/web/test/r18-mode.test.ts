@@ -70,4 +70,32 @@ describe("r18 failure classification surface", () => {
         expect(again.category).toBe("r18_context_required");
         expect(again.reason).toBe(first.reason);
     });
+
+    test("underage 403 is adult-gate (guide CTA), not bare permission", () => {
+        const { explainGenerationError } = require("../src/lib/generation-error");
+        for (const detail of ["未成年账户不可开启或使用 R18 内容", "未成年用户不可开启 R18 模式"]) {
+            const f = explainGenerationError({ status: 403, data: { detail } });
+            expect(f.category).toBe("r18_context_required");
+            expect(f.guideEnableR18).toBe(true);
+            expect(f.slot).toBe("route_guard_adult");
+        }
+    });
+
+    test("non-content 403 never guides adult switch", () => {
+        const { explainGenerationError } = require("../src/lib/generation-error");
+        const cases: Array<[unknown, string, boolean?]> = [
+            [{ status: 403, data: { detail: "需要管理员权限" } }, "permission"],
+            [{ status: 403, data: { detail: "视频路径不在允许的媒体目录内" } }, "permission"],
+            [{ status: 403, data: { detail: "Forbidden" } }, "permission"],
+            [{ status: 403, data: { detail: "请求过于频繁，请稍后再试" } }, "throttled"],
+            [{ status: 403, data: { detail: "服务令牌无权访问该接口" } }, "auth"],
+            [{ status: 403, data: { detail: "账号额度不足，请充值后重试" } }, "quota_unknown"],
+        ];
+        for (const [err, category] of cases) {
+            const f = explainGenerationError(err);
+            expect(f.category).toBe(category);
+            expect(f.guideEnableR18).toBe(false);
+            expect(f.slot).not.toBe("route_guard_adult");
+        }
+    });
 });

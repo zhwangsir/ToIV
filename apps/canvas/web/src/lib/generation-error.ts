@@ -513,6 +513,8 @@ export function isR18ContextRequiredText(value: string): boolean {
     if (/r18_context_required|nsfw_context_required/i.test(text)) return true;
     if (text.startsWith("当前为普通模式，此页需切换到成人模式")) return true;
     if (text.startsWith("当前为普通模式；该内容需切换到成人模式")) return true;
+    // 未成年硬阻断也属成人闸（Wire：可引导设置闸；勿当成额度/权限）
+    if (/未成年/.test(text) && /R18|成人|NSFW/i.test(text)) return true;
     return (
         /须在\s*R18\s*上下文/.test(text) ||
         /R18\s*产物需在专区内/.test(text) ||
@@ -616,7 +618,21 @@ function classifyHttp(status: number | undefined, body: unknown): Classified {
         classified = { category: "unknown", retryable: false };
     }
     if (!classified.fromCode && (classified.category === "unknown" || classified.category === "malformed_response") && status) {
-        classified = { category: categoryFromHttpStatus(status), status, retryable: false };
+        // 403 且 body 已有具体中文 detail（非 axios 泛失败）：保留给 permission/auth 展示；402 等仍用槽位标准文案
+        const preservedReason = classified.reason?.trim() || "";
+        const keepDetail =
+            status === 403 &&
+            preservedReason.length >= 4 &&
+            !/^请求失败/.test(preservedReason) &&
+            !/^Request failed with status code/i.test(preservedReason) &&
+            !/^模型服务请求失败/.test(preservedReason);
+        classified = {
+            category: categoryFromHttpStatus(status),
+            status,
+            retryable: false,
+            reason: keepDetail ? preservedReason : undefined,
+            action: keepDetail ? classified.action : undefined,
+        };
         if (status === 524) {
             classified.category = "timeout";
             classified.uncertain = true;
@@ -1020,8 +1036,19 @@ function categoryFromProviderMessage(raw: string): GenerationErrorCategory | "" 
     if (normalized.includes("rate limit") || normalized.includes("too many requests") || normalized.includes("throttl") || normalized.includes("频繁")) return "throttled";
     if (normalized.includes("context length") || normalized.includes("too many tokens") || normalized.includes("max_tokens") || (normalized.includes("长度") && (normalized.includes("最大") || normalized.includes("超出")))) return "context_too_long";
     if (normalized.includes("model_not_found") || normalized.includes("model not found") || normalized.includes("模型不存在") || normalized.includes("当前模型或接口不可用")) return "model_missing";
-    if (normalized.includes("invalid api key") || normalized.includes("incorrect api key") || normalized.includes("authentication") || normalized.includes("unauthorized") || normalized.includes("鉴权失败")) return "auth";
+    if (
+        normalized.includes("invalid api key") ||
+        normalized.includes("incorrect api key") ||
+        normalized.includes("authentication") ||
+        normalized.includes("unauthorized") ||
+        normalized.includes("鉴权失败") ||
+        normalized.includes("令牌无权") ||
+        normalized.includes("未授权") ||
+        (normalized.includes("服务令牌") && normalized.includes("无权"))
+    )
+        return "auth";
     if (normalized.includes("permission") && (normalized.includes("denied") || normalized.includes("model") || normalized.includes("access"))) return "permission";
+    if (normalized.includes("需要管理员") || normalized.includes("仅管理员") || normalized.includes("仅属主")) return "permission";
     if (normalized.includes("url error") || normalized.includes("failed to download") || normalized.includes("cannot fetch") || normalized.includes("invalid image url") || normalized.includes("无法读取")) return "input_inaccessible";
     if (normalized.includes("too large") || normalized.includes("payload too large") || normalized.includes("过大") || normalized.startsWith("整次请求的数据量超过接口上限") || /(?:request|payload).{0,24}(?:exceeds?|larger than)/i.test(normalized))
         return "input_too_large";
@@ -1068,7 +1095,8 @@ function categoryFromHttpStatus(status: number): GenerationErrorCategory {
 function trustProviderMessageStatus(status?: number) {
     if (!status) return true;
     if (status >= 200 && status < 300) return true;
-    return status === 400 || status === 402 || status === 409 || status === 413 || status === 422 || status === 429 || status === 451;
+    // 403 也信任 body：成人闸 / 额度 / 限流 / 参数文案优先于裸 permission 兜底
+    return status === 400 || status === 402 || status === 403 || status === 409 || status === 413 || status === 422 || status === 429 || status === 451;
 }
 
 function extractExplicitHttpStatus(raw: string) {
