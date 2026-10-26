@@ -14,6 +14,7 @@ import { cancelJob, fetchAgentRuns, fetchJobs, type ToivAgentRun, type ToivJob }
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { GenerationFailureNotice } from "@/components/generation/generation-failure-notice";
 import { explainGenerationError } from "@/lib/generation-error";
+import "@/styles/toiv-freezone-desk.css";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     queued: { tone: "neutral", text: "排队中" },
@@ -288,20 +289,17 @@ export default function TasksPage() {
     const empty = !loading && !error && timeline.length === 0 && !canvasLoading;
 
     return (
-        <WorkspacePage fluid className="toiv-tasks-page">
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">任务中心</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                        追踪作业进度，并回到对应短剧镜头或智能体对话；有进行中任务时每 30 秒自动刷新。
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading || canvasLoading} />
+        <WorkspacePage fluid className="toiv-tasks-page fz-desk">
+            <div className="fz-desk-page mx-auto flex w-full max-w-5xl flex-col gap-3">
+                        <header className="fz-desk-toolbar">
+                <h1>任务中心</h1>
+                <p>追踪作业进度；进行中任务每 30 秒自动刷新。</p>
+                <div className="fz-desk-actions">
+<ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading || canvasLoading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
                     </Link>
+                
                 </div>
             </header>
 
@@ -311,7 +309,7 @@ export default function TasksPage() {
                 </Callout>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 text-xs text-muted-foreground" aria-label="创作入口引导">
+            <div className="fz-panel flex flex-wrap items-center gap-2 px-3 py-2 text-xs text-muted-foreground" aria-label="创作入口引导">
                 <span>任务中心只读追踪进度。</span>
                 <Link to="/create" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">去创作</Link>
                 <span>·</span>
@@ -404,7 +402,7 @@ export default function TasksPage() {
                             <li
                                 key={`${item.source}:${item.id}`}
                                 id={item.source === "toiv-job" ? `job-${item.id}` : `canvas-${item.id}`}
-                                className={`relative -ml-4 mb-2 flex gap-3 rounded-xl border px-3 py-3 pl-4 ${
+                                className={`fz-panel relative -ml-4 mb-2 flex gap-3 px-3 py-3 pl-4 ${
                                     item.highlight
                                         ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
                                         : "border-border bg-card"

@@ -10,6 +10,7 @@ import { createStudioProject, fetchDramaProjects, seedRainNightSample, type Toiv
 import { FromImageDialog } from "./from-image-dialog";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { KpiNorthboundPanel } from "@/components/toiv/kpi-northbound-panel";
+import "@/styles/toiv-freezone-desk.css";
 
 const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "error" | "warning"; text: string }> = {
     draft: { tone: "neutral", text: "草稿" },
@@ -24,6 +25,30 @@ const STATUS_META: Record<string, { tone: "neutral" | "loading" | "success" | "e
     failed: { tone: "error", text: "失败" },
     storyboard: { tone: "warning", text: "分镜中" },
 };
+
+const PHASES = ["剧本", "资产", "分镜", "成片"] as const;
+function phaseDoneCount(status: string): number {
+    switch (status) {
+        case "draft":
+            return 1;
+        case "ready":
+        case "storyboard":
+            return 2;
+        case "queued":
+        case "rendering":
+            return 3;
+        case "rendered":
+        case "voiced":
+        case "lipsynced":
+        case "done":
+            return 4;
+        case "error":
+        case "failed":
+            return 2;
+        default:
+            return 1;
+    }
+}
 
 function ShotProgress({ p }: { p: NonNullable<ToivDramaProject["pipeline"]> }) {
     const total = p.total_shots || 0;
@@ -98,14 +123,12 @@ export default function DramaPage() {
     }, [searchParams, setSearchParams, createBlank]);
 
     return (
-        <WorkspacePage fluid className="toiv-drama-page">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-            <header className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">短剧项目</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片,打开项目进六段工作区</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+        <WorkspacePage fluid className="toiv-drama-page fz-desk">
+            <div className="fz-desk-page mx-auto flex w-full max-w-6xl flex-col gap-3">
+            <header className="fz-desk-toolbar">
+                <h1>短剧项目</h1>
+                <p>密网 · 剧本→资产→分镜→成片</p>
+                <div className="fz-desk-actions">
                     <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
                     <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="雨夜示例" onClick={() => void openRainNight()} />
                     <ToolButton variant="default" icon={<Images className="size-4" />} label="从图片创建" onClick={() => setFromImageOpen(true)} />
@@ -143,21 +166,27 @@ export default function DramaPage() {
                     />
                 )
                 : (
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
+                    <div className="fz-dense-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))"}}>
                         {projects.map((p) => {
                             const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
                             return (
                                 // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
                                 <Link key={p.id} to={`/create?project=${p.id}`}
-                                    className="group flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent)]">
+                                    className="fz-card group">
+                                    <div className="fz-card-poster" aria-hidden />
                                     <div className="flex items-center justify-between gap-2">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
                                         <span className="text-[11px] text-muted-foreground">{formatDateTime(p.updated_at)}</span>
                                     </div>
-                                    <p className="line-clamp-1 text-sm font-medium" title={p.title || p.premise}>
+                                    <p className="fz-card-title" title={p.title || p.premise}>
                                         {p.title || p.premise?.slice(0, 24) || "未命名项目"}
                                     </p>
-                                    <p className="line-clamp-2 min-h-8 text-xs leading-relaxed text-muted-foreground">{p.premise}</p>
+                                    <p className="fz-card-meta line-clamp-2 min-h-8">{p.premise}</p>
+                                                                        <div className="fz-phase-row" aria-label="阶段">
+                                        {PHASES.map((label, idx) => (
+                                            <span key={label} className={`fz-phase-pip${idx < phaseDoneCount(p.status) ? " is-done" : ""}`}>{label}</span>
+                                        ))}
+</div>
                                     {p.pipeline && <ShotProgress p={p.pipeline} />}
                                     <div className="mt-auto flex items-center justify-between pt-1">
                                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Film className="h-3 w-3" />{p.width}×{p.height} · {p.render_mode_default ?? "video"}</span>

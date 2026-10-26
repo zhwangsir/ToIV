@@ -210,3 +210,13 @@ html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
   background: #0a0c12 !important;
   border-color: #22232c;
 }
+
+.fz-card-poster {
+  height: 72px;
+  margin: -2px -2px 2px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--fz-primary) 18%, transparent), transparent 55%),
+    linear-gradient(180deg, #1b1c23, #12131a);
+  border: 1px solid var(--fz-border, #22232c);
+}

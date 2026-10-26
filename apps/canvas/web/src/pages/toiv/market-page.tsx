@@ -66,6 +66,7 @@ import {
     unregisterMarketCanvasProvider,
 } from "@/services/toiv/market-providers";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import "@/styles/toiv-freezone-desk.css";
 
 const CATEGORY_META: Record<string, string> = {
     video: "视频",
@@ -852,18 +853,13 @@ export default function MarketPage() {
     };
 
     return (
-        <WorkspacePage fluid className="toiv-market-page">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">工具箱</h1>
-                    <p className="text-sm text-muted-foreground">应用市场 · 生成能力即取即用</p>
-                    <p className="text-xs leading-5 text-[var(--muted-foreground)]">
-                        浏览应用、配置参数后运行；作业自动进入任务中心
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Link to="/toiv/audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
+        <WorkspacePage fluid className="toiv-market-page fz-desk">
+            <div className="fz-desk-page mx-auto flex w-full max-w-7xl flex-col gap-3">
+                        <header className="fz-desk-toolbar">
+                <h1>工具箱</h1>
+                <p>应用市场 · 生成能力即取即用；作业进任务中心。</p>
+                <div className="fz-desk-actions">
+<Link to="/toiv/audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
                     <Link to="/toiv/image-tools"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
                     <Link to="/toiv/video-tools"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频剪辑" /></Link>
                     <Link to="/toiv/dub-tools"><ToolButton variant="default" icon={<Languages className="size-4" />} label="视频译制" /></Link>
@@ -871,10 +867,11 @@ export default function MarketPage() {
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
                     </Link>
+                
                 </div>
             </header>
 
-            <div className="toiv-market-filters flex flex-wrap items-center gap-2">
+            <div className="toiv-market-filters fz-panel flex flex-wrap items-center gap-2 px-2.5 py-2">
                 {categories.map(([key, n]) => (
                     <button
                         key={key}
@@ -959,7 +956,7 @@ export default function MarketPage() {
                             </div>
                         </section>
                     )}
-                    <div className="toiv-market-grid grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                    <div className="toiv-market-grid grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
                         {filtered.map((app) => {
                             const local = resolveLocalCapabilityBadge(app);
                             return (
