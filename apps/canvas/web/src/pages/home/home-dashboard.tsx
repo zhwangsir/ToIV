@@ -60,9 +60,8 @@ export function HomeDashboard({
     return (
         <main className="toiv-home" aria-label="ToIV 首页">
             <section className="toiv-home-hero" aria-label="开始创作">
-                <span className="toiv-home-dot-base" aria-hidden />
-                <span className="toiv-home-dot-flow" aria-hidden />
-                <span className="toiv-home-dot-flow toiv-home-dot-flow-delay" aria-hidden />
+                <span className="toiv-home-glow" aria-hidden />
+                <span className="toiv-home-glow toiv-home-glow-delay" aria-hidden />
                 <div className="toiv-home-hero-actions">
                     <button type="button" className="toiv-home-create" onClick={() => void createDrama()} disabled={creating} aria-label="新建短剧">
                         <span className="toiv-home-create-icon">{creating ? <Loader2 className="animate-spin" /> : <Plus />}</span>
