@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { login, setToken } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
@@ -16,20 +16,29 @@ const CAPABILITIES = [
 ];
 
 /**
- * 未登录落地页 —— 走设计系统 v6 浅色五色板 token。
- * 版型(第二轮重排):左品牌区「logo 顶置 + 中部 hero(眉题/大标语/描述)
- * + 底部三列能力卡」编辑部竖向三段,右登录玻璃卡(16px 圆角 + 40px 内边距);
- * <1024px 退化为单列居中卡。
- * 样式全部在 app/styles/landing.css(styled-jsx 已清零)。
+ * 未登录落地页 —— DramaClaw 暗色壳（与官网同 token：#0a0c12 / primary #00bdcf / accent #5ba0ff）。
+ * landing.css 在 .landing 作用域强制覆盖 minimal 亮默认；此组件再把 html data-mode 置 dark，
+ * 避免全局 .input/.btn 回落浅色。登录成功会整页 reload，不恢复旧 mode。
  */
 export function LandingPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // 字段级错误:邮箱为空 / 密码为空 / 凭据错误(表单级)三类
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.mode = "dark";
+    root.style.colorScheme = "dark";
+    try {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", "#0a0c12");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +56,6 @@ export function LandingPage() {
         window.location.reload();
       }
     } catch (err) {
-      // 批 D:网络/超时故障与凭据错误分流——断网时报「账号或密码错误」是误导
       const msg = err instanceof Error ? err.message : "";
       const isNetwork =
         err instanceof TypeError || msg.includes("请求超时") || msg.includes("网络");
@@ -64,8 +72,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="landing">
-      {/* ── 左:品牌区(logo 顶置 + hero + 能力卡三列) ── */}
+    <div className="landing" data-landing-shell="dramaclaw-dark">
       <section className="landing-brand">
         <div className="landing-logo">
           <span className="landing-logo-dot" />
@@ -92,10 +99,8 @@ export function LandingPage() {
         </ul>
       </section>
 
-      {/* ── 右:登录玻璃卡 ── */}
       <section className="landing-auth">
         <div className="landing-card">
-          {/* 移动端品牌头(<1024 品牌区隐藏,卡内补 compact 品牌行) */}
           <div className="landing-card-brand">
             <span className="landing-logo-dot" />
             <span className="landing-logo-text">ToIV</span>
@@ -149,7 +154,6 @@ export function LandingPage() {
             {formError && (
               <div className="landing-error" role="alert">{formError}</div>
             )}
-            {/* 主 CTA(UI-A 动效原语接入):点击微粒子聚集 + 水波纹;reduced-motion 自动退化 */}
             <ParticleButton className="landing-submit">
               <Ripple>
                 <button type="submit" className="btn btn-primary" disabled={loading}>

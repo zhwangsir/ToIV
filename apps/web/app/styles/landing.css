@@ -1,30 +1,75 @@
 /* ════════════════════════════════════════════════════════════════════
-   登录落地页(批 3 剧场化;自 LandingPage styled-jsx 迁入并重做版型)
-   - 桌面:左 60% 品牌区(纸白底 + 全局噪点 body::before 自然覆盖)+
-     右 40% 登录玻璃卡
-   - <1024px:品牌区隐藏,单列居中玻璃卡(卡内 compact 品牌行)
-   全部色值走 token,禁止硬编码颜色。
+   登录落地页 — DramaClaw 暗色壳（token/节奏对齐 DESIGN.md；禁抄 DC TSX）
+   桌面:左品牌 + 右登录卡；<1024 单列卡。
+   全部色值在 .landing 作用域内强制覆盖 minimal 亮默认，不依赖全局 data-mode。
    ════════════════════════════════════════════════════════════════════ */
 
 .landing {
+  /* Freezone / DramaClaw dark-first */
+  --bg-canvas: #0a0c12;
+  --bg-surface-1: #15161d;
+  --bg-surface-2: #1b1c23;
+  --bg-surface-3: #13141b;
+  --border-subtle: #22232c;
+  --border-strong: #2f3036;
+  --text-primary: #e8eaf0;
+  --text-secondary: #b4b8c4;
+  --text-muted: #6f7079;
+  --accent: #00bdcf;
+  --accent-hover: #1ad0e0;
+  --accent-soft: rgba(0, 189, 207, 0.14);
+  --accent-halo: rgba(91, 160, 255, 0.28);
+  --text-on-accent: #111b21;
+  --accent-glow: #5ba0ff;
+  --accent-glow-soft: rgba(91, 160, 255, 0.16);
+  --accent-glow-shadow: 0 0 24px rgba(0, 189, 207, 0.35);
+  --err: #f58484;
+  --err-soft: rgba(245, 132, 132, 0.14);
+  --glass-bg: rgba(21, 22, 29, 0.86);
+  --glass-border: rgba(91, 160, 255, 0.16);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glass-blur: blur(28px) saturate(1.2);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  --shadow-md: 0 2px 12px rgba(0, 189, 207, 0.22);
+  --shadow-lg: 0 8px 28px rgba(0, 189, 207, 0.28);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+
   min-height: 100vh;
-  /* 移动浏览器地址栏伸缩时按动态视口高度撑满,避免底部留白/裁切 */
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 3fr 2fr;
-  background: var(--bg-canvas);
+  background:
+    radial-gradient(ellipse 50% 40% at 12% 18%, rgba(91, 160, 255, 0.18), transparent 65%),
+    radial-gradient(ellipse 40% 35% at 88% 80%, rgba(0, 189, 207, 0.12), transparent 70%),
+    var(--bg-canvas);
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
 }
 
-/* ── 左:品牌区(纸白底 + 编辑部排版) ── */
+.landing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    conic-gradient(from 200deg at 6% 22%, transparent 0deg, rgba(91, 160, 255, 0.07) 20deg, transparent 46deg);
+  opacity: 0.7;
+}
+
+/* ── 左:暗色品牌区 ── */
 .landing-brand {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: var(--space-5);
   padding: var(--space-12) var(--space-10);
   background:
-    radial-gradient(ellipse at 20% 0%, var(--accent-soft), transparent 55%),
-    var(--bg-surface-1);
+    linear-gradient(180deg, rgba(17, 27, 33, 0.35), transparent 55%),
+    color-mix(in srgb, var(--bg-surface-1) 55%, transparent);
   border-right: 1px solid var(--border-subtle);
 }
 .landing-logo {
@@ -36,7 +81,7 @@
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  background: var(--accent);
+  background: linear-gradient(145deg, #00bdcf, #5ba0ff);
   box-shadow: var(--accent-glow-shadow);
 }
 .landing-logo-text {
@@ -46,51 +91,49 @@
   letter-spacing: -0.02em;
 }
 
-/* ── hero 区(2026-08-14 UI-A 死类补齐,Film Atelier 编辑部克制版式) ── */
 .landing-hero {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-4);
 }
-/* 眉题小胶囊:accent-soft 底 + accent 字 + 呼吸点,低声部开场 */
 .landing-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   padding: 4px var(--space-3);
-  background: var(--accent-soft);
+  background: var(--accent-glow-soft);
+  border: 1px solid color-mix(in srgb, #5ba0ff 28%, transparent);
   border-radius: var(--radius-full);
   font-size: var(--text-label);
   font-weight: var(--font-medium);
   letter-spacing: 0.08em;
-  color: var(--accent);
+  color: #5ba0ff;
 }
 .landing-eyebrow-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  animation: landing-eyebrow-breathe var(--duration-loop) ease-in-out infinite;
+  background: #00bdcf;
+  box-shadow: 0 0 10px #00bdcf;
+  animation: landing-eyebrow-breathe var(--duration-loop, 2.4s) ease-in-out infinite;
 }
 @keyframes landing-eyebrow-breathe {
   0%, 100% { opacity: 0.45; transform: scale(0.85); }
   50% { opacity: 1; transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing-eyebrow-dot {
-    animation: none;
-  }
+  .landing-eyebrow-dot { animation: none; }
 }
 .landing-slogan {
   margin: 0;
-  /* Display 档:大字标语走展示位衬线,字距收紧,行高 token */
   font-family: var(--font-display);
-  font-size: clamp(var(--text-display-md), 4.2vw, 52px);
+  font-size: clamp(var(--text-display-md, 32px), 4.2vw, 52px);
   font-weight: var(--font-bold);
   letter-spacing: -0.03em;
-  line-height: var(--leading-display);
+  line-height: var(--leading-display, 1.15);
   color: var(--text-primary);
+  text-shadow: 0 0 36px rgba(91, 160, 255, 0.14);
 }
 .landing-brand-desc {
   margin: 0;
@@ -114,12 +157,11 @@
   padding: var(--space-2);
   margin: 0 calc(-1 * var(--space-2));
   border-top: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  /* 列表行 hover 细化(2026-09-04 美化 W4):行底色 soft 淡入,≤200ms */
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  border-radius: var(--radius-control, 8px);
+  transition: background-color var(--duration-fast, 140ms) var(--ease-standard, ease);
 }
 .landing-keyword:hover {
-  background: var(--accent-glow-soft);
+  background: var(--accent-soft);
 }
 .landing-keyword-index {
   font-family: var(--font-mono);
@@ -128,16 +170,13 @@
   font-variant-numeric: tabular-nums;
 }
 .landing-keyword-label {
-  /* 关键词 italic 琥珀点睛(2026-09-04 美化 W4):Fraunces 斜体 + --accent-glow,
-     仅三个短词的最小触点,不扩到大面积正文 */
   font-family: var(--font-display);
   font-style: italic;
   font-size: var(--text-section);
   font-weight: var(--font-semibold);
-  color: var(--accent-glow);
+  color: #5ba0ff;
   letter-spacing: -0.01em;
 }
-/* 关键词描述(2026-08-14 UI-A 死类补齐):右对齐 muted 辅助说明,与序号/标签构成 baseline 三栏 */
 .landing-keyword-desc {
   margin-left: auto;
   font-size: var(--text-aux);
@@ -146,8 +185,10 @@
   text-align: right;
 }
 
-/* ── 右:登录玻璃卡 ── */
+/* ── 右:暗玻璃登录卡 ── */
 .landing-auth {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,26 +198,21 @@
   width: 100%;
   max-width: 400px;
   padding: var(--space-8);
-  /* .glass-panel 同款白玻璃材质 */
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-panel);
-  /* 2026-09-04 美化 W4:浮层阴影统一 --shadow-pop(原 shadow-float 与玻璃高光叠加偏重) */
-  box-shadow: var(--glass-highlight), var(--shadow-pop);
-  /* 矮屏(横屏手机等)卡内容超出视口时内部滚动,不顶破首屏 */
+  border-radius: var(--radius-panel, 16px);
+  box-shadow: var(--glass-highlight), var(--shadow-pop), 0 0 40px rgba(0, 189, 207, 0.08);
   max-height: calc(100dvh - var(--space-8));
   overflow-y: auto;
 }
-/* 卡内 compact 品牌行:默认隐藏,移动端品牌区收起时显示 */
 .landing-card-brand {
   display: none;
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
-/* 卡头块(2026-08-14 UI-A 死类补齐):标题+副标题编组,与表单间距统一由块级 margin 承载 */
 .landing-card-head {
   margin-bottom: var(--space-5);
 }
@@ -200,7 +236,6 @@
   flex-direction: column;
   gap: var(--space-3);
 }
-/* 主 CTA 动效包裹(ParticleButton > Ripple > button):包裹层撑满行宽,按钮视觉不变 */
 .landing-form .landing-submit {
   display: flex;
   width: 100%;
@@ -213,9 +248,17 @@
 .landing-form .btn-primary {
   flex: 1;
   width: 100%;
-  /* 登录主 CTA:44px 触控目标 + 正文字号,与输入框同高对齐 */
-  height: var(--touch-target);
+  height: var(--touch-target, 44px);
   font-size: var(--text-body);
+  background: #00bdcf;
+  border-color: #00bdcf;
+  color: #111b21;
+  box-shadow: 0 0 24px rgba(0, 189, 207, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.landing-form .btn-primary:hover:not(:disabled) {
+  background: #1ad0e0;
+  border-color: #1ad0e0;
+  box-shadow: 0 0 32px rgba(0, 189, 207, 0.45);
 }
 .landing-field {
   display: flex;
@@ -223,10 +266,23 @@
   gap: var(--space-1);
 }
 .landing-field .input {
-  /* 登录输入框:44px 触控目标(覆盖全局 .input 的紧凑内边距高度) */
-  height: var(--touch-target);
+  height: var(--touch-target, 44px);
   padding-top: 0;
   padding-bottom: 0;
+  background: #0d0e14;
+  border-color: #2a3942;
+  color: var(--text-primary);
+  caret-color: #00bdcf;
+}
+.landing-field .input::placeholder {
+  color: #6f7079;
+}
+.landing-field .input:hover {
+  border-color: color-mix(in srgb, #5ba0ff 40%, #2a3942);
+}
+.landing-field .input:focus {
+  border-color: #5ba0ff;
+  box-shadow: var(--shadow-xs), 0 0 0 3px rgba(91, 160, 255, 0.14);
 }
 .landing-field .input[aria-invalid="true"] {
   border-color: var(--err);
@@ -240,7 +296,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--err-soft);
   border: 1px solid var(--err);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-control, 8px);
   color: var(--err);
   font-size: var(--text-aux);
   line-height: 1.5;
@@ -259,19 +315,15 @@
   color: var(--text-secondary);
   padding: 2px 6px;
   background: var(--bg-surface-3);
-  border-radius: var(--radius-badge);
+  border-radius: var(--radius-badge, 6px);
   font-size: var(--text-aux);
 }
 
-/* ── <1024px:退化为单列居中卡 ── */
 @media (max-width: 1023px) {
   .landing {
     grid-template-columns: 1fr;
     place-items: center;
     padding: var(--space-4);
-    background:
-      radial-gradient(ellipse at 50% 0%, var(--accent-soft), transparent 60%),
-      var(--bg-canvas);
   }
   .landing-brand {
     display: none;
@@ -287,7 +339,6 @@
   }
 }
 
-/* ── <768px:卡内边距收紧,品牌行与标题间距对齐 4px 网格 ── */
 @media (max-width: 767px) {
   .landing-card {
     padding: var(--space-6) var(--space-5);
