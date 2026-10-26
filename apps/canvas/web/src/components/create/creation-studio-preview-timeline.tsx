@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ChevronDown,
     ChevronUp,
+    Clapperboard,
     Maximize2,
     Pause,
     Play,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { cn } from "@/lib/utils";
 import {
     COPY_MODE_ADULT,
@@ -281,7 +283,13 @@ export function CreationStudioPreviewTimeline({ projectId = null, className }: P
                 </div>
                 <div className="toiv-timeline-scroll" ref={scrollRef}>
                     {!items.length ? (
-                        <p className="toiv-timeline-empty">暂无预览片段。解析分镜或生成镜头后将显示在此时间线。</p>
+                        <ToivEmptyState
+                            compact
+                            className="toiv-timeline-empty"
+                            icon={Clapperboard}
+                            title="暂无预览片段"
+                            description="解析分镜或生成镜头后，将按时间排列在此。"
+                        />
                     ) : (
                         <div
                             className="toiv-timeline-canvas"

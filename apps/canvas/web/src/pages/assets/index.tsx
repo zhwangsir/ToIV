@@ -29,6 +29,7 @@ import { mediaFileExtension, sanitizeDownloadFileName } from "@/lib/canvas/canva
 import { cn } from "@/lib/utils";
 import { assetLooksNsfw, filterNsfwListableAssets, getR18ModeSnapshot, getServerR18ModeSnapshot, isNsfwAssetSelectable, subscribeR18Mode, type NsfwAssetLike } from "@/redline";
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 
 import { useCopyText } from "@/hooks/use-copy-text";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -1721,13 +1722,16 @@ function GenerationHistoryMissingPreview({ asset }: { asset: LibraryAsset }) {
 function AssetsEmptyState({ onImport }: { onImport: () => void }) {
     return (
         <div className="assets-empty assets-empty-workspace">
-            <div className="assets-empty-copy">
-                <span className="assets-empty-icon"><FileX2 /></span>
-                <strong>当前暂无资产</strong>
-            </div>
-            <button type="button" className="assets-empty-primary" onClick={onImport}>
-                <span>上传资产</span>
-            </button>
+            <ToivEmptyState
+                icon={FileX2}
+                title="当前暂无资产"
+                description="上传图片、视频或音频后，可在创作台素材池中选用。"
+                action={
+                    <button type="button" className="toiv-empty-cta assets-empty-primary" onClick={onImport}>
+                        上传资产
+                    </button>
+                }
+            />
         </div>
     );
 }

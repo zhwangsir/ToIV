@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useSyncExternalStore } from "react";
-import { AudioLines, Clapperboard, FileText, Image as ImageIcon, Box } from "lucide-react";
+import { AudioLines, Clapperboard, FileText, Image as ImageIcon, Box, FolderOpen, Images, Search } from "lucide-react";
 
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
+import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
+import { ToivSoftGlow } from "@/components/toiv/toiv-soft-glow";
 import { cn } from "@/lib/utils";
 import {
     COPY_MODE_ADULT,
@@ -68,6 +71,7 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
     const navigate = useNavigate();
     const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
     const assets = useAssetStore((s) => s.assets);
+    const hydrated = useAssetStore((s) => s.hydrated);
     const [keyword, setKeyword] = useState("");
     const [kind, setKind] = useState<AssetKind | "all">("all");
     const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -189,20 +193,41 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
                 </div>
             ) : null}
 
-            {filtered.length === 0 ? (
-                <div className="toiv-asset-pool-empty" data-testid="creation-studio-media-pool-empty">
+            {!hydrated ? (
+                <ToivSkeletonGrid count={8} />
+            ) : filtered.length === 0 ? (
+                <ToivSoftGlow className="toiv-asset-pool-empty" data-testid="creation-studio-media-pool-empty">
                     {library.length === 0 ? (
-                        <>
-                            暂无本地素材。去 <Link to={assetsHref}>资产库</Link> 上传，或在成片后自动入库。
-                        </>
+                        <ToivEmptyState
+                            compact
+                            icon={FolderOpen}
+                            title="还没有素材"
+                            description={
+                                <>
+                                    去 <Link to={assetsHref}>资产库</Link> 上传，或在成片后自动入库。
+                                </>
+                            }
+                        />
                     ) : !adultOn && listable.length < library.length ? (
-                        <>
-                            当前为{COPY_MODE_NORMAL}：部分未评级条目已隐藏。切到顶栏「{COPY_MODE_ADULT}」可查看。
-                        </>
+                        <ToivEmptyState
+                            compact
+                            icon={Images}
+                            title={`当前为${COPY_MODE_NORMAL}`}
+                            description={`部分条目已按模式隐藏。切到顶栏「${COPY_MODE_ADULT}」可查看。`}
+                        />
                     ) : (
-                        <>无匹配结果。试试清空筛选，或打开 <Link to={assetsHref}>资产库</Link>。</>
+                        <ToivEmptyState
+                            compact
+                            icon={Search}
+                            title="无匹配结果"
+                            description={
+                                <>
+                                    试试清空筛选，或打开 <Link to={assetsHref}>资产库</Link>。
+                                </>
+                            }
+                        />
                     )}
-                </div>
+                </ToivSoftGlow>
             ) : (
                 <div className="toiv-asset-pool-scroll">
                     <div className="toiv-asset-pool-grid" role="list">

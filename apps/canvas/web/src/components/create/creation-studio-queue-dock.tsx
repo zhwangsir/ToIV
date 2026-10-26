@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router";
 import { FileText, ListTodo, LoaderCircle, RefreshCw, RotateCcw, X } from "lucide-react";
 
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
+import { ToivSkeletonList } from "@/components/toiv/toiv-skeleton";
 import { cn } from "@/lib/utils";
 import { formatTaskKind, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel } from "@/lib/generation-task-display";
 import {
@@ -68,6 +70,7 @@ export function CreationStudioQueueDock() {
     const [logTaskId, setLogTaskId] = useState<string | null>(null);
     const [logs, setLogs] = useState<TaskLog[]>([]);
     const [logBusy, setLogBusy] = useState(false);
+    const [booted, setBooted] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
 
     const projectId = useMemo(() => {
@@ -82,6 +85,8 @@ export function CreationStudioQueueDock() {
             setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : "队列加载失败");
+        } finally {
+            setBooted(true);
         }
     }, [projectId]);
 
@@ -164,9 +169,18 @@ export function CreationStudioQueueDock() {
 
     const listBody = (
         <>
-            {error ? <p className="toiv-queue-empty">{error}</p> : null}
-            {!error && visibleTasks.length === 0 ? (
-                <p className="toiv-queue-empty">暂无生成任务。开始创作后会在此显示进度。</p>
+            {error ? (
+                <ToivEmptyState compact className="toiv-queue-empty" title="队列暂时不可用" description={error} />
+            ) : null}
+            {!error && !booted ? <ToivSkeletonList rows={3} className="toiv-queue-empty" /> : null}
+            {!error && booted && visibleTasks.length === 0 ? (
+                <ToivEmptyState
+                    compact
+                    className="toiv-queue-empty"
+                    icon={ListTodo}
+                    title="暂无生成任务"
+                    description="开始创作后会在此显示进度与重试入口。"
+                />
             ) : null}
             <div className="toiv-queue-list" role="list">
                 {visibleTasks.map((task) => {

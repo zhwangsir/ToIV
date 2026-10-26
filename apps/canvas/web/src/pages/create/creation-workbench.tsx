@@ -3,6 +3,7 @@
  * R3：三栏；R4：剧本解析 + 分镜卡片流；顶栏光幕不挪回侧栏脚。
  * TL R3补+R4：右栏选中扩 420；无挡中栏浮层。
  * R8：预览时间线全宽贴底（--toiv-timeline-*）；320/420 只挤中列。
+ * R9：空态/骨架/微动效（--toiv-empty-* / --toiv-skeleton-* / --toiv-motion-*）。
  */
 import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router";
@@ -12,7 +13,7 @@ import { CreationStudioInspector } from "@/components/create/creation-studio-ins
 import { CreationStudioSlotsProvider, useCreationStudioSlots } from "@/components/create/creation-studio-slots";
 import { CreationStudioPreviewTimeline } from "@/components/create/creation-studio-preview-timeline";
 import { CreationStudioThreePane } from "@/components/create/creation-studio-three-pane";
-import { WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
+import { ToivSkeletonPane } from "@/components/toiv/toiv-skeleton";
 
 const CreatePage = lazy(() => import("./index"));
 const DramaWorkspacePage = lazy(() => import("@/pages/toiv/drama-workspace"));
@@ -30,7 +31,7 @@ function CreationWorkbenchShell() {
                 rail={<CreationStudioAssetRail projectId={projectId} section={section} />}
                 inspector={<CreationStudioInspector projectId={projectId} section={section} />}
                 stage={
-                    <Suspense fallback={<WorkspaceRouteLoader />}>
+                    <Suspense fallback={<ToivSkeletonPane />}>
                         {projectId ? <DramaWorkspacePage projectIdOverride={projectId} /> : <CreatePage />}
                     </Suspense>
                 }

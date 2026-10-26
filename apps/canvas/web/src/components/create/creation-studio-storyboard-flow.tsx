@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { StatusBadge } from "@/components/ui/base/badges";
 import { ToolButton } from "@/components/ui/base/buttons";
-import { EmptyState } from "@/components/ui/product/empty-state";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { dramaShotBoardColumn, type DramaBoardColumnId } from "@/pages/toiv/drama-shot-board";
 import type { ToivDramaShot, ToivFrameVariant } from "@/services/toiv/client";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,7 @@ export function CreationStudioStoryboardFlow({
                 <header className="toiv-storyboard-flow-head">
                     <h2 className="toiv-storyboard-flow-title">分镜卡片</h2>
                 </header>
-                <EmptyState description={emptyHint} />
+                <ToivEmptyState title="还没有分镜" description={emptyHint} />
             </div>
         );
     }

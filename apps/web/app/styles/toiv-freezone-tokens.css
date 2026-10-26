@@ -537,6 +537,40 @@
   --toiv-player-volume-rail-h: 60px;
   --toiv-player-volume-panel-w: 40px;
 
+  /* ── Empty / skeleton / motion R9 ──
+     200–280ms 弹性；骨架/局部 pulse，拒绝满屏廉价 spinner。
+     光晕主色 accent #5ba0ff（勿用成人 #4f8cff）。成人 geometry unchanged。 */
+  --toiv-motion-enter-ms: 220ms;
+  --toiv-motion-exit-ms: 200ms;
+  --toiv-motion-spring-ms: 260ms;
+  --toiv-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --toiv-motion-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --toiv-motion-stagger: 40ms;
+  --toiv-empty-pad-y: 28px;
+  --toiv-empty-pad-y-compact: 16px;
+  --toiv-empty-icon-d: 48px;
+  --toiv-empty-icon-d-compact: 36px;
+  --toiv-empty-icon-fg: var(--toiv-text-muted, #6f7079);
+  --toiv-empty-icon-bg: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 10%, transparent);
+  --toiv-empty-title-fs: 14px;
+  --toiv-empty-title-fw: 560;
+  --toiv-empty-desc-fs: 12px;
+  --toiv-empty-desc-max: 36ch;
+  --toiv-empty-gap: 10px;
+  --toiv-empty-cta-h: 32px;
+  --toiv-empty-cta-radius: 999px;
+  --toiv-skeleton-radius: 10px;
+  --toiv-skeleton-base: color-mix(in srgb, var(--toiv-text) 6%, transparent);
+  --toiv-skeleton-shine: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 14%, transparent);
+  --toiv-skeleton-dur: 1.4s;
+  --toiv-skeleton-row-h: 12px;
+  --toiv-skeleton-card-h: 96px;
+  --toiv-skeleton-card-gap: 10px;
+  --toiv-glow-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 18%, transparent);
+  --toiv-glow-radius: 140px;
+  --toiv-glow-opacity: 0.55;
+  --toiv-motion-adult-geometry: unchanged;
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);
