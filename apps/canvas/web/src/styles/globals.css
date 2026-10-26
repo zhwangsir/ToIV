@@ -296,7 +296,7 @@
     --glass-border-alpha: 0.78;
 
     /* 站点皮肤对登录页的组件级入口；经典皮肤保持原始值。 */
-    --auth-page-bg: #08090c;
+    --auth-page-bg: #0a0c12;
     --auth-panel-bg: #0b0c10;
     --auth-card-bg: rgba(18, 19, 24, 0.94);
     --auth-accent: rgba(147, 197, 253, 0.8);

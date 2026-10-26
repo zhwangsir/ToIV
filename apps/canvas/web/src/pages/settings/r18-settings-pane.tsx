@@ -77,7 +77,7 @@ export function R18SettingsPane() {
             </div>
 
             <p className="mt-2 text-[11px] leading-5 text-[var(--muted-foreground)]" data-testid="r18-account-global-hint">
-                主切换在<strong className="text-foreground/80">舞台顶栏光幕拨片</strong>
+                主切换在<strong className="text-foreground/80">侧栏脚光幕芯片（深浅色旁）</strong>
                 （普通 / 成人，图标+纹理双通道）。本页不提供开关。
                 {COPY_ACCOUNT_GLOBAL}。{COPY_ACCOUNT_SYNC_HINT}。{COPY_IN_FLIGHT_SAFE}。
                 深链 <code className="text-[10px]">?focus=r18</code> 仍可打开下方确认闸（失败卡跳转兼容）。

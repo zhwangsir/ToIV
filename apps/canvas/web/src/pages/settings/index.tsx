@@ -17,6 +17,7 @@ import { PromptPreferencesPane } from "./prompt-preferences-pane";
 import { R18SettingsPane } from "./r18-settings-pane";
 import { RunningHubSettingsPane } from "./runninghub-settings-pane";
 import "./settings-visual.css";
+import "@/styles/toiv-freezone-desk.css";
 
 /** Product IA: 常用 / 模型与算力 / 高级. Legacy URL aliases map in resolveSettingsSection. */
 export type ConfigSectionKey = "common" | "compute" | "advanced";
@@ -140,7 +141,10 @@ export default function SettingsPage() {
                     </section>
                     <ModelMixPresetsBar onApplied={() => setSlotEpoch((n) => n + 1)} />
                     <LlmMutexBanner config={effectiveConfig} />
-                    <R18SettingsPane />
+                    <section className="settings-section" data-testid="settings-content-mode-note">
+                        <p className="settings-block-label">内容模式说明</p>
+                        <R18SettingsPane />
+                    </section>
                 </div>
             </SettingsPane>
         ),
@@ -201,7 +205,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <main className="settings-page app-workspace-page app-user-workspace app-section-page flex h-full min-h-0 flex-col text-foreground">
+        <main className="settings-page fz-desk app-workspace-page app-user-workspace app-section-page flex h-full min-h-0 flex-col text-foreground">
             {shouldPromptContinue ? (
                 <div className="settings-topbar shrink-0">
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">

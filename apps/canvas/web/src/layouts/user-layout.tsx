@@ -8,6 +8,7 @@ import { isSpatialWorkbenchPath } from "@/lib/workspace-routes";
 import { getWorkspaceAntThemeConfig } from "@/lib/app-theme";
 import { useWorkspaceButtonFeedback } from "@/hooks/use-workspace-button-feedback";
 import "@/styles/workspace-product.css";
+import "@/styles/toiv-freezone-desk.css";
 
 const workspaceTheme = getWorkspaceAntThemeConfig();
 

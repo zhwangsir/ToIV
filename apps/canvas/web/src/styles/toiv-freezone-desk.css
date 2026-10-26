@@ -206,7 +206,12 @@ html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
 .dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav {
   --user-page-bg: #0a0c12;
   --user-surface: #15161d;
+  --user-surface-muted: #0a0c12;
+  --user-surface-raised: #1b1c23;
   --user-border: #22232c;
+  --user-ink: #e8eaf0;
+  --user-ink-muted: #6f7079;
+  --user-ink-soft: #55565e;
   background: #0a0c12 !important;
   border-color: #22232c;
 }
@@ -220,3 +225,41 @@ html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
     linear-gradient(180deg, #1b1c23, #12131a);
   border: 1px solid var(--fz-border, #22232c);
 }
+
+/* wave ⑥ — product sidebar + content stage same Freezone canvas (dark default) */
+html.dark .app-user-workspace.app-product-workspace,
+.dark .app-user-workspace.app-product-workspace {
+  --user-page-bg: #0a0c12;
+  --user-surface: #15161d;
+  --user-border: #22232c;
+  --workspace-page: #0a0c12;
+  --workspace-canvas: #0a0c12;
+  --workspace-surface: #15161d;
+  --workspace-sidebar: #0a0c12;
+  --workspace-content: #0a0c12;
+  --sidebar: #0a0c12;
+  --sidebar-foreground: #e8eaf0;
+  --sidebar-border: #22232c;
+  --sidebar-accent: #15161d;
+  --sidebar-accent-foreground: #e8eaf0;
+}
+
+html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar,
+html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
+html.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-footer,
+.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar,
+.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-nav,
+.dark .app-user-workspace.app-product-workspace .app-workspace-sidebar-footer {
+  background: #0a0c12 !important;
+  border-color: #22232c !important;
+  color: #e8eaf0;
+}
+
+html.dark .app-user-workspace.app-product-workspace .app-user-content,
+html.dark .app-user-workspace.app-product-workspace .app-workspace-content,
+.dark .app-user-workspace.app-product-workspace .app-user-content,
+.dark .app-user-workspace.app-product-workspace .app-workspace-content {
+  background: #0a0c12 !important;
+}
+
+/* light theme remains available; do not force dark when html is light */

@@ -1,3 +1,65 @@
+/* Settings Freezone desk — wave ⑤ (三层 IA 已有；成人仅说明+光幕) */
+.settings-page.fz-desk,
+.settings-page {
+  --fz-canvas: #0a0c12;
+  --fz-surface: #15161d;
+  --fz-raised: #1b1c23;
+  --fz-border: #22232c;
+  --fz-ink: #e8eaf0;
+  --fz-muted: #6f7079;
+  --fz-primary: #00bdcf;
+  --fz-accent: #5ba0ff;
+}
+
+html.dark .settings-page.fz-desk,
+.dark .settings-page.fz-desk {
+  background: var(--fz-canvas);
+  color: var(--fz-ink);
+}
+
+.settings-page .settings-pane-header h2 {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.settings-page .settings-section,
+.settings-page .settings-slot-surface,
+.settings-page .settings-bind-card,
+.settings-page .settings-advanced-collapse > .ant-collapse-item {
+  border-color: var(--fz-border, #22232c) !important;
+  background: color-mix(in srgb, var(--fz-surface, #15161d) 92%, transparent);
+}
+
+.settings-page .settings-r18-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--fz-border, #22232c);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fz-raised, #1b1c23) 80%, transparent);
+}
+
+.settings-page .settings-r18-row h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-page .settings-r18-row p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--fz-muted, #6f7079);
+}
+
+.settings-page [data-testid="settings-section-nav"] {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--fz-border, #22232c);
+}
+
 /* Settings visual pass 2026-10-26 — LingGuo-style restraint: slot table first, less chrome */
 
 .settings-page .settings-pane-root {
@@ -386,4 +448,18 @@
   .settings-compute-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* wave ⑤ denser header */
+.settings-page .settings-pane-header {
+  margin-bottom: 12px;
+}
+.settings-page .settings-pane-header h2 {
+  font-size: 15px !important;
+  line-height: 22px;
+}
+.settings-page .settings-pane-header p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 18px;
 }
