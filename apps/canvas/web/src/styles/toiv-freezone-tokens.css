@@ -398,6 +398,28 @@
   --toiv-asset-nsfw-veil: var(--toiv-media-nsfw-veil);
   --toiv-asset-adult-geometry: var(--toiv-media-adult-geometry);
 
+
+  /* ── Generation queue (R7 · GENERATION_QUEUE) ──
+     顶栏旁 /create 底栏抽屉；进度条 + 失败重试 + 日志抽屉；
+     普通态 NSFW 任务灰锁；成人可见可操作；成人几何 unchanged。 */
+  --toiv-queue-trigger-h: 36px;
+  --toiv-queue-trigger-radius: 12px;
+  --toiv-queue-panel-w: 360px;
+  --toiv-queue-panel-max-h: min(70vh, 520px);
+  --toiv-queue-panel-radius: 14px;
+  --toiv-queue-panel-pad: 10px;
+  --toiv-queue-row-gap: 8px;
+  --toiv-queue-row-radius: 12px;
+  --toiv-queue-row-pad: 12px;
+  --toiv-queue-progress-h: 6px;
+  --toiv-queue-progress-radius: 999px;
+  --toiv-queue-drawer-h: min(42vh, 380px);
+  --toiv-queue-log-max-h: 180px;
+  --toiv-queue-title-fs: 12px;
+  --toiv-queue-meta-fs: 11px;
+  --toiv-queue-poll-ms: 4000;
+  --toiv-queue-adult-geometry: unchanged;
+
   /* Desk aliases: primary=cyan CTA aux; accent=main blue */
   --fz-canvas: var(--toiv-bg);
   --fz-surface: var(--toiv-surface);

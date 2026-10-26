@@ -2,6 +2,7 @@ import { PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 import { LightCurtainPaddle } from "@/components/content-mode/light-curtain-paddle";
+import { CreationStudioQueueDock } from "@/components/create/creation-studio-queue-dock";
 import "@/components/content-mode/content-mode-prototypes.css";
 import { WorkspaceTopBarExtensionSlot } from "@/components/layout/workspace-top-bar-extension";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
@@ -31,6 +32,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
             </nav> : <span className="app-workspace-topbar-spacer" />}
             <WorkspaceTopBarExtensionSlot />
             <div className="app-workspace-topbar-actions" data-testid="workspace-topbar-actions">
+                <CreationStudioQueueDock />
                 <LightCurtainPaddle />
                 <Link to="/settings?section=common" className="app-workspace-topbar-utility"><Settings2 /><span>模型配置</span></Link>
             </div>
