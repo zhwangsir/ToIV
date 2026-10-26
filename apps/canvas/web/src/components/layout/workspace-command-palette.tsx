@@ -48,28 +48,28 @@ export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry,
     // 动作 — Wave P1：主新建=短剧；画布新建降为专家动作
     { id: "act:new-project", title: "新建短剧", icon: Plus, hint: "动作", to: "/toiv/drama?new=1" },
     { id: "act:new-canvas", title: "新建画布（专家）", icon: Plus, hint: "动作", to: "/canvas?mode=new" },
-    { id: "act:new-chat", title: "新对话", icon: MessageSquarePlus, hint: "动作", to: "/toiv/agent" },
+    { id: "act:new-chat", title: "新对话", icon: MessageSquarePlus, hint: "动作", to: "/create" },
     // 页面(与侧栏导航树同序)
     { id: "home", title: "首页", icon: Home, hint: "页面", to: "/" },
     { id: "create", title: "创作", icon: WandSparkles, hint: "页面", to: "/create" },
     { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, hint: "页面", to: "/toiv/drama" },
-    { id: "toiv:agent", title: "智能体对话", icon: Bot, hint: "页面", to: "/toiv/agent" },
+    { id: "toiv:agent", title: "智能体对话", icon: Bot, hint: "页面", to: "/create" },
     { id: "projects", title: "自由画布", icon: PanelsTopLeft, hint: "页面", to: "/project" },
     { id: "canvas", title: "画布", icon: PanelsTopLeft, hint: "页面", to: "/canvas" },
     { id: "library", title: "媒体库", icon: Library, hint: "页面", to: "/library?source=materials" },
     { id: "toiv:market", title: "工具台", icon: Store, hint: "页面", to: "/toiv/market" },
     { id: "toiv:tasks", title: "任务中心", icon: ListChecks, hint: "页面", to: "/toiv/tasks" },
     // 工具页(F3–F7 自经典 web 收编,侧栏未平铺)
-    { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/toiv/audio" },
-    { id: "toiv:image-tools", title: "图片工具", icon: Image, hint: "工具", to: "/toiv/image-tools" },
-    { id: "toiv:video-tools", title: "视频工具", icon: Film, hint: "工具", to: "/toiv/video-tools" },
-    { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/toiv/dub-tools" },
+    { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/create" },
+    { id: "toiv:image-tools", title: "图片工具", icon: Image, hint: "工具", to: "/create" },
+    { id: "toiv:video-tools", title: "视频工具", icon: Film, hint: "工具", to: "/create" },
+    { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/create" },
     // 高级 / 云端可选
     { id: "agents", title: "外部 Agent", icon: Plug, hint: "页面", to: "/agents" },
     // 设置段
     { id: "settings", title: "设置", icon: Settings, hint: "设置", to: "/settings" },
     { id: "settings:channels", title: "模型配置", icon: Settings2, hint: "设置", to: "/settings?section=channels" },
-    { id: "settings:common", title: "常用设置", icon: Settings2, hint: "设置", to: "/settings?section=common" },
+    { id: "settings:models", title: "模型设置", icon: Settings2, hint: "设置", to: "/settings?section=models" },
 ];
 
 /** 纯过滤(可单测):大小写不敏感子串匹配标题,空查询返回全量。 */
@@ -94,7 +94,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                     run: () => {
                         // 已在对话页时由页面监听重置;未挂载时挂载初态即新会话。
                         window.dispatchEvent(new CustomEvent(EV_AGENT_NEW_SESSION));
-                        navigate(entry.to ?? "/toiv/agent");
+                        navigate(entry.to ?? "/create");
                     },
                 };
             }

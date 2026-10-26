@@ -235,7 +235,7 @@ export function ToivAgentFloat() {
     /** 在对话页打开(整页形态):stash 会话 id,AgentPage 挂载时消费。 */
     const openInAgentPage = useCallback((sid: string) => {
         stashPendingAgentSession(sid);
-        navigate("/toiv/agent");
+        navigate("/create");
     }, [navigate]);
 
     const applyToCanvas = useCallback(async (payload: Record<string, unknown>) => {

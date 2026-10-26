@@ -23,8 +23,6 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   // S12 退役:fusion→home(经典回落面板);canvas→home(canvas 应用经 /studio)
   fusion: "home",
   canvas: "home",
-  // F12:home 助手面下线,旧助手深链落经典回落面板
-  assistant: "home",
   home: "home",
 };
 
@@ -35,16 +33,15 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   studio: "/studio/toiv/drama",
   // F3(2026-10-11):animatic 退役——AI 解析入口=canvas 短剧列表「从图片创建」(StudioProject 域)
   animatic: "/studio/toiv/drama",
-  // F4(2026-10-11):audio 退役——三工具(配音/听写/分离)迁 canvas /toiv/audio;文生音乐走应用市场
-  audio: "/studio/toiv/audio",
-  // F5(2026-10-11):imageEdit 退役——七工具迁 canvas /toiv/image-tools
-  imageEdit: "/studio/toiv/image-tools",
-  "image-edit": "/studio/toiv/image-tools",
-  // F6(2026-10-12):videoEdit 退役——三轨剪辑迁 canvas /toiv/video-tools
-  videoEdit: "/studio/toiv/video-tools",
-  "video-edit": "/studio/toiv/video-tools",
-  // F7(2026-10-12):dub 退役——五步译制链迁 canvas /toiv/dub-tools
-  dub: "/studio/toiv/dub-tools",
+  // R11 Strangler: 引擎工具孤面收敛创作台（对外 /studio/create）
+  audio: "/studio/create",
+  imageEdit: "/studio/create",
+  "image-edit": "/studio/create",
+  videoEdit: "/studio/create",
+  "video-edit": "/studio/create",
+  dub: "/studio/create",
+  // R11: 助手孤面 → 创作台
+  assistant: "/studio/create",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -113,7 +110,7 @@ function HomeContent() {
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const raw = searchParams.get("view");
-    if (raw === "assistant") return "home"; // 旧助手链接落经典回落面板(助手面已迁 canvas /toiv/agent)
+    if (raw === "assistant") return "home"; // EXTERNAL 会整页接走 /studio/create；此分支仅防闪经典壳
     return resolveView(raw) ?? "home";
   });
   // BeefTV studio 切换(2026-10-06 cutover C3 → 2026-10-15 F9 跳转壳):登录态落 home

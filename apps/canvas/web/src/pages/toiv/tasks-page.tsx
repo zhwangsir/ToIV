@@ -315,7 +315,7 @@ export default function TasksPage() {
                 <span>·</span>
                 <Link to="/toiv/drama" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">短剧项目</Link>
                 <span>·</span>
-                <Link to="/toiv/agent" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">智能体对话</Link>
+                <Link to="/create" className="text-[var(--workspace-accent)] underline-offset-2 hover:underline">智能体对话</Link>
             </div>
 
             <div className="flex flex-wrap items-center gap-2" aria-label="任务筛选">

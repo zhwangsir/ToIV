@@ -61,7 +61,7 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
                 { ...toolItem("canvas", "/project"), title: "画布库" },
                 { id: "canvas:new", title: "新建画布", icon: Plus, to: "/canvas?mode=new" },
                 { id: "library", title: "媒体库", icon: Library, to: "/library" },
-                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/toiv/agent" },
+                { id: "toiv:agent", title: "智能体对话", icon: Bot, to: "/create" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
                 { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
             ],

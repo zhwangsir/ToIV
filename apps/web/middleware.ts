@@ -69,8 +69,18 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-/** F12(2026-10-15):退役面旧路径深链 308 到 canvas 对应面,书签/外链不 404。 */
+/** F12 + R11 Strangler: 退役面/孤面深链 308 到 canvas；引擎台·助手 → /studio/create。
+ *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create。 */
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
+  // R11: 公网裸 /create → 正式创作台
+  [/^\/create(\/.*)?$/, "/studio/create$1"],
+  // R11: 助手 / 引擎工具孤面 → 创作台（先于 /toiv 通配）
+  [/^\/toiv\/agent(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/audio(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/image-tools(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/video-tools(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/dub-tools(\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/runs(\/.*)?$/, "/studio/create"],
   [/^\/library(\/.*)?$/, "/studio/library$1"],
   [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
   [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
@@ -100,4 +110,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.rewrite(url);
 }
 
-export const config = { matcher: ["/", "/studio", "/studio/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };
+export const config = { matcher: ["/", "/studio", "/studio/:path*", "/create", "/create/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };

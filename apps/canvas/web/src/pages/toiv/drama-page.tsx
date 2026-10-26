@@ -160,7 +160,7 @@ export default function DramaPage() {
                             <div className="flex flex-wrap items-center justify-center gap-2">
                                 <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
                                 <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="打开雨夜示例" onClick={() => void openRainNight()} />
-                                <Link to="/toiv/agent"><ToolButton variant="default" label="去智能体对话" /></Link>
+                                <Link to="/create"><ToolButton variant="default" label="去智能体对话" /></Link>
                             </div>
                         }
                     />

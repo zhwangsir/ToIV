@@ -20,12 +20,6 @@ const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const ToivTasksPage = lazy(() => import("@/pages/toiv/tasks-page"));
 const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
-const ToivAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
-const ToivAgentRunDetailPage = lazy(() => import("@/pages/toiv/agent-run-detail"));
-const ToivAudioToolsPage = lazy(() => import("@/pages/toiv/audio-tools"));
-const ToivImageToolsPage = lazy(() => import("@/pages/toiv/image-tools"));
-const ToivVideoToolsPage = lazy(() => import("@/pages/toiv/video-tools"));
-const ToivDubToolsPage = lazy(() => import("@/pages/toiv/dub-tools"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
 const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
@@ -83,6 +77,7 @@ function ToivLibraryDetailRedirect() {
     return <Navigate to={`/library/works/${id ?? ""}`} replace />;
 }
 
+/** R11: 孤面 → 内链 /create（对外等价 /studio/create，由 studio 壳承载） */
 function ToivWsToCreateRedirect() {
     const { id } = useParams();
     const [searchParams] = useSearchParams();
@@ -146,12 +141,12 @@ export const router = createWorkspaceRouter([
             { path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
-            { path: "/toiv/agent", element: <ToivAgentPage /> },
-            { path: "/toiv/runs/:id", element: deferred(<ToivAgentRunDetailPage />) },
-            { path: "/toiv/audio", element: deferred(<ToivAudioToolsPage />) },
-            { path: "/toiv/image-tools", element: deferred(<ToivImageToolsPage />) },
-            { path: "/toiv/video-tools", element: deferred(<ToivVideoToolsPage />) },
-            { path: "/toiv/dub-tools", element: deferred(<ToivDubToolsPage />) },
+            { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/runs/:id", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/audio", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/image-tools", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/video-tools", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/dub-tools", element: <Navigate to="/create" replace /> },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
             { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
             { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },

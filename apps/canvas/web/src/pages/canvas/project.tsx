@@ -3152,7 +3152,7 @@ function InfiniteCanvasPage() {
                             onDeleteSelection={() => deleteNodes(selectedNodeIds)}
                             onSendToAgent={(node) => {
                                 stashAgentDraft(draftFromCanvasNode(node));
-                                navigate("/toiv/agent");
+                                navigate("/create");
                             }}
                         />
 
