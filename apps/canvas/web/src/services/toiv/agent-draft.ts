@@ -1,6 +1,6 @@
 /**
  * 画布节点「发到对话」一次性草稿通道(M2 加强点,2026-10-09)。
- * 右键节点 → stash → /create?view=agent；工作台内 AgentPage 挂载时 take 并即删。
+ * 右键节点 → stash → /create；创作台 composer 消费 stash（W3 卸 legacy AgentPage）。
  */
 
 export const AGENT_DRAFT_KEY = "toiv_agent_draft";

@@ -149,7 +149,7 @@ function HomeContent() {
           return;
         }
         return fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } }).then((r) => {
-          if (r.ok) window.location.replace("/studio/");
+          if (r.ok) window.location.replace("/studio/create");
           else setStudioHandoffFailed(true); // 非管理员 403 → 回落经典,零回退
         });
       })
@@ -330,7 +330,7 @@ function HomeContent() {
                     <a href="/studio/toiv/market">工具箱(canvas)</a>
                     <a href="/studio/toiv/tasks">任务(canvas)</a>
                     {!studioHandoffFailed && (
-                      <button type="button" onClick={() => window.location.replace("/studio/")}>
+                      <button type="button" onClick={() => window.location.replace("/studio/create")}>
                         进入创作工作室
                       </button>
                     )}

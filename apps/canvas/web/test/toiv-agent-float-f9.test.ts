@@ -75,16 +75,15 @@ describe("F9 toiv agent float", () => {
         expect(src).toContain("setInput(s); inputRef.current?.focus();");
     });
 
-    test("会话分叉入口 + 在对话页打开(stash 通道)", () => {
+    test("会话分叉入口 + 深链创作台(stash 通道)", () => {
         const src = read("src/pages/canvas/toiv-agent-float.tsx");
         expect(src).toContain("forkAgentSession");
         expect(src).toContain("stashPendingAgentSession");
-        // R15：整页形态为单一工作台内的旧 Agent 会话视图，pending session 由实际页面消费。
-        expect(src).toContain('navigate("/create?view=agent")');
+        // W3：浮窗只深链 /create composer，不再挂 legacy AgentPage
+        expect(src).toContain('navigate("/create")');
         expect(src).not.toContain('navigate("/toiv/agent")');
+        expect(src).not.toContain("view=agent");
         expect(src).toContain("已分叉为新会话");
-        const agent = read("src/pages/toiv/agent-page.tsx");
-        expect(agent).toContain("takePendingAgentSession()");
     });
 
     test("任务中心抽屉:在跑判集与 /toiv/tasks 页共享投影同源", () => {

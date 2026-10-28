@@ -26,14 +26,9 @@ beforeAll(async () => {
     const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/video-recovery-harness.tsx"], plugins, target: "browser", define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' } });
     if (!build.success) throw new Error(build.logs.join("\n"));
     const script = await build.outputs[0].text();
-    const historyBuild = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/task-history-recovery-harness.tsx"], plugins, target: "browser", define: { "import.meta.env": "{}", "process.env.NODE_ENV": '\"production\"' } });
-    if (!historyBuild.success) throw new Error(historyBuild.logs.join("\n"));
-    const historyScript = await historyBuild.outputs[0].text();
     server = Bun.serve({ port: 0, async fetch(request) {
         const path = new URL(request.url).pathname;
         if (path === "/harness.js") return new Response(script, { headers: { "Content-Type": "text/javascript" } });
-        if (path === "/history.js") return new Response(historyScript, { headers: { "Content-Type": "text/javascript" } });
-        if (path === "/history") return new Response('<div id="root"></div><script type="module" src="/history.js"></script>', { headers: { "Content-Type": "text/html" } });
         if (path.startsWith("/api/")) {
             requests.push(`${request.method} ${path}`);
             if (path === "/api/assets/asset-original-video") return Response.json({ code: 0, data: { asset: recoveredAsset } });
@@ -117,20 +112,6 @@ test("missing provider receipt hides retrieval and switching canvas suppresses s
     await page.reload();
     await page.getByRole("button", { name: "missing receipt" }).evaluate((button: HTMLButtonElement) => button.click());
     expect(await page.getByRole("button", { name: "取回结果", exact: true }).count()).toBe(0);
-});
-
-test("desktop history late detail never reopens a closed drawer or replaces another task", async () => {
-    await page.goto(new URL("/history", server.url).toString());
-    await page.getByRole("button", { name: "task a", exact: true }).click();
-    await page.getByRole("button", { name: "Close", exact: true }).click();
-    await page.waitForTimeout(900);
-    expect(await page.getByRole("dialog").count()).toBe(0);
-    await page.getByRole("button", { name: "task a", exact: true }).click();
-    await page.getByRole("button", { name: "task b", exact: true }).evaluate((button: HTMLButtonElement) => button.click());
-    await page.getByRole("dialog").getByText("detail b", { exact: true }).waitFor();
-    await page.waitForTimeout(900);
-    expect(await page.getByRole("dialog").getByText("detail a", { exact: true }).count()).toBe(0);
-    expect(await page.getByRole("button", { name: "取回结果", exact: true }).count()).toBe(1);
 });
 
 test("retrieved original result is applied and persisted onto the canvas", async () => {

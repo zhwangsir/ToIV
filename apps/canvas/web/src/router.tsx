@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation, useParams, useSearchParams } from "react
 
 import { createWorkspaceRouter } from "@/lib/app-routing";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
-import { loadAgentsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
+import { loadAgentsPage, loadCanvasPage, loadCanvasProjectPage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
@@ -16,7 +16,6 @@ const DesktopAppStorePage = lazy(() => import("@/pages/desktop/app-store-page"))
 const DesktopHomePage = lazy(() => import("@/pages/desktop/desktop-home-page"));
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
-const CreatePage = lazy(loadCreatePage);
 const CreationWorkbenchPage = lazy(() => import("@/pages/create/creation-workbench"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
@@ -26,11 +25,9 @@ const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
 const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
-const ToivDramaWorkspacePage = lazy(() => import("@/pages/toiv/drama-workspace"));
 const ToivKpiPage = lazy(() => import("@/pages/toiv/kpi-page"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
-const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
 const UserLayout = lazy(() => import("@/layouts/user-layout"));
 const RequireFeature = lazy(() => import("@/components/workspace/require-feature").then((module) => ({ default: module.RequireFeature })));
 const RedlineRouteGuard = lazy(() => import("@/components/workspace/require-r18").then((module) => ({ default: module.RedlineRouteGuard })));
@@ -122,10 +119,12 @@ function devRoutes() {
     const FolderPreviewLab = lazy(() => import("@/pages/dev/folder-preview-lab"));
     const DirectorReproLab = lazy(() => import("@/pages/dev/director-repro-lab"));
     const AssistantPanelLab = lazy(() => import("@/pages/dev/assistant-panel-lab"));
+    const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
     return [
         { path: "/dev/folders", element: fullScreenDeferred(<FolderPreviewLab />), errorElement: <RouteErrorPage /> },
         { path: "/dev/director-repro", element: fullScreenDeferred(<DirectorReproLab />), errorElement: <RouteErrorPage /> },
         { path: "/dev/assistant-panel", element: fullScreenDeferred(<AssistantPanelLab />), errorElement: <RouteErrorPage /> },
+        { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />), errorElement: <RouteErrorPage /> },
     ];
 }
 
@@ -135,8 +134,10 @@ export const router = createWorkspaceRouter([
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
         children: [
-            { path: "/", element: deferred(<HomePage />) },
-            // COSMOS_SEED：/desktop/* 非默认落地；登录后根 = 工作室 Home（AppWorkspaceShell）
+            // W1 F1：登录后 /studio/ 默认落地密台创作（Home 降级 /home，非默认）
+            { path: "/", element: <Navigate to="/create" replace /> },
+            { path: "/home", element: deferred(<HomePage />) },
+            // COSMOS_SEED：/desktop/* 非默认落地
             { path: "/desktop", element: deferred(<DesktopHomePage />) },
             { path: "/desktop/store", element: deferred(<DesktopAppStorePage />) },
             { path: "/desktop/legacy-home", element: deferred(<HomePage />) },
@@ -148,9 +149,9 @@ export const router = createWorkspaceRouter([
             { path: "/assets", element: <AssetsLegacyRedirect /> },
             { path: "/toiv/library", element: <Navigate to="/library?source=works" replace /> },
             { path: "/toiv/library/:id", element: <ToivLibraryDetailRedirect /> },
-            { path: "/skills", element: <Navigate to="/" replace /> },
-            { path: "/skill", element: <Navigate to="/" replace /> },
-            { path: "/skills/reference", element: <Navigate to="/" replace /> },
+            { path: "/skills", element: <Navigate to="/create" replace /> },
+            { path: "/skill", element: <Navigate to="/create" replace /> },
+            { path: "/skills/reference", element: <Navigate to="/create" replace /> },
             {
                 path: "/plugins",
                 element: <RequireFeature feature="pluginCenterEnabled">{deferred(<PluginsPage />)}</RequireFeature>,
@@ -161,9 +162,9 @@ export const router = createWorkspaceRouter([
             },
             { path: "/settings", element: deferred(<SettingsPage />) },
             { path: "/agents", element: deferred(<AgentsPage />) },
-            { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
+            { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
-            { path: "/toiv/agent", element: <Navigate to="/create?view=agent" replace /> },
+            { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
             { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },
             { path: "/toiv/audio", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/image-tools", element: <Navigate to="/toiv/market" replace /> },
@@ -176,7 +177,6 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/ws/:id/:section", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws/:id", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws", element: <ToivWsToCreateRedirect /> },
-            { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />) },
             {
                 path: "/projects",
                 element: deferred(<CanvasPage />),

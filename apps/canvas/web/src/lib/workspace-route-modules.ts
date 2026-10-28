@@ -5,12 +5,10 @@ const workspaceRouteLoaders = {
     library: () => import("@/pages/library/media-library-page"),
     canvas: () => import("@/pages/canvas"),
     create: () => import("@/pages/create"),
-    projects: () => import("@/pages/projects"),
     projectDetail: () => import("@/pages/projects/detail"),
     toivTasks: () => import("@/pages/toiv/tasks-page"),
     toivLibrary: () => import("@/pages/toiv/library-page"),
     toivMarket: () => import("@/pages/toiv/market-page"),
-    toivAgent: () => import("@/pages/toiv/agent-page"),
     toivDrama: () => import("@/pages/toiv/drama-page"),
 };
 
@@ -21,11 +19,10 @@ export const loadCanvasPage = workspaceRouteLoaders.canvas;
 export const loadCanvasProjectPage = () => import("@/pages/canvas/project");
 export const loadCreatePage = workspaceRouteLoaders.create;
 export const loadProjectDetailPage = workspaceRouteLoaders.projectDetail;
-export const loadProjectsPage = workspaceRouteLoaders.projects;
 
 export function preloadWorkspaceRoute(pathnameOrSlug: string) {
     const segments = pathnameOrSlug.replace(/^\//, "").split("/").filter(Boolean);
-    const slug = segments[0] || "home";
+    const slug = segments[0] || "create";
     if (slug === "projects" && segments.length > 1) {
         void workspaceRouteLoaders.projectDetail();
         return;
@@ -35,7 +32,7 @@ export function preloadWorkspaceRoute(pathnameOrSlug: string) {
             tasks: workspaceRouteLoaders.toivTasks,
             library: workspaceRouteLoaders.library,
             market: workspaceRouteLoaders.toivMarket,
-            agent: workspaceRouteLoaders.toivAgent,
+            agent: workspaceRouteLoaders.create, // W3: agent 深链只预加载创作台
             drama: workspaceRouteLoaders.toivDrama,
         } as const;
         const sub = segments[1] as keyof typeof map | undefined;

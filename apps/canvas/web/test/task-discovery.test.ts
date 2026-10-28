@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { discoverBackendTasks, mergeTaskHistory } from "../src/pages/tasks/task-discovery";
+import { discoverBackendTasks, mergeTaskHistory } from "../src/lib/task-discovery";
 import type { GenerationTask } from "../src/services/api/task-center";
 
 const task = (id: string, status: GenerationTask["status"], updatedAt = "2026-09-30T10:00:00Z", projectId = "unloaded-canvas"): GenerationTask => ({

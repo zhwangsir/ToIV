@@ -16,8 +16,8 @@ function formatDate(value: string) {
 }
 
 /**
- * BF0 · BeefTV 初始首页形态。
- * Hero = 新建画布；capability 单行；最近 = 画布预览卡。
+ * W1 · 首页降级面（默认落地已改 /create）。
+ * Hero = 去创作台；新建画布降次入口；capability 单行；最近 = 画布预览卡。
  * homeIntentBarItems / HOME_INTENT_ENTRIES 禁止整墙铺首页（export 仍留给工具台/市场）。
  */
 export function HomeDashboard({
@@ -66,13 +66,13 @@ export function HomeDashboard({
 
     return (
         <main className="beeftv-home toiv-home" aria-label="ToIV 首页">
-            <section className="beeftv-home-hero" aria-label="新建画布">
+            <section className="beeftv-home-hero" aria-label="去创作台">
                 <span className="beeftv-home-dot-base" aria-hidden />
                 <span className="beeftv-home-dot-flow" aria-hidden />
                 <span className="beeftv-home-dot-flow beeftv-home-dot-flow-delay" aria-hidden />
-                <button type="button" className="beeftv-home-create" onClick={() => navigate("/canvas?mode=new")}>
+                <button type="button" className="beeftv-home-create" onClick={() => navigate("/create")}>
                     <span className="beeftv-home-create-icon"><Plus /></span>
-                    <span className="beeftv-home-create-title">新建画布创作</span>
+                    <span className="beeftv-home-create-title">打开创作台</span>
                 </button>
             </section>
 
@@ -87,7 +87,10 @@ export function HomeDashboard({
                         {seeding ? <Loader2 className="animate-spin" /> : <Clapperboard />}
                         雨夜示例
                     </button>
-                    <Link to="/create" className="beeftv-home-secondary-btn">去创作台</Link>
+                    <button type="button" className="beeftv-home-secondary-btn" onClick={() => navigate("/canvas?mode=new")} aria-label="新建画布（专家）">
+                        <Plus />
+                        新建画布
+                    </button>
                 </div>
             </div>
 
@@ -145,11 +148,11 @@ export function HomeDashboard({
                                 </Link>
                             ))
                         ) : (
-                            <button type="button" className="beeftv-recent-card is-empty" onClick={() => navigate("/canvas?mode=new")}>
+                            <button type="button" className="beeftv-recent-card is-empty" onClick={() => navigate("/create")}>
                                 <span className="beeftv-recent-preview"><Plus /></span>
                                 <span className="beeftv-recent-copy">
-                                    <strong>创建第一个画布</strong>
-                                    <small>让灵感有一个开始的地方</small>
+                                    <strong>去创作台开始</strong>
+                                    <small>密台创作是默认主意图</small>
                                 </span>
                             </button>
                         )}

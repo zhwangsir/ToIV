@@ -42,6 +42,11 @@ describe("F12 retired-face deep-link redirects", () => {
         assert.equal(legacy.searchParams.get("project"), "project-2");
         const agent = await invoke("/toiv/agent");
         assert.equal(agent.pathname, "/studio/create");
-        assert.equal(agent.searchParams.get("view"), "agent");
+        assert.equal(agent.searchParams.get("view"), null);
+        // W3：工具孤面统一落 market（勿再指 create）
+        const imageTools = await invoke("/toiv/image-tools");
+        assert.equal(imageTools.pathname, "/studio/toiv/market");
+        const videoTools = await invoke("/toiv/video-tools");
+        assert.equal(videoTools.pathname, "/studio/toiv/market");
     });
 });

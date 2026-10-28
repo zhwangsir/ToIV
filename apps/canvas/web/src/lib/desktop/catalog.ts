@@ -18,7 +18,7 @@ export const DESKTOP_APP_CATALOG: DesktopAppDef[] = [
   // —— 目录可装（非预装）——
   { id: "plugins", name: "插件中心", entry: "/plugins", match: ["/plugins"], chrome: "sidebar", system: false, preinstall: false, catalog: true, description: "插件管理", icon: "plug" },
   { id: "plugins-eagle", name: "Eagle 素材库", entry: "/plugins/eagle", match: ["/plugins/eagle"], chrome: "sidebar", system: false, preinstall: false, catalog: true, description: "Eagle 插件", icon: "image" },
-  { id: "voice-lab", name: "录音测试", entry: "/test-voice-recording", match: ["/test-voice-recording"], chrome: "sidebar", system: false, preinstall: false, catalog: true, description: "实验室", icon: "mic" },
+  // W3: /test-voice-recording 仅 DEV 路由；生产 catalog 不再露出
 ];
 
 /** M2 首批真封装 App（打开走现路由进窗 · 单例聚焦） */

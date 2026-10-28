@@ -1,4 +1,4 @@
-import { ChevronRight, BarChart3, Clapperboard, Home, Library, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
+import { ChevronRight, Clapperboard, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
@@ -53,16 +53,12 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             ],
         },
         {
-            // 画布库/新建画布/媒体库/Agent/外部 Agent/学习看板 —— 高级折起
+            // W1 F5：高级默认折起；只留画布专家面深处，去掉稀释五项的首页/KPI/媒体库主推
             heading: "高级 / 更多",
             items: [
-                { id: "home", title: "首页", icon: Home, to: "/" },
                 { ...toolItem("canvas", "/project"), title: "画布库" },
                 { id: "canvas:new", title: "新建画布", icon: Plus, to: "/canvas?mode=new" },
-                { id: "library", title: "媒体库", icon: Library, to: "/library" },
-                // R12: 智能体对话已 Strangler 进 /create，不再与「创作」双入口
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
-                { id: "toiv:kpi", title: "学习看板", icon: BarChart3, to: "/toiv/kpi" },
             ],
         },
     ];
@@ -87,7 +83,7 @@ function WorkspaceSwitcher({ collapsed, onNavigate, onExpand, onCollapse }: { co
 
     return (
         <div className="app-workspace-sidebar-brand-row relative shrink-0 px-3 pt-3">
-            <Link to="/" onClick={onNavigate} className="app-workspace-sidebar-brand-button group" aria-label={`${appearance.brandName}首页`}>
+            <Link to="/create" onClick={onNavigate} className="app-workspace-sidebar-brand-button group" aria-label={`${appearance.brandName}创作台`}>
                 <span className="flex min-w-0 items-center gap-2">
                     <BrandLogoFrame className="app-workspace-brand-mark grid size-8 shrink-0 place-items-center rounded-[var(--r-sm)] shadow-sm" logoClassName="size-5 object-contain" alt="" fallback={<span className="app-workspace-brand-placeholder" aria-hidden>T</span>} />
                     <span className="flex min-w-0">

@@ -18,13 +18,11 @@ import { ToivSkeletonPane } from "@/components/toiv/toiv-skeleton";
 
 const CreatePage = lazy(() => import("./index"));
 const DramaWorkspacePage = lazy(() => import("@/pages/toiv/drama-workspace"));
-const LegacyAgentPage = lazy(() => import("@/pages/toiv/agent-page"));
 
 function CreationWorkbenchShell() {
     const [searchParams] = useSearchParams();
     const projectId = (searchParams.get("project") || "").trim() || null;
     const section = (searchParams.get("section") || "").trim() || null;
-    const legacyAgentView = searchParams.get("view") === "agent";
     const slots = useCreationStudioSlots();
     const [inspectorOverride, setInspectorOverride] = useState<boolean | null>(null);
     const inspectorVisible = inspectorOverride ?? Boolean(slots?.inspector || slots?.shotSelected);
@@ -37,7 +35,8 @@ function CreationWorkbenchShell() {
     }, [slots?.stageFocus]);
 
     // BF0: /create 无 project → BeefTV composer-first（不套三栏密台）；?project= 短剧三栏保留
-    if (!projectId && section !== "bible" && !legacyAgentView) {
+    // W3: 卸 legacy AgentPage 挂载；对话只留 create composer
+    if (!projectId && section !== "bible") {
         return (
             <div className="toiv-creation-workbench is-composer-first" data-testid="creation-workbench" data-surface="beeftv-create">
                 <Suspense fallback={<ToivSkeletonPane />}>
@@ -59,8 +58,6 @@ function CreationWorkbenchShell() {
                     <Suspense fallback={<ToivSkeletonPane />}>
                         {section === "bible" ? (
                             <ProjectBiblePanel variant="page" />
-                        ) : legacyAgentView ? (
-                            <LegacyAgentPage />
                         ) : (
                             <DramaWorkspacePage projectIdOverride={projectId!} />
                         )}

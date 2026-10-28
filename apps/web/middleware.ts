@@ -69,7 +69,7 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-/** F12 + R11/R12 Strangler: 退役面/孤面深链 308 到 canvas；引擎台·助手 → /studio/create。
+/** F12 + R11/R12 Strangler: 退役面/孤面深链 308 到 canvas；助手 → /studio/create；工具孤面 → /studio/toiv/market。
  *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create。
  *  target 可含 ?query；`$1`/`$2` 替换捕获组。hash 不达服务端，无法保留。 */
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
@@ -78,11 +78,11 @@ const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
   // R11: 旧六段工作区保留项目与段落，进入单一创作台（先于 /toiv 通配）
   [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/studio/create?project=$1&section=$2"],
   // R11: 助手 / 引擎工具孤面 → 创作台（先于 /toiv 通配）
-  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create?view=agent"],
-  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/toiv/market"],
+  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/toiv/market"],
+  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/toiv/market"],
+  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/toiv/market"],
   // R12①: runs 保留 id → ?run=
   [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio/create?run=$1"],
   [/^\/toiv\/runs\/?$/, "/studio/create"],

@@ -49,23 +49,13 @@ describe("toiv agent-chat service surface", () => {
         expect(src).toContain("X-Agent-Session-Id");
     });
 
-    test("agent page routes SSE tool/job/proposal and BeefTV shell copy", () => {
-        const src = read("src/pages/toiv/agent-page.tsx");
-        expect(src).toContain("智能体对话");
-        expect(src).toContain("一键入画布");
-        expect(src).toContain("renderToolCard");
-        expect(src).toContain("renderProposalCard");
-        expect(src).toContain("takeAgentDraft");
-        expect(src).toContain("fetchAgentCanvasProposal");
-        expect(src).toContain("toolCardPayload");
-        expect(src).toContain("looksLikeProposal");
-        expect(src).not.toContain('navigate("/studio")');
-        expect(src).not.toContain("BeefTV leftover");
-        // BeefTV tokens / shell cues
-        expect(src).toContain("var(--border)");
-        expect(src).toContain("var(--card");
-        expect(src).toContain("EmptyState");
-        expect(src).toContain("ToolButton");
+    test("W3：legacy agent-page 已卸；创作台 workbench 无 AgentPage 挂载", () => {
+        const workbench = read("src/pages/create/creation-workbench.tsx");
+        expect(workbench).not.toContain("agent-page");
+        expect(workbench).not.toContain("LegacyAgentPage");
+        const router = read("src/router.tsx");
+        expect(router).toContain('path: "/toiv/agent"');
+        expect(router).toContain('Navigate to="/create"');
     });
 
     test("float shares toolcards registry with agent page", () => {
@@ -123,7 +113,7 @@ describe("agent draft (发到对话)", () => {
         const project = read("src/pages/canvas/project.tsx");
         expect(project).toContain("stashAgentDraft");
         // R15：发到对话 = stash 草稿后进入工作台内的 Agent 会话视图。
-        expect(project).toContain('navigate("/create?view=agent")');
+        expect(project).toContain('navigate("/create")');
         expect(project).not.toContain('navigate("/toiv/agent")');
     });
 });

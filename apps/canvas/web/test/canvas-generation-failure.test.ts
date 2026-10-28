@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildNodeGenerationContext } from "../src/components/canvas/canvas-node-generation";
 import { canvasFailureRetryBlockedByFingerprint, canvasGenerationFailureMetadata, canvasGenerationRetryBlocked, canvasTaskFailureMetadata, resolveCanvasLiveFailureInput } from "../src/pages/canvas/canvas-generation-failure";
-import { taskAttentionReason, taskRetryBlocked } from "../src/pages/tasks/task-shared";
+import { taskAttentionReason, taskRetryBlocked } from "../src/lib/task-shared";
 import { resolveMetadataReferences, generationTaskMetadata, resetGenerationTaskMetadata } from "../src/lib/canvas/canvas-project-generation";
 import { ApiError } from "../src/services/api/request";
 import { explainGenerationError, formatGenerationDiagnostics } from "../src/lib/generation-error";

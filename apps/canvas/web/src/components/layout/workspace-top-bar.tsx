@@ -18,7 +18,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
     const { pathname } = useLocation();
     const slug = pathname.split("/").filter(Boolean)[0];
     const pageTitle = slug ? PAGE_TITLES[slug] || brandName : PAGE_TITLES.home;
-    const isHome = pathname === "/";
+    const isHome = pathname === "/" || pathname === "/home";
 
     return (
         <header className={"app-workspace-topbar" + (isHome ? " is-home" : "")}>
@@ -26,7 +26,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
                 {sidebarOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
             </button>
             {!isHome ? <nav className="app-workspace-topbar-breadcrumb" aria-label="当前位置">
-                <Link to="/" className="font-medium text-foreground/65 transition-colors hover:text-foreground">{brandName}</Link>
+                <Link to="/create" className="font-medium text-foreground/65 transition-colors hover:text-foreground">{brandName}</Link>
                 <span aria-hidden="true">/</span>
                 <span className="truncate font-medium text-foreground">{pageTitle}</span>
             </nav> : <span className="app-workspace-topbar-spacer" />}

@@ -55,25 +55,27 @@ describe("feat/studio-library-assets-unify — router redirect matrix", () => {
 });
 
 describe("feat/studio-library-assets-unify — nav + entry points", () => {
-    test("sidebar single 媒体库 entry; dual 资产/作品库 gone", () => {
+    test("W1：侧栏高级不再主推媒体库；资产/作品库双入口仍不得回潮", () => {
         const nav = read("src/components/layout/workspace-sidebar-nav.tsx");
-        expect(nav).toContain('title: "媒体库"');
-        expect(nav).toContain('to: "/library"');
-        expect(nav).toContain('id: "library"');
+        expect(nav).not.toContain('title: "媒体库"');
+        expect(nav).not.toContain('id: "library"');
         expect(nav).not.toContain('title: "资产"');
         expect(nav).not.toContain('title: "作品库"');
         expect(nav).not.toContain('to: "/assets"');
         expect(nav).not.toContain('to: "/toiv/library"');
+        // /library 路由仍在 router；只是不进一级/高级主推
+        const router = read("src/router.tsx");
+        expect(router).toContain('path: "/library"');
     });
 
-    test("capacity / palette / eagle / home / agent point into shell", () => {
+    test("capacity / eagle / home / float point into library shell", () => {
         const meter = read("src/components/layout/workspace-sidebar-storage-meter.tsx");
         expect(meter).toContain('to="/library?source=materials"');
 
+        // W1：⌘K 白名单不再暴露媒体库站点地图
         const palette = read("src/components/layout/workspace-command-palette.tsx");
-        expect(palette).toContain('title: "媒体库"');
-        expect(palette).toContain('"/library?source=materials"');
-        expect(palette).toContain('id: "library"');
+        expect(palette).not.toContain('id: "library"');
+        expect(palette).not.toContain('title: "媒体库"');
 
         const eagle = read("src/pages/plugins/eagle.tsx");
         expect(eagle).toContain('navigate("/library?source=materials")');
@@ -81,9 +83,6 @@ describe("feat/studio-library-assets-unify — nav + entry points", () => {
 
         const home = read("src/pages/home/home-data.ts");
         expect(home).toContain('to: "/library?source=works"');
-
-        const agent = read("src/pages/toiv/agent-page.tsx");
-        expect(agent).toContain("`/library/works/${encodeURIComponent(boardId)}`");
 
         const float = read("src/pages/canvas/toiv-agent-float.tsx");
         expect(float).toContain("`/library/works/${encodeURIComponent(boardId)}`");

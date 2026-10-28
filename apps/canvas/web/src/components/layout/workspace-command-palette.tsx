@@ -1,17 +1,12 @@
 import {
-    Bot,
     Clapperboard,
     Command,
     Film,
-    Home,
     Image,
-    Library,
     ListChecks,
     MessageSquarePlus,
     Mic,
     Music,
-    PanelsTopLeft,
-    Plug,
     Plus,
     Search,
     Settings,
@@ -26,7 +21,6 @@ import { useNavigate } from "react-router";
 
 import { Kbd } from "@/components/ui/base/kbd";
 import { cn } from "@/lib/utils";
-import { EV_AGENT_NEW_SESSION } from "@/services/toiv/agent-draft";
 
 export type WorkspaceCommandEntry = {
     id: string;
@@ -39,35 +33,21 @@ export type WorkspaceCommandEntry = {
 };
 
 /**
- * F9(2026-10-15 UI 统一波):⌘K 命令面全量路由表。
- * 与 workspace-sidebar-nav 的导航树同源对齐(标题一致),并补齐侧栏未平铺的
- * 工具页(音频/图片/视频/译制)与设置段直达;经典 web CommandPalette 的
- * 「页面 + 动作 + 设置段」结构移植至此,R18 门控在 settings/r18-mode(D-U1=B),本面板不重复入口。
+ * W1 F5：⌘K 白名单 = 侧栏五项 + 短剧深链（含新建短剧动作 / 工具台锚点）。
+ * 不再暴露整套 canvas/home/library/agent 站点地图。
  */
 export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry, "run">> = [
-    // 动作 — Wave P1：主新建=短剧；画布新建降为专家动作
     { id: "act:new-project", title: "新建短剧", icon: Plus, hint: "动作", to: "/toiv/drama?new=1" },
-    { id: "act:new-canvas", title: "新建画布（专家）", icon: Plus, hint: "动作", to: "/canvas?mode=new" },
     { id: "act:new-chat", title: "新对话", icon: MessageSquarePlus, hint: "动作", to: "/create" },
-    // 页面(与侧栏导航树同序)
-    { id: "home", title: "首页", icon: Home, hint: "页面", to: "/" },
     { id: "create", title: "创作", icon: WandSparkles, hint: "页面", to: "/create" },
     { id: "toiv:drama", title: "短剧项目", icon: Clapperboard, hint: "页面", to: "/toiv/drama" },
-    { id: "toiv:agent", title: "智能体对话（创作台）", icon: Bot, hint: "页面", to: "/create" },
-    { id: "projects", title: "自由画布", icon: PanelsTopLeft, hint: "页面", to: "/project" },
-    { id: "canvas", title: "画布", icon: PanelsTopLeft, hint: "页面", to: "/canvas" },
-    { id: "library", title: "媒体库", icon: Library, hint: "页面", to: "/library?source=materials" },
+    { id: "toiv:tasks", title: "任务中心", icon: ListChecks, hint: "页面", to: "/tasks" },
     { id: "toiv:market", title: "工具台", icon: Store, hint: "页面", to: "/toiv/market" },
-    { id: "toiv:tasks", title: "任务中心", icon: ListChecks, hint: "页面", to: "/toiv/tasks" },
-    // 工具页(F3–F7 自经典 web 收编,侧栏未平铺)
+    { id: "settings", title: "设置", icon: Settings, hint: "设置", to: "/settings" },
     { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/toiv/market#tools-intent-audio" },
     { id: "toiv:image-tools", title: "图片工具", icon: Image, hint: "工具", to: "/toiv/market#tools-intent-image" },
     { id: "toiv:video-tools", title: "视频工具", icon: Film, hint: "工具", to: "/toiv/market#tools-intent-video" },
     { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/toiv/market#tools-intent-drama" },
-    // 高级 / 云端可选
-    { id: "agents", title: "外部 Agent", icon: Plug, hint: "页面", to: "/agents" },
-    // 设置段
-    { id: "settings", title: "设置", icon: Settings, hint: "设置", to: "/settings" },
     { id: "settings:channels", title: "模型配置", icon: Settings2, hint: "设置", to: "/settings?section=channels" },
     { id: "settings:models", title: "模型设置", icon: Settings2, hint: "设置", to: "/settings?section=models" },
 ];
@@ -79,7 +59,7 @@ export function filterCommandEntries<T extends { title: string }>(entries: reado
     return entries.filter((entry) => entry.title.toLowerCase().includes(keyword));
 }
 
-/** 顶栏搜索 / ⌘K 命令面板:覆盖 canvas 全量路由 + 动作 + 设置段(F9 起为全站唯一命令面)。 */
+/** 顶栏搜索 / ⌘K：W1 白名单命令面（侧栏五项 + 短剧/工具深链）。 */
 export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
     const navigate = useNavigate();
     const [query, setQuery] = useState("");
@@ -87,20 +67,8 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
     const inputRef = useRef<HTMLInputElement>(null);
 
     const entries = useMemo<WorkspaceCommandEntry[]>(() => {
-        return WORKSPACE_COMMAND_ROUTES.map((entry) => {
-            if (entry.id === "act:new-chat") {
-                return {
-                    ...entry,
-                    run: () => {
-                        const agentOpen = window.location.pathname.endsWith("/create") && new URLSearchParams(window.location.search).get("view") === "agent";
-                        navigate("/create?view=agent");
-                        if (agentOpen) window.dispatchEvent(new CustomEvent(EV_AGENT_NEW_SESSION));
-                    },
-                };
-            }
-            return { ...entry };
-        });
-    }, [navigate]);
+        return WORKSPACE_COMMAND_ROUTES.map((entry) => ({ ...entry }));
+    }, []);
 
     const filtered = useMemo(() => filterCommandEntries(entries, query), [entries, query]);
 
