@@ -24,7 +24,6 @@ const ToivTasksPage = lazy(() => import("@/pages/toiv/tasks-page"));
 const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
 const ToivDramaPage = lazy(() => import("@/pages/toiv/drama-page"));
-const ToivDramaDetailPage = lazy(() => import("@/pages/toiv/drama-detail"));
 const ToivKpiPage = lazy(() => import("@/pages/toiv/kpi-page"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
@@ -75,6 +74,17 @@ function AssetsLegacyRedirect() {
 function ToivLibraryDetailRedirect() {
     const { id } = useParams();
     return <Navigate to={`/library/works/${id ?? ""}`} replace />;
+}
+
+/** W2 F2: classic /toiv/drama/:id → /create?project=:id（保留 query；丢弃 classic=1） */
+function ToivDramaDetailToCreateRedirect() {
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const next = new URLSearchParams(searchParams);
+    next.delete("classic");
+    if (id) next.set("project", id);
+    const qs = next.toString();
+    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
 }
 
 /** R11: 孤面 → 内链 /create（对外等价 /studio/create，由 studio 壳承载） */
@@ -172,7 +182,7 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/dub-tools", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
             { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
-            { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
+            { path: "/toiv/drama/:id", element: <ToivDramaDetailToCreateRedirect /> },
             // 永久重定向：旧六段工作区保留 project/section，进入单一创作台。
             { path: "/toiv/ws/:id/:section", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws/:id", element: <ToivWsToCreateRedirect /> },

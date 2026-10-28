@@ -5,13 +5,14 @@
  * 对外由 /create?project=:id&section=:section 承载；旧 /toiv/ws 路径永久重定向至此。
  * 六段共用单一创作台，不再另建工作区外壳。
  */
-import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Columns3, FileText, GitBranch, Film, IdCard, Layers, List, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Columns3, FileText, GitBranch, Film, IdCard, Layers, List, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, Sparkles, Upload, Users, Volume2, X } from "lucide-react";
 import { Select } from "antd";
 import type { ToivDramaShot, ToivFrameVariant, ToivSharedAsset } from "@/services/toiv/client";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
+import { CChainTailPanel } from "@/components/toiv/c-chain-tail-panel";
 import { Switch } from "@/components/ui/base/switch";
 import { CREW_ASSIST_GATE_HINT, isCrewAssistMode, setCrewAssistMode } from "@/services/toiv/crew-assist-mode";
 import {
@@ -72,6 +73,7 @@ import { cn } from "@/lib/utils";
 import {
     adoptSheetAsReference,
     buildMakeupCChainFromDrama,
+    triggerPanelReplace,
     createCChain,
     createStudioCharacter,
     fetchCharacterSheets,
@@ -694,9 +696,12 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         }
     }, [sheetChar, sheetFailure, lastSheetStyle, id]);
 
-    // ---- S3-a: 管线C(c_hybrid 妆容链)一键启动 ----
+    // ---- S3-a: 管线C(c_hybrid 妆容链)一键启动 + W2 链尾面板 ----
     const [chainBusy, setChainBusy] = useState(false);
     const [chainMsg, setChainMsg] = useState<string | null>(null);
+    const [chainJobId, setChainJobId] = useState<string | null>(null);
+    const [chainRefresh, setChainRefresh] = useState(0);
+    const [replacingKey, setReplacingKey] = useState<string | null>(null);
     const startCChain = useCallback(async () => {
         if (!detail) return;
         setChainBusy(true);
@@ -704,6 +709,8 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         try {
             const body = buildMakeupCChainFromDrama(detail, { num_candidates: 2, auto_assemble: true });
             const ack = await createCChain(body);
+            setChainJobId(ack.job_id);
+            setChainRefresh((n) => n + 1);
             setChainMsg(`管线C 已提交(作业 ${String(ack.job_id).slice(0, 8)}…)→ 任务中心跟踪`);
         } catch (e) {
             setChainMsg(userFacingCaughtError(e, "管线C 提交失败"));
@@ -1339,9 +1346,6 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                         )}
                         <div className="flex items-center gap-2">
                         <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
-                        <Link to={`/toiv/drama/${id}`}>
-                            <ToolButton variant="default" icon={<ScrollText />} label="经典详情" />
-                        </Link>
                         <Link to="/toiv/drama">
                             <ToolButton variant="default" icon={<Clapperboard />} label="项目列表" />
                         </Link>
@@ -1422,7 +1426,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                         {section === "assets" && (
                             <SectionShell title="资产 / 定妆（选角锁定参考）">
                                 {characters.length === 0 ? (
-                                    <EmptyState description="暂无角色资产(AI 拆镜会自动入库,或在经典详情添加)" />
+                                    <EmptyState description="暂无角色资产(AI 拆镜会自动入库,或在资产段添加)" />
                                 ) : (
                                     <>
                                     {!makeupReady && (
@@ -1633,6 +1637,17 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                         {chainMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{chainMsg}</p>
                                         )}
+                                        {id ? (
+                                            <CChainTailPanel
+                                                projectId={id}
+                                                refreshToken={chainRefresh}
+                                                activeJobId={chainJobId}
+                                                onActiveJobIdChange={setChainJobId}
+                                                onBusyChange={setChainBusy}
+                                                onNote={setChainMsg}
+                                                onProjectReload={() => { void load(); }}
+                                            />
+                                        ) : null}
                                         {renderError && (
                                             <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-[var(--danger)]">
                                                 {renderError}
@@ -2295,6 +2310,42 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                             </p>
                                         )}
                                         {sh.sheet_url && <img src={toivMediaUrl(sh.sheet_url)} alt="" className="w-full rounded-lg" loading="lazy" />}
+                                        {sh.panel_urls && Object.keys(sh.panel_urls).length > 0 && (
+                                            <div className="grid grid-cols-3 gap-1">
+                                                {Object.entries(sh.panel_urls).slice(0, 9).map(([pk, p]) => (
+                                                    <div key={pk} className="group relative">
+                                                        <img src={toivMediaUrl(p)} alt="" className="aspect-square w-full rounded-md object-cover" loading="lazy" />
+                                                        <label className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/60 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                                            {replacingKey === `${sh.style}:${pk}` ? "替换中…" : (<><Upload className="mr-1 h-3 w-3" />替换</>)}
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                disabled={replacingKey !== null}
+                                                                onChange={async (ev) => {
+                                                                    const file = ev.target.files?.[0];
+                                                                    ev.target.value = "";
+                                                                    if (!file || !sheetChar) return;
+                                                                    const b64 = await new Promise<string>((res, rej) => {
+                                                                        const fr = new FileReader();
+                                                                        fr.onload = () => res(String(fr.result));
+                                                                        fr.onerror = rej;
+                                                                        fr.readAsDataURL(file);
+                                                                    });
+                                                                    const cid = sheetChar.id;
+                                                                    setReplacingKey(`${sh.style}:${pk}`);
+                                                                    void triggerPanelReplace(cid, sh.style, pk, b64)
+                                                                        .finally(() => {
+                                                                            setReplacingKey(null);
+                                                                            void openSheets(sheetChar);
+                                                                        });
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             )}

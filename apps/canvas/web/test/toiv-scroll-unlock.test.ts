@@ -15,7 +15,6 @@ const toivPages = [
     "library-page.tsx",
     "library-detail.tsx",
     "drama-page.tsx",
-    "drama-detail.tsx",
     "tasks-page.tsx",
 ] as const;
 
@@ -24,7 +23,7 @@ describe("feat/studio-scroll-unlock contracts", () => {
         expect(workspacePage).toContain('scroll && "app-workspace-scroll overflow-y-auto"');
     });
 
-    test("six ToIV pages wrap WorkspacePage (fluid) for shell unlock", () => {
+    test("ToIV list/detail pages wrap WorkspacePage (fluid) for shell unlock", () => {
         for (const name of toivPages) {
             const src = readFileSync(join(root, "src/pages/toiv", name), "utf8");
             expect(src).toContain('from "@/components/layout/workspace-page"');

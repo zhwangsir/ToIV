@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
 /**
- * W3 F18：旧 web 短剧播放页退役。
- * 强制进 studio 短剧单轨（列表）；完整 ?project= 单轨留给 W2。
+ * W2 F2：旧 web 短剧播放页退役。
+ * 带 id → studio 短剧单轨 create 工作区（?project=）。
  */
 export default async function DramaLegacyRedirect({
   params,
@@ -10,7 +10,5 @@ export default async function DramaLegacyRedirect({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // 有 id 时仍进短剧列表（W2 再迁 create?project=）；禁止旧播放器直达
-  void id;
-  redirect("/studio/toiv/drama");
+  redirect(`/studio/create?project=${encodeURIComponent(id)}`);
 }
