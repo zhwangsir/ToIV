@@ -31,7 +31,7 @@ import { promptOptimizerPlugin, PROMPT_OPTIMIZER_PLUGIN_ID } from "@/lib/plugins
 import { createPluginHostContext } from "@/services/plugin-host";
 import { usePluginStore } from "@/stores/use-plugin-store";
 import { buildCreationMentionReferences, expandCreationPrompt, reconcileCreationAttachmentLimit, removeCreationReferenceTokens, replaceCreationAttachmentReference, selectedCreationReferences, type CreationReference } from "./creation-references";
-import { creationAttachmentFromAsset, creationAttachmentFromAudio, creationAttachmentFromAudioAsset, creationAttachmentFromDocument, creationAttachmentFromExternalAsset, creationAttachmentFromImage, creationAttachmentFromVideo, creationAttachmentFromVideoAsset, creationAttachmentKind, creationAudioAsset, creationFileAccepted, creationImageAsset, creationMediaAspectRatio, creationUploadAccept, creationVideoAsset, removeCreationAttachment, splitCreationAttachments, type CreationAttachment } from "./creation-assets";
+import { creationAttachmentFromAsset, creationAttachmentFromAudio, creationAttachmentFromAudioAsset, creationAttachmentFromDocument, creationAttachmentFromExternalAsset, creationAttachmentFromImage, creationAttachmentFromPose, creationAttachmentFromVideo, creationAttachmentFromVideoAsset, creationAttachmentKind, creationAudioAsset, creationFileAccepted, creationImageAsset, creationMediaAspectRatio, creationUploadAccept, creationVideoAsset, removeCreationAttachment, splitCreationAttachments, type CreationAttachment } from "./creation-assets";
 import { defaultCreationMode, modeLabels, type CreationConversation, type CreationMessage, type CreationMode, type CreationRetryContext, type CreationSettings, type CreationShotRailEntry, type CreationStatus } from "./creation-types";
 import { attachCreationTaskContexts, completedCreationGenerationTask, conversationTimestamp, creationShotRail, creationVideoShotOrdinal, isImageAttachment, isVideoAttachment, materializeCreationTaskResults, newConversation, newMessage, reconcileCreationTaskMessages } from "./creation-conversations";
 import { CreationComposer, CreationEmptySuggest, CreationFeaturedWorks, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationThreeDEntryModal, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
@@ -41,6 +41,7 @@ import { CreationConflictBanner, CreationConflictDialog } from "./creation-confl
 import type { CreationViewPreset, CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
 
 const AssetLibraryPickerModal = lazy(() => import("@/components/assets/asset-library-picker-modal").then((module) => ({ default: module.AssetLibraryPickerModal })));
+const PosePicker = lazy(() => import("@/components/pose/pose-picker").then((module) => ({ default: module.PosePicker })));
 const loadCreationRuntime = () => import("./creation-runtime");
 type CreationRuntime = Awaited<ReturnType<typeof loadCreationRuntime>>;
 
@@ -122,6 +123,7 @@ export default function CreatePage() {
     const [referenceReplacementBusy, setReferenceReplacementBusy] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [libraryOpen, setLibraryOpen] = useState(false);
+    const [posePickerOpen, setPosePickerOpen] = useState(false);
     const [threeDOpen, setThreeDOpen] = useState(false);
     const externalAssetSources = useExternalAssetSources(libraryOpen);
     const abortRef = useRef<AbortController | null>(null);
@@ -1169,6 +1171,7 @@ export default function CreatePage() {
         onReplaceAttachment: replaceReferenceFromTrack,
         onReplaceReferenceFiles: replaceReferenceFromFiles,
         onOpenLibrary: () => setLibraryOpen(true),
+        onOpenPosePicker: () => setPosePickerOpen(true),
         onModeChange: selectMode,
         model: selectedModel,
         modelRequirements,
@@ -1244,6 +1247,7 @@ export default function CreatePage() {
                     <CreationEmptySuggest
                         onStartPrompt={(nextMode, prompt) => { selectMode(nextMode); setPrompt(prompt); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
                         onOpenLibrary={() => { selectMode("image"); setLibraryOpen(true); }}
+                        onOpenPosePicker={() => { selectMode("image"); setPosePickerOpen(true); }}
                         onOpenThreeDTools={() => setThreeDOpen(true)}
                     />
                 </section>
@@ -1294,6 +1298,15 @@ export default function CreatePage() {
             onUseSaved={() => void useSavedConflictVersion(activeConversation)}
             onUseLocal={() => void overwriteSavedWithDraft(activeConversation)}
         />
+        {posePickerOpen ? <Suspense fallback={null}><PosePicker
+            open={posePickerOpen}
+            onClose={() => setPosePickerOpen(false)}
+            onSelect={(entry) => {
+                const attachment = creationAttachmentFromPose(entry);
+                setAttachments((current) => [...current.filter((item) => item.id !== attachment.id), attachment].slice(0, maxReferences));
+                setPosePickerOpen(false);
+            }}
+        /></Suspense> : null}
         {libraryOpen ? <Suspense fallback={null}><AssetLibraryPickerModal
             remoteLibrary
             open={libraryOpen}

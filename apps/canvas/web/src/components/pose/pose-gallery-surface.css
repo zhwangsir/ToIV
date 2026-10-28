@@ -1,0 +1,262 @@
+/* W5 · Pose gallery dense surface (BeefTV / --toiv-*). No SoftGlow / neon. */
+
+.toiv-pose-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  color: var(--toiv-text, #f4f6f7);
+}
+
+.toiv-pose-gallery__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.toiv-pose-gallery__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toiv-pose-gallery__meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+.toiv-pose-gallery__systems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toiv-pose-gallery__system {
+  appearance: none;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1a1b21) 80%, transparent);
+  color: inherit;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.toiv-pose-gallery__system.is-active,
+.toiv-pose-gallery__system:hover,
+.toiv-pose-gallery__system:focus-visible {
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 50%, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 14%, var(--toiv-surface-raised, #1a1b21));
+  outline: none;
+}
+
+.toiv-pose-gallery__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.toiv-pose-gallery__search,
+.toiv-pose-gallery__category {
+  appearance: none;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: var(--toiv-bg, #0b0c0f);
+  color: inherit;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.toiv-pose-gallery__search { flex: 1 1 180px; }
+.toiv-pose-gallery__category { flex: 0 1 160px; }
+
+.toiv-pose-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+  align-content: start;
+  overflow: auto;
+  min-height: 200px;
+  max-height: min(62vh, 640px);
+  padding: 2px;
+}
+
+.toiv-pose-gallery__card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1a1b21) 78%, transparent);
+  padding: 6px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.toiv-pose-gallery__card:hover,
+.toiv-pose-gallery__card:focus-visible,
+.toiv-pose-gallery__card.is-selected {
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 55%, var(--toiv-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--toiv-accent, #4A7FC1) 35%, transparent);
+  outline: none;
+}
+
+.toiv-pose-gallery__thumb-wrap {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--toiv-bg, #0b0c0f);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.08));
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.toiv-pose-gallery__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #121318;
+}
+
+.toiv-pose-gallery__thumb-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #8b8e98);
+  padding: 8px;
+  text-align: center;
+}
+
+.toiv-pose-gallery__card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toiv-pose-gallery__card-copy strong {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toiv-pose-gallery__card-copy span {
+  font-size: 10px;
+  color: var(--toiv-text-muted, #8b8e98);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toiv-pose-gallery__angles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.toiv-pose-gallery__angle {
+  appearance: none;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: transparent;
+  color: var(--toiv-text-muted, #8b8e98);
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.toiv-pose-gallery__angle.is-active {
+  color: var(--toiv-text, #f4f6f7);
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 45%, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 16%, transparent);
+}
+
+.toiv-pose-gallery__empty {
+  grid-column: 1 / -1;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--toiv-text-muted, #8b8e98);
+  font-size: 12px;
+}
+
+.toiv-pose-gallery__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 24px;
+}
+
+.toiv-pose-gallery__lightbox-inner {
+  position: relative;
+  max-width: min(920px, 100%);
+  max-height: min(88vh, 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.12));
+  background: #0b0c0f;
+}
+
+.toiv-pose-gallery__lightbox-inner img {
+  display: block;
+  max-width: 100%;
+  max-height: min(82vh, 100%);
+  object-fit: contain;
+  background: #0b0c0f;
+}
+
+.toiv-pose-gallery__lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  appearance: none;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.14));
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toiv-pose-gallery__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.toiv-pose-gallery__cta {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--toiv-accent, #4A7FC1) 55%, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 22%, transparent);
+  color: var(--toiv-text, #f4f6f7);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toiv-pose-gallery__cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

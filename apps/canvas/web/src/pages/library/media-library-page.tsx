@@ -1,10 +1,9 @@
-import { PersonStanding } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
+import { PoseBrowser } from "@/components/pose/pose-browser";
 import { WorkspacePage } from "@/components/layout/workspace-page";
-import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import {
     parseMediaLibrarySource,
     type MediaLibrarySource,
@@ -17,7 +16,7 @@ import "@/styles/toiv-freezone-desk.css";
 /**
  * W4 · Unified 媒体库 shell: one WorkspacePage + one source rail + track panels.
  * Track panels (works / materials / history) no longer own their own page chrome.
- * `poses` is reserved empty for W5 (thumbs/img under /api/pose-gallery/*, never /static).
+ * W5 · `poses` track: PoseBrowser grid (thumbs/img under /api/pose-gallery/*, never /static).
  */
 export default function MediaLibraryPage() {
     const [searchParams] = useSearchParams();
@@ -70,7 +69,7 @@ export default function MediaLibraryPage() {
                     onCountsChange={onMaterialsCounts}
                 />
             ) : null}
-            {source === "poses" ? <PosesComingSoonTrack /> : null}
+            {source === "poses" ? <PosesTrack /> : null}
             <MediaLibrarySourceRail
                 active={railActive}
                 worksCount={worksCount}
@@ -81,19 +80,17 @@ export default function MediaLibraryPage() {
     );
 }
 
-function PosesComingSoonTrack() {
+function PosesTrack() {
     return (
-        <div className="studio-band assets-library-hero mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-6 sm:px-4">
+        <div
+            className="studio-band assets-library-hero mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-6 sm:px-4"
+            data-testid="media-library-poses-track"
+        >
             <header className="app-page-header">
                 <h1 className="app-page-header-title font-semibold">姿势</h1>
-                <p className="mt-1 text-xs text-foreground/58">姿势参考库 · 即将接入</p>
+                <p className="mt-1 text-xs text-foreground/58">姿势参考库 · /api/pose-gallery（不用 /static）</p>
             </header>
-            <ToivEmptyState
-                className="fz-panel"
-                icon={PersonStanding}
-                title="姿势库即将接入"
-                description="本轨已预留。图库将走 /api/pose-gallery/thumbs 与 /api/pose-gallery/img（不用 /static）。"
-            />
+            <PoseBrowser className="fz-panel" title="姿势库" meta="媒体库姿势轨 · 只读浏览" />
         </div>
     );
 }

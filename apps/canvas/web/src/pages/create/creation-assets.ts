@@ -3,6 +3,7 @@ import type { UploadedImage } from "@/services/image-storage";
 import { canvasVideoAssetPreviewUrl } from "@/lib/canvas/canvas-media-preview";
 import { resolveResourceUrl } from "@/services/api/resources";
 import type { ExternalAssetPickerReference } from "@/lib/plugins/plugin-types";
+import { poseImgUrl, poseThumbUrl, type PoseEntry } from "@/lib/pose-catalog";
 import type { Asset, AudioAsset, ImageAsset, NewAsset } from "@/stores/use-asset-store";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
@@ -238,6 +239,21 @@ export function creationAttachmentFromExternalAsset(reference: ExternalAssetPick
     }
     throw new Error("“" + item.title + "”不是可用于创作参考的媒体文件");
 }
+
+/** W5: pose gallery pick → creation reference (URL under /api/pose-gallery/img|thumbs). */
+export function creationAttachmentFromPose(entry: PoseEntry): CreationAttachment {
+    const url = poseImgUrl(entry);
+    const preview = poseThumbUrl(entry);
+    return {
+        id: `pose:${entry.id}`,
+        name: entry.姿势名称 || entry.姿势编号 || entry.id,
+        type: "image/png",
+        dataUrl: url,
+        url,
+        previewUrl: preview || url,
+    };
+}
+
 export function creationImageAsset({ title, uploaded, metadata }: { title: string; uploaded: UploadedImage; metadata?: Record<string, unknown> }): NewAsset {
     return {
         kind: "image",

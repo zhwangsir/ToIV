@@ -1,10 +1,15 @@
 /**
  * BF1 · 工具台意图密台网格。
  * 真源：homeIntentBarItems / HOME_INTENT_ENTRIES（首页禁止整墙铺；仅工具台/市场挂载）。
- * 分组：图像 / 视频 / 音频 / 短剧。禁营销海报 / 彩霓虹。
+ * 分组：图像 / 视频 / 音频 / 短剧。W5：图像组挂「姿势参考」→ PoseBrowser（非市场深链）。
+ * 禁营销海报 / 彩霓虹。
  */
+import { PersonStanding } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 
+import { PoseBrowser } from "@/components/pose/pose-browser";
+import { AppModal } from "@/components/ui/product/app-modal";
 import { homeIntentBarItems, type HomeIntentBarItem } from "@/pages/home/home-data";
 
 import "@/components/toiv/tools-intent-grid.css";
@@ -54,6 +59,7 @@ export type ToolsIntentGridProps = {
 
 /** BeefTV 密台风格能力网格 — 挂 /toiv/market，不挂首页。 */
 export function ToolsIntentGrid({ className, onSelectIntent }: ToolsIntentGridProps) {
+    const [poseOpen, setPoseOpen] = useState(false);
     return (
         <section
             className={["toiv-tools-intent-grid", className].filter(Boolean).join(" ")}
@@ -63,12 +69,12 @@ export function ToolsIntentGrid({ className, onSelectIntent }: ToolsIntentGridPr
         >
             <header className="toiv-tools-intent-grid__head">
                 <h2 className="toiv-tools-intent-grid__title">能力入口</h2>
-                <p className="toiv-tools-intent-grid__meta">图像 · 视频 · 音频 · 短剧 · 深链打开市场应用</p>
+                <p className="toiv-tools-intent-grid__meta">图像 · 视频 · 音频 · 短剧 · 姿势参考 · 深链打开市场应用</p>
             </header>
             <div className="toiv-tools-intent-grid__groups">
                 {INTENT_TOOL_GROUPS.map((group) => {
                     const items = itemsForGroup(group);
-                    if (items.length === 0) return null;
+                    if (items.length === 0 && group.id !== "image") return null;
                     return (
                         <section
                             key={group.id}
@@ -116,11 +122,46 @@ export function ToolsIntentGrid({ className, onSelectIntent }: ToolsIntentGridPr
                                         </li>
                                     );
                                 })}
+                                {group.id === "image" ? (
+                                    <li key="pose-ref">
+                                        <button
+                                            type="button"
+                                            className="toiv-tools-intent-card"
+                                            data-intent="pose-ref"
+                                            data-testid="tools-intent-pose-ref"
+                                            onClick={() => setPoseOpen(true)}
+                                            title="姿势参考库"
+                                        >
+                                            <span className="toiv-tools-intent-card__icon" aria-hidden>
+                                                <PersonStanding />
+                                            </span>
+                                            <span className="toiv-tools-intent-card__copy">
+                                                <strong>姿势参考</strong>
+                                                <em>体系 · 多角度浏览</em>
+                                            </span>
+                                        </button>
+                                    </li>
+                                ) : null}
                             </ul>
                         </section>
                     );
                 })}
             </div>
+            <AppModal
+                open={poseOpen}
+                onCancel={() => setPoseOpen(false)}
+                title="姿势参考"
+                footer={null}
+                centered
+                destroyOnHidden
+                width="min(960px, calc(100vw - 32px))"
+                className="toiv-pose-browser-modal"
+                data-testid="tools-pose-browser-modal"
+            >
+                <div style={{ padding: "4px 4px 8px" }}>
+                    <PoseBrowser title="姿势参考" meta="工具台浏览 · 可开大图" />
+                </div>
+            </AppModal>
         </section>
     );
 }

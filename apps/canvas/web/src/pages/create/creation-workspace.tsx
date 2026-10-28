@@ -9,7 +9,7 @@ import { useWorkspaceTopBarMount } from "@/components/layout/workspace-top-bar-e
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { Reorder, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router";
-import { ArrowDown, ArrowUp, Bookmark, Box, Brain, Camera, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Code2, Copy, Download, FileText, Film, History, Image as ImageIcon, ImagePlus, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MoreHorizontal, Music2, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles, Trash2, UserRound, WandSparkles, Waves, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bookmark, Box, Brain, Camera, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Code2, Copy, Download, FileText, Film, History, Image as ImageIcon, ImagePlus, PersonStanding, LoaderCircle, Maximize2, MessageSquareText, Minimize2, MoreHorizontal, Music2, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Sparkles, Trash2, UserRound, WandSparkles, Waves, X } from "lucide-react";
 
 import { AIMessageMarkdown } from "@/components/ai/ai-message-markdown";
 import { GenerationToolCard, type GenerationToolStatus } from "@/components/ai/generation-tool-card";
@@ -407,6 +407,7 @@ type ComposerProps = {
     onReplaceAttachment: (targetAttachmentId: string, replacement: CreationAttachment) => void;
     onReplaceReferenceFiles: (targetAttachmentId: string, files: File[]) => void;
     onOpenLibrary: () => void;
+    onOpenPosePicker?: () => void;
     onModeChange: (mode: CreationMode) => void;
     model: string;
     modelRequirements: ModelRequirements;
@@ -648,6 +649,7 @@ export function CreationComposer(props: ComposerProps) {
             <div className="creation-chat-controls">
                 {props.variant === "thread" ? <ModePicker mode={props.mode} onModeChange={props.onModeChange} /> : null}
                 {referencesSupported ? <Tooltip title={addReferenceLabel}><button type="button" className="creation-reference-add-button creation-chat-reference-add" onClick={props.onOpenLibrary} disabled={interactionBusy || !canAddMoreReferences} aria-label={addReferenceLabel}><Plus aria-hidden="true" /></button></Tooltip> : null}
+                {referencesSupported && props.onOpenPosePicker ? <Tooltip title="从姿势库选"><button type="button" className="creation-chat-control" onClick={props.onOpenPosePicker} disabled={interactionBusy || !canAddMoreReferences} aria-label="从姿势库选" data-testid="create-open-pose-picker"><PersonStanding aria-hidden="true" /><span>姿势库</span></button></Tooltip> : null}
                 <VoiceRecordingButton
                     className="creation-voice-trigger"
                     disabled={interactionBusy}
@@ -891,15 +893,17 @@ const creationEmptyQuietActions: Array<{
     mode?: CreationMode;
     prompt?: string;
     openLibrary?: boolean;
+    openPosePicker?: boolean;
     openThreeDTools?: boolean;
 }> = [
     { id: "shot", label: "生成镜头", hint: "描述画面与运镜", mode: "video", prompt: "" },
     { id: "ref", label: "参考图", hint: "从素材库选图", mode: "image", prompt: "", openLibrary: true },
+    { id: "pose", label: "姿势库", hint: "从姿势库选", mode: "image", prompt: "", openPosePicker: true },
     { id: "story", label: "续写故事", hint: "剧情与对白", mode: "text", prompt: "" },
     { id: "3d", label: "3D 工具", hint: "图生 3D / 相机", openThreeDTools: true },
 ];
 
-export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary, onOpenThreeDTools }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void; onOpenThreeDTools: () => void }) {
+export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary, onOpenPosePicker, onOpenThreeDTools }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void; onOpenPosePicker: () => void; onOpenThreeDTools: () => void }) {
     return (
         <div className="creation-empty-quiet" aria-label="快捷入口">
             <p className="creation-empty-quiet-copy">在上方输入提示词开始，或选用一条入口。</p>
@@ -911,6 +915,7 @@ export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary, onOpenThree
                         className="creation-empty-quiet-cta"
                         onClick={() => {
                             if (item.openThreeDTools) onOpenThreeDTools();
+                            else if (item.openPosePicker) onOpenPosePicker();
                             else if (item.openLibrary) onOpenLibrary();
                             else onStartPrompt(item.mode ?? "video", item.prompt ?? "");
                         }}

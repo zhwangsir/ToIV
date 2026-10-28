@@ -90,7 +90,7 @@ describe("feat/studio-library-assets-unify — nav + entry points", () => {
         expect(float).toContain("`/library/works/${encodeURIComponent(boardId)}`");
     });
 
-    test("W4 shell owns chrome; track panels embed; poses rail reserved", () => {
+    test("W4 shell owns chrome; track panels embed; poses track PoseBrowser (W5)", () => {
         const shell = read("src/pages/library/media-library-page.tsx");
         expect(shell).toContain('from "@/pages/toiv/library-page"');
         expect(shell).toContain('from "@/pages/assets"');
@@ -98,8 +98,9 @@ describe("feat/studio-library-assets-unify — nav + entry points", () => {
         expect(shell).toContain("MediaLibrarySourceRail");
         expect(shell).toContain("WorkspacePage");
         expect(shell).toContain('embedded');
-        expect(shell).toContain("PosesComingSoonTrack");
-        expect(shell).toContain("姿势库即将接入");
+        expect(shell).toContain("PosesTrack");
+        expect(shell).toContain("PoseBrowser");
+        expect(shell).toContain("media-library-poses-track");
 
         const rail = read("src/components/library/media-library-source-rail.tsx");
         expect(rail).toContain('"作品"');

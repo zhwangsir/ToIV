@@ -425,6 +425,24 @@ export function isR18Mode(): boolean {
     return optimisticAdult();
 }
 
+/** Pose gallery: systems only visible when content_mode=adult (underage hard-closed via isR18Mode). */
+export const POSE_ADULT_ONLY_SYSTEMS: readonly string[] = ["全身单人・性感系", "双人缠绵"] as const;
+
+export function isPoseSystemAdultOnly(system: string | null | undefined): boolean {
+    const name = String(system ?? "").trim();
+    return (POSE_ADULT_ONLY_SYSTEMS as readonly string[]).includes(name);
+}
+
+/**
+ * Pose 体系可见性（W5 单闸）：
+ * - 标准系 / 上半身：始终可见
+ * - 全身性感 / 双人缠绵：仅成人态（isR18Mode；未成年恒 false）
+ */
+export function isPoseSystemVisible(system: string | null | undefined, adultOn = isR18Mode()): boolean {
+    if (!isPoseSystemAdultOnly(system)) return true;
+    return adultOn === true;
+}
+
 /** 当前账号 content_mode（ordinary|adult）。 */
 export function getAccountContentMode(): AccountContentMode {
     return isR18Mode() ? "adult" : "ordinary";
@@ -807,4 +825,5 @@ export const REDLINE_GUARD_COVERAGE = [
     "切模式不中断在途；软化仅普通路径",
     "市场可见性/提交 content_mode/纯 NSFW：resolveSubmitContentMode|appVisibleForContentMode|appIsPureNsfw 仅本文件",
     "未成年硬关 FE-only：isUnderage←/auth/me birthdate 同步；setR18Mode(true) 拒；apply 强制 ordinary；光幕成人钮 disabled",
+    "姿势库体系闸：全身单人・性感系 / 双人缠绵 仅 adult（isPoseSystemVisible；未成年硬关）",
 ] as const;
