@@ -13,11 +13,12 @@ const root = join(import.meta.dir, "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
 
 describe("feat/studio-library-assets-unify — route helpers", () => {
-    test("mediaLibraryHref covers three sources", () => {
+    test("mediaLibraryHref covers four sources (W4 + poses reserve)", () => {
         expect(MEDIA_LIBRARY_PATH).toBe("/library");
         expect(mediaLibraryHref("works")).toBe("/library?source=works");
         expect(mediaLibraryHref("materials")).toBe("/library?source=materials");
         expect(mediaLibraryHref("history")).toBe("/library?source=history");
+        expect(mediaLibraryHref("poses")).toBe("/library?source=poses");
         expect(mediaLibraryWorksDetailPath("board-1")).toBe("/library/works/board-1");
     });
 
@@ -25,6 +26,7 @@ describe("feat/studio-library-assets-unify — route helpers", () => {
         expect(parseMediaLibrarySource("works")).toBe("works");
         expect(parseMediaLibrarySource("materials")).toBe("materials");
         expect(parseMediaLibrarySource("history")).toBe("history");
+        expect(parseMediaLibrarySource("poses")).toBe("poses");
         expect(parseMediaLibrarySource("personal")).toBe("materials");
         expect(parseMediaLibrarySource(null)).toBe("works");
         expect(parseMediaLibrarySource(undefined)).toBe("works");
@@ -88,30 +90,47 @@ describe("feat/studio-library-assets-unify — nav + entry points", () => {
         expect(float).toContain("`/library/works/${encodeURIComponent(boardId)}`");
     });
 
-    test("shell reuses page modules; three-source rail present", () => {
+    test("W4 shell owns chrome; track panels embed; poses rail reserved", () => {
         const shell = read("src/pages/library/media-library-page.tsx");
         expect(shell).toContain('from "@/pages/toiv/library-page"');
         expect(shell).toContain('from "@/pages/assets"');
         expect(shell).toContain("parseMediaLibrarySource");
+        expect(shell).toContain("MediaLibrarySourceRail");
+        expect(shell).toContain("WorkspacePage");
+        expect(shell).toContain('embedded');
+        expect(shell).toContain("PosesComingSoonTrack");
+        expect(shell).toContain("姿势库即将接入");
 
         const rail = read("src/components/library/media-library-source-rail.tsx");
         expect(rail).toContain('"作品"');
         expect(rail).toContain('"素材"');
         expect(rail).toContain('"生成历史"');
+        expect(rail).toContain('"姿势"');
         expect(rail).toContain("媒体库来源导航");
-        // Wave A(2026-10-16):active 改可选——画板/台词检索子页不高亮三来源项
+        // Wave A(2026-10-16):active 改可选——画板/台词检索子页不高亮来源项
         expect(rail).toContain("active?: MediaLibrarySource");
 
+        const routes = read("src/lib/media-library-routes.ts");
+        expect(routes).toContain('POSE_GALLERY_THUMB_PATH = "/api/pose-gallery/thumbs"');
+        expect(routes).toContain('POSE_GALLERY_IMG_PATH = "/api/pose-gallery/img"');
+        expect(routes).not.toContain("/static/pose");
+
         const library = read("src/pages/toiv/library-page.tsx");
-        expect(library).toContain("MediaLibrarySourceRail");
-        expect(library).toContain('active={activeTab === "works" ? "works" : undefined}');
-        expect(library).not.toContain('active="works"');
+        expect(library).toContain("embedded");
+        expect(library).toContain("onRailActiveChange");
         expect(library).toContain("mediaLibraryWorksDetailPath");
+        expect(library).toContain("ToivEmptyState");
 
         const assets = read("src/pages/assets/index.tsx");
-        expect(assets).toContain("MediaLibrarySourceRail");
+        expect(assets).toContain("embedded");
+        expect(assets).toContain("forcedSource");
+        expect(assets).toContain("MediaLibraryTrackShell");
         expect(assets).toContain('active="materials"');
         expect(assets).toContain('active="history"');
         expect(assets).not.toContain("/assets?tab=");
+
+        const works = read("src/pages/toiv/library-works.tsx");
+        expect(works).toContain("ToivEmptyState");
+        expect(works).not.toContain('from "@/components/ui/product/empty-state"');
     });
 });

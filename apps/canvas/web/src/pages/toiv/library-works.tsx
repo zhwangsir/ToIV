@@ -1,7 +1,7 @@
 import { File, Loader2, Music, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { EmptyState } from "@/components/ui/product/empty-state";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { ToolButton } from "@/components/ui/base/buttons";
 import { formatDateTime } from "@/lib/time-format";
 import { toivCoverImageUrl, toivMediaUrl } from "@/services/toiv/cover-url";
@@ -171,9 +171,9 @@ export default function LibraryWorks() {
                     <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" />
                 </div>
             ) : error ? (
-                <EmptyState description="读取作品失败,请刷新重试" />
+                <ToivEmptyState title="读取作品失败" description="请刷新重试。" />
             ) : visible.length === 0 ? (
-                <EmptyState description={trashMode ? "回收站是空的" : "还没有作品;生成第一个作品后会出现在这里"} />
+                <ToivEmptyState title={trashMode ? "回收站是空的" : "还没有作品"} description={trashMode ? "删除的作品会在这里保留一段时间。" : "生成第一个作品后会出现在这里。"} />
             ) : (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                     {visible.map((job) => {

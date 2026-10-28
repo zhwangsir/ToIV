@@ -1,11 +1,12 @@
 import { ArrowDownUp, AudioLines, Box, Check, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, FileX2, FolderOpen, FolderPlus, Image as ImageIcon, Images, LayoutGrid, List, Maximize2, MoreHorizontal, Pause, PencilLine, Play, Plus, RotateCcw, Search, SlidersHorizontal, Star, Trash2, Upload, Volume2, VolumeX, X, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Drawer, Dropdown, Form, Input, Modal, Progress, Select, Space, Tag, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
+import type { MediaLibrarySource } from "@/lib/media-library-routes";
 
 import { CollectionGrid, PageHeader, PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
@@ -123,20 +124,41 @@ function libraryAssetAsNsfwLike(asset: { title?: string; note?: string; source?:
     };
 }
 
-export default function AssetsPage() {
+export type AssetsPageProps = {
+    /** W4: omit WorkspacePage + source rail (owned by MediaLibraryPage). */
+    embedded?: boolean;
+    /** When set, ignore URL for materials/history track selection. */
+    forcedSource?: Extract<MediaLibrarySource, "materials" | "history">;
+    onCountsChange?: (counts: { materials?: number; history?: number }) => void;
+};
+
+export default function AssetsPage({ embedded = false, forcedSource, onCountsChange }: AssetsPageProps = {}) {
     const queryClient = useQueryClient();
     const generation = useAssetViewGeneration(queryClient);
-    return <AssetsPageSession key={generation} />;
+    return (
+        <AssetsPageSession
+            key={generation}
+            embedded={embedded}
+            forcedSource={forcedSource}
+            onCountsChange={onCountsChange}
+        />
+    );
 }
 
-function AssetsPageSession() {
+function AssetsPageSession({
+    embedded = false,
+    forcedSource,
+    onCountsChange,
+}: AssetsPageProps) {
     const { message } = App.useApp();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const sourceParam = searchParams.get("source");
     const tabParam = searchParams.get("tab");
     const sourceTab =
-        sourceParam === "history" || tabParam === "history" ? "history" : "personal";
+        forcedSource === "history" || sourceParam === "history" || tabParam === "history"
+            ? "history"
+            : "personal";
     const queryClient = useQueryClient();
     const [entryScope] = useState(() => captureUserScope());
     const copyText = useCopyText();
@@ -795,6 +817,10 @@ function AssetsPageSession() {
         }
     };
 
+    useEffect(() => {
+        onCountsChange?.({ materials: totalAssets, history: generationHistoryCount });
+    }, [generationHistoryCount, onCountsChange, totalAssets]);
+
     if (sourceTab === "history") {
         const localHistoryAssets = activeAssets;
         const localGenerated = localHistoryAssets.filter(isWorkspaceGeneratedHistoryAsset);
@@ -808,16 +834,12 @@ function AssetsPageSession() {
         const generatedTotal = canonicalReads ? historyQuery.data?.generatedTotal ?? 0 : localGenerated.length;
         if (canonicalReads && historyQuery.isError && historyPage <= 1 && !historyAssets.length) {
             return (
-                <WorkspacePage grid className="library-page assets-library-page canvas-library-page generation-history-page">
-                    <WorkspaceErrorState title="生成历史读取失败" description="请稍后重试。" actionLabel="重试" onRetry={() => void historyQuery.refetch()} />
-                </WorkspacePage>
+                <WorkspaceErrorState title="生成历史读取失败" description="请稍后重试。" actionLabel="重试" onRetry={() => void historyQuery.refetch()} />
             );
         }
         if (canonicalReads && !historyQuery.isSuccess && historyPage <= 1 && !historyAssets.length) {
             return (
-                <WorkspacePage grid className="library-page assets-library-page canvas-library-page generation-history-page">
-                    <WorkspaceLoadingState label="正在读取生成历史" detail="按页读取已保存的素材。" />
-                </WorkspacePage>
+                <WorkspaceLoadingState label="正在读取生成历史" detail="按页读取已保存的素材。" />
             );
         }
         return (
@@ -826,6 +848,7 @@ function AssetsPageSession() {
                 generatedTotal={generatedTotal}
                 generatedKindCounts={generatedKindCounts}
                 libraryTotal={totalAssets}
+                embedded={embedded}
                 kind={canonicalReads ? historyKind : undefined}
                 hasMore={canonicalReads ? Boolean(historyQuery.data?.canonicalHasMore ?? historyQuery.data?.hasMore) : false}
                 loadingMore={canonicalReads && historyQuery.isFetching}
@@ -865,7 +888,7 @@ function AssetsPageSession() {
                     void uploadFiles(files, folderFilter !== "all" && folderFilter !== "uncategorized" ? folderFilter : "");
                 }}
             />
-            <WorkspacePage grid className="library-page assets-library-page canvas-library-page">
+            <MediaLibraryTrackShell embedded={embedded} className="library-page assets-library-page canvas-library-page media-library-track-panel assets-materials-track">
                 <div className="studio-band assets-library-hero">
                     <PageHeader
                         title="个人素材"
@@ -1093,7 +1116,7 @@ function AssetsPageSession() {
                             ) : (
                                 <>
                                     {visibleAssets.length === 0 ? (
-                                        <WorkspaceState icon="assets" compact title="没有匹配的素材" />
+                                        <ToivEmptyState compact title="没有匹配的素材" description="试试调整分类或搜索关键词。" />
                                     ) : (
                                         <CollectionGrid className={cn("library-grid", "assets-library-grid", assetViewMode === "list" && "is-list-view")}>
                                             {orderedVisibleAssets.map((asset) => (
@@ -1130,12 +1153,14 @@ function AssetsPageSession() {
                         </section>
                     </div>
                 </div>
-                <MediaLibrarySourceRail
-                    active="materials"
-                    materialsCount={totalAssets}
-                    historyCount={generationHistoryCount}
-                />
-            </WorkspacePage>
+                {!embedded ? (
+                    <MediaLibrarySourceRail
+                        active="materials"
+                        materialsCount={totalAssets}
+                        historyCount={generationHistoryCount}
+                    />
+                ) : null}
+            </MediaLibraryTrackShell>
 
             <Modal
                 className="workspace-modal workspace-modal-wide library-modal"
@@ -1542,6 +1567,7 @@ function GenerationHistorySurface({
     generatedTotal,
     generatedKindCounts,
     libraryTotal,
+    embedded = false,
     kind,
     hasMore = false,
     loadingMore = false,
@@ -1555,6 +1581,7 @@ function GenerationHistorySurface({
     generatedTotal: number;
     generatedKindCounts: Record<string, number>;
     libraryTotal: number;
+    embedded?: boolean;
     kind?: GenerationHistoryKind;
     hasMore?: boolean;
     loadingMore?: boolean;
@@ -1618,7 +1645,7 @@ function GenerationHistorySurface({
     const clearHistorySelection = () => setSelectedHistoryIds(new Set());
     return (
         <>
-        <WorkspacePage grid className="library-page assets-library-page canvas-library-page generation-history-page">
+        <MediaLibraryTrackShell embedded={embedded} className="library-page assets-library-page canvas-library-page generation-history-page media-library-track-panel assets-history-track">
             <div className="studio-band assets-library-hero">
                 <PageHeader
                     title="生成历史"
@@ -1664,7 +1691,13 @@ function GenerationHistorySurface({
                             ))}
                         </div>
                     </section>
-                )) : <WorkspaceState icon="assets" compact title={historyAssets.length ? "没有匹配的生成结果" : "暂无生成历史"} />}
+                )) : (
+                    <ToivEmptyState
+                        compact
+                        title={historyAssets.length ? "没有匹配的生成结果" : "暂无生成历史"}
+                        description={historyAssets.length ? "试试切换类型筛选。" : "完成一次生成后，结果会出现在这里。"}
+                    />
+                )}
                 {visibleGroups.length ? (
                     hasMore ? (
                         <div className="generation-history-more">
@@ -1677,12 +1710,14 @@ function GenerationHistorySurface({
                     )
                 ) : null}
             </div>
-            <MediaLibrarySourceRail
-                active="history"
-                materialsCount={libraryTotal}
-                historyCount={counts.all}
-            />
-        </WorkspacePage>
+            {!embedded ? (
+                <MediaLibrarySourceRail
+                    active="history"
+                    materialsCount={libraryTotal}
+                    historyCount={counts.all}
+                />
+            ) : null}
+        </MediaLibraryTrackShell>
         <Modal
             className="library-modal library-confirm-modal"
             title="彻底删除生成素材"
@@ -1702,6 +1737,25 @@ function GenerationHistorySurface({
             {previewAsset ? <div className="generation-history-preview"><AssetMediaPreview asset={previewAsset} alt={previewAsset.title} className="generation-history-preview-media" fallback={<GenerationHistoryMissingPreview asset={previewAsset} />} /><div className="generation-history-preview-meta"><strong>{previewAsset.title}</strong><span>{previewAsset.kind === "video" ? "视频" : previewAsset.kind === "audio" ? "音频" : "图片"} · 本地生成</span><span>来源：{previewAsset.source || "生成任务"}</span>{typeof previewAsset.metadata?.taskId === "string" ? <span>任务 ID：{previewAsset.metadata.taskId}</span> : null}{typeof previewAsset.metadata?.generationEffectKey === "string" ? <span>生成标识：{previewAsset.metadata.generationEffectKey}</span> : null}</div></div> : null}
         </Drawer>
         </>
+    );
+}
+
+
+/** W4: standalone keeps WorkspacePage chrome; embedded = content only (shell owns page + rail). */
+function MediaLibraryTrackShell({
+    embedded,
+    className,
+    children,
+}: {
+    embedded: boolean;
+    className: string;
+    children: ReactNode;
+}) {
+    if (embedded) return <>{children}</>;
+    return (
+        <WorkspacePage grid className={className}>
+            {children}
+        </WorkspacePage>
     );
 }
 

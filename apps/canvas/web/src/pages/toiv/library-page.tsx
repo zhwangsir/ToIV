@@ -2,7 +2,6 @@ import { ArrowLeft, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
 import LibraryWorks from "./library-works";
 import LibraryTranscriptSearch from "./library-transcript-search";
 import { ToolButton } from "@/components/ui/base/buttons";
@@ -10,14 +9,26 @@ import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
 import "@/styles/toiv-freezone-desk.css";
 import { WorkspacePage } from "@/components/layout/workspace-page";
-import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
+import { MediaLibrarySourceRail } from "@/components/library/media-library-source-rail";
+import { mediaLibraryWorksDetailPath, type MediaLibrarySource } from "@/lib/media-library-routes";
 import { formatDateTime } from "@/lib/time-format";
 import { fetchBoards, fetchToivWorkCounts, type ToivBoard } from "@/services/toiv/client";
 import { fetchToivAccountRole, isTranscriptSearchAvailable } from "@/services/toiv/transcript-search";
 
 type LibraryTab = "works" | "boards" | "transcript";
 
-export default function LibraryPage() {
+export type LibraryPageProps = {
+    /** W4: when true, omit WorkspacePage + source rail (owned by MediaLibraryPage). */
+    embedded?: boolean;
+    onRailActiveChange?: (active: MediaLibrarySource | undefined) => void;
+    onWorksCountChange?: (count: number | undefined) => void;
+};
+
+export default function LibraryPage({
+    embedded = false,
+    onRailActiveChange,
+    onWorksCountChange,
+}: LibraryPageProps = {}) {
     const [tab, setTab] = useState<LibraryTab>("works");
     const [boards, setBoards] = useState<ToivBoard[]>([]);
     const [worksCount, setWorksCount] = useState<number | undefined>(undefined);
@@ -47,12 +58,23 @@ export default function LibraryPage() {
     useEffect(() => {
         // 侧栏「作品」计数要反映 jobs 总数,不是画板数(否则恒 0 误导)
         fetchToivWorkCounts()
-            .then((c) => setWorksCount(Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0)))
-            .catch(() => setWorksCount(undefined));
-    }, []);
+            .then((c) => {
+                const total = Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0);
+                setWorksCount(total);
+                onWorksCountChange?.(total);
+            })
+            .catch(() => {
+                setWorksCount(undefined);
+                onWorksCountChange?.(undefined);
+            });
+    }, [onWorksCountChange]);
 
-    return (
-        <WorkspacePage fluid className="toiv-library-page library-page assets-library-page fz-desk">
+    useEffect(() => {
+        onRailActiveChange?.(activeTab === "works" ? "works" : undefined);
+    }, [activeTab, onRailActiveChange]);
+
+    const body = (
+        <>
             <div className="fz-desk-page mx-auto flex w-full max-w-6xl flex-col gap-3">
             <header className="fz-desk-toolbar">
                 <h1>作品</h1>
@@ -114,8 +136,17 @@ export default function LibraryPage() {
                 </div>
             )}
             </div>
-            {/* rail 高亮跟随当前页签：画板/台词检索不是来源项，不硬指「作品」误导 */}
-            <MediaLibrarySourceRail active={activeTab === "works" ? "works" : undefined} worksCount={worksCount ?? boards.length} />
+            {!embedded ? (
+                <MediaLibrarySourceRail active={activeTab === "works" ? "works" : undefined} worksCount={worksCount ?? boards.length} />
+            ) : null}
+        </>
+    );
+
+    if (embedded) return body;
+
+    return (
+        <WorkspacePage fluid className="toiv-library-page library-page assets-library-page fz-desk">
+            {body}
         </WorkspacePage>
     );
 }
