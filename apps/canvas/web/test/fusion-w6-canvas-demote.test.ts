@@ -36,7 +36,9 @@ describe("W6 canvas demote + Cosmos cut + project gate", () => {
         const nav = read("src/components/layout/workspace-sidebar-nav.tsx");
         expect(nav).toContain('heading: "高级 / 专家面"');
         expect(nav).toContain('title: "自由画布库"');
-        expect(nav).toContain('title: "新建自由画布"');
+        expect(nav).not.toContain('title: "新建自由画布"');
+        expect(nav).not.toContain("canvas:new");
+        expect(nav).not.toContain('"/canvas?mode=new"');
         expect(nav).toContain('to: "/create"');
         expect(nav).toContain('to: "/toiv/drama"');
         // 一级五项块不含 /project|/canvas

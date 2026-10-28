@@ -891,14 +891,19 @@
 .app-user-workspace .app-workspace-nav-link {
     position: relative;
     isolation: isolate;
+    /* W7.1：裁切 layoutId pill 弹簧位移，避免左侧圆角白/亮边外溢 */
+    overflow: hidden;
+    border-radius: var(--r-md);
 }
 .app-user-workspace .app-workspace-nav-active-pill {
     position: absolute;
     inset: 0;
     z-index: 0;
-    border-radius: inherit;
+    border-radius: var(--r-md);
     background: var(--user-surface-muted);
     pointer-events: none;
+    overflow: hidden;
+    transform: translateZ(0);
 }
 .app-user-workspace .app-workspace-nav-link > :not(.app-workspace-nav-active-pill) {
     position: relative;

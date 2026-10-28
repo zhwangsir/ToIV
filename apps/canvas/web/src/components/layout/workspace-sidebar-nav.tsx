@@ -1,4 +1,4 @@
-import { ChevronRight, Clapperboard, ListChecks, PanelLeftClose, PanelLeftOpen, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
+import { ChevronRight, Clapperboard, ListChecks, PanelLeftClose, PanelLeftOpen, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
@@ -57,8 +57,8 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             heading: "高级 / 专家面",
             // W7 F6：无独立 Agent 面；外部 Agent 客户端仅设置内链 /agents（非一级/非高级导航）
             items: [
+                // W7.1：高级只留一条库入口；新建改到 /project 库页主按钮 + 空态 CTA
                 { ...toolItem("canvas", "/project"), title: "自由画布库" },
-                { id: "canvas:new", title: "新建自由画布", icon: Plus, to: "/canvas?mode=new" },
             ],
         },
     ];

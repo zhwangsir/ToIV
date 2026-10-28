@@ -298,6 +298,7 @@ export default function CanvasPage() {
                 actions={(
                     <div className="libtv-project-actions">
                     <Input prefix={<Search />} value={keyword} allowClear placeholder="搜索自由画布" aria-label="搜索自由画布" onChange={(event) => setKeyword(event.target.value)} />
+                    <Button type="primary" icon={<Plus />} disabled={!hydrated} onClick={createAndEnter}>新建自由画布</Button>
                     <Button icon={<Upload />} disabled={!hydrated} onClick={() => inputRef.current?.click()}>导入画布</Button>
                     <Button icon={<Trash2 />} onClick={() => setHistoryOpen(true)}>回收站</Button>
                     <Button icon={<FolderPlus />} disabled={!hydrated} onClick={() => {
