@@ -33,8 +33,8 @@ export type WorkspaceCommandEntry = {
 };
 
 /**
- * W1 F5：⌘K 白名单 = 侧栏五项 + 短剧深链（含新建短剧动作 / 工具台锚点）。
- * 不再暴露整套 canvas/home/library/agent 站点地图。
+ * W1 F5 / W6 F4：⌘K 白名单 = 侧栏五项 + 短剧深链（含新建短剧动作 / 工具台锚点）。
+ * 禁主推 /canvas·/project·/desktop；自由画布仅侧栏「高级 / 专家面」。
  */
 export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry, "run">> = [
     { id: "act:new-project", title: "新建短剧", icon: Plus, hint: "动作", to: "/toiv/drama?new=1" },

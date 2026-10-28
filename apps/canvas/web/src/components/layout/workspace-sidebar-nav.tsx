@@ -53,11 +53,11 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
             ],
         },
         {
-            // W1 F5：高级默认折起；只留画布专家面深处，去掉稀释五项的首页/KPI/媒体库主推
-            heading: "高级 / 更多",
+            // W6 F4：高级默认折起；自由画布仅专家面，非一级五项
+            heading: "高级 / 专家面",
             items: [
-                { ...toolItem("canvas", "/project"), title: "画布库" },
-                { id: "canvas:new", title: "新建画布", icon: Plus, to: "/canvas?mode=new" },
+                { ...toolItem("canvas", "/project"), title: "自由画布库" },
+                { id: "canvas:new", title: "新建自由画布", icon: Plus, to: "/canvas?mode=new" },
                 { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
             ],
         },
@@ -236,7 +236,7 @@ function NavItem({
 }
 
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; collapsed: boolean }) {
-    const defaultOpen = group.heading !== "高级 / 更多" && group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
+    const defaultOpen = group.heading !== "高级 / 更多" && group.heading !== "高级 / 专家面" && group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
     const [isOpen, setIsOpen] = useState(defaultOpen);
     const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")) || (item.id === "agents" && activeId === "agents"));
 

@@ -9,6 +9,8 @@ describe("F12 retired-face deep-link redirects", () => {
         assert.ok(mw.includes('"/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*"'));
         assert.ok(mw.includes('"/toiv", "/toiv/:path*"'));
         assert.ok(mw.includes('"/create", "/create/:path*"'));
+        assert.ok(mw.includes('"/desktop", "/desktop/:path*"'));
+        assert.ok(mw.includes("/desktop(?:") || mw.includes("/desktop(?:\\/.*)?$"));
         assert.ok(mw.includes("NextResponse.redirect(url, 308)"));
         assert.ok(mw.includes('"/studio/library$1"'));
         assert.ok(mw.includes('"/studio/toiv/market$1"'));
@@ -44,6 +46,10 @@ describe("F12 retired-face deep-link redirects", () => {
         assert.equal(agent.pathname, "/studio/create");
         assert.equal(agent.searchParams.get("view"), null);
         // W3：工具孤面统一落 market（勿再指 create）
+        const desktop = await invoke("/desktop");
+        assert.equal(desktop.pathname, "/studio/create");
+        const desktopStore = await invoke("/desktop/store");
+        assert.equal(desktopStore.pathname, "/studio/create");
         const imageTools = await invoke("/toiv/image-tools");
         assert.equal(imageTools.pathname, "/studio/toiv/market");
         const videoTools = await invoke("/toiv/video-tools");

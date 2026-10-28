@@ -30,6 +30,7 @@ import { useSyncProgressStore } from "@/stores/use-sync-progress-store";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { cn } from "@/lib/utils";
 import { touchFreeCanvas } from "@/services/toiv/product-kpi";
+import { PROJECT_TRACK_GATE } from "@/lib/project-track-gate";
 import { canvasIdsForWorkspaceProjects, canvasWorkspaceProjectId, listCanvasWorkspaceProjectCanvases, listCanvasWorkspaceProjectRoots, previewNodesForWorkspaceProject } from "@/lib/canvas/canvas-workspace-project";
 
 const CanvasDeleteProjectsDialog = lazy(() => import("@/components/canvas/canvas-delete-projects-dialog").then((module) => ({ default: module.CanvasDeleteProjectsDialog })));
@@ -286,16 +287,17 @@ export default function CanvasPage() {
     return (
         <WorkspacePage className="studio-collection-page lib-tv-project-page">
             <PageHeader
-                title={activeFolder?.name || "全部项目"}
+                title={activeFolder?.name || "自由画布库"}
+                description={activeFolder ? undefined : PROJECT_TRACK_GATE.canvasLibraryDescription}
                 leading={(
                     <>
-                        <button type="button" className="libtv-project-back" onClick={() => navigate("/")} aria-label="返回首页" title="返回首页"><ArrowLeft aria-hidden="true" /></button>
-                        {activeFolder ? <button type="button" className="libtv-project-breadcrumb-button" onClick={() => setFolderFilter("all")}>全部项目 /</button> : null}
+                        <button type="button" className="libtv-project-back" onClick={() => navigate("/create")} aria-label="返回创作台" title="返回创作台"><ArrowLeft aria-hidden="true" /></button>
+                        {activeFolder ? <button type="button" className="libtv-project-breadcrumb-button" onClick={() => setFolderFilter("all")}>自由画布库 /</button> : null}
                     </>
                 )}
                 actions={(
                     <div className="libtv-project-actions">
-                    <Input prefix={<Search />} value={keyword} allowClear placeholder="搜索项目" aria-label="搜索项目" onChange={(event) => setKeyword(event.target.value)} />
+                    <Input prefix={<Search />} value={keyword} allowClear placeholder="搜索自由画布" aria-label="搜索自由画布" onChange={(event) => setKeyword(event.target.value)} />
                     <Button icon={<Upload />} disabled={!hydrated} onClick={() => inputRef.current?.click()}>导入画布</Button>
                     <Button icon={<Trash2 />} onClick={() => setHistoryOpen(true)}>回收站</Button>
                     <Button icon={<FolderPlus />} disabled={!hydrated} onClick={() => {
@@ -421,7 +423,7 @@ export default function CanvasPage() {
                         ))}
                     </CollectionGrid>
                 ) : (
-                    <WorkspaceState icon="canvas" title={keyword || projectFilter !== "all" || folderFilter !== "all" ? "没有匹配的项目" : "还没有项目"} action={!keyword && projectFilter === "all" && folderFilter === "all" ? <Button type="primary" icon={<Plus />} disabled={!hydrated} onClick={createAndEnter}>新建项目</Button> : undefined} />
+                    <WorkspaceState icon="canvas" title={keyword || projectFilter !== "all" || folderFilter !== "all" ? "没有匹配的自由画布" : "还没有自由画布"} action={!keyword && projectFilter === "all" && folderFilter === "all" ? <Button type="primary" icon={<Plus />} disabled={!hydrated} onClick={createAndEnter}>新建自由画布</Button> : undefined} />
                 )}
                 {hydrated && visibleProjects.length && (hasMore || libraryQuery.isFetchNextPageError) ? (
                     <div ref={loadMoreRef} className="library-load-more" aria-live="polite">

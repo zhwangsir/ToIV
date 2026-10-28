@@ -94,7 +94,7 @@ function collectSourceFiles(directory: string): string[] {
 }
 
 describe("旧内置 Agent 页面入口退场", () => {
-    test("首页主 CTA 为新建画布创作（BF0 BeefTV），短剧降为次入口，不再嵌 Agent 入口", () => {
+    test("首页主 CTA 为打开创作台（W1/W6），短剧为次入口，不再嵌 Agent / 主推画布", () => {
         const markup = renderToStaticMarkup(
             <MemoryRouter>
                 <HomeDashboard projects={[]} loading={false} error={false} onRetry={() => {}} />
@@ -102,13 +102,13 @@ describe("旧内置 Agent 页面入口退场", () => {
         );
         expect(markup).not.toContain("BeefTV Agent");
         expect(markup).not.toContain('data-mode="agent"');
-        expect(markup).toContain("新建画布创作");
+        expect(markup).toContain("打开创作台");
         expect(markup).toContain("新建短剧");
         expect(markup).toContain("打开雨夜示例");
-        expect(markup).toContain("最近项目");
+        expect(markup).toContain("最近自由画布（专家）");
         expect(markup).not.toContain(">快捷<");
-        expect(markup).toContain("自由画布");
-        expect(markup).toContain("/canvas?mode=new");
+        expect(markup).not.toContain('aria-label="新建画布（专家）"');
+        expect(markup).not.toContain("/canvas?mode=new");
         expect(markup).toContain("beeftv-home");
     });
 

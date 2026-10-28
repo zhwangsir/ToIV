@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, App } from "antd";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { PROJECT_TRACK_GATE } from "@/lib/project-track-gate";
 
 import { getProjectCore, getProjectOverview, getProjectUnitWorkspace, linkCanvasUnit, listProjectUnits } from "@/services/api/projects";
 import { WorkspacePage } from "@/components/layout/workspace-page";
@@ -145,6 +146,7 @@ export default function ProjectDetailPage() {
                     workflowHref={workflowHref}
                     onCreateCanvas={createCanvas}
                 />
+                <Alert type="info" showIcon banner message={PROJECT_TRACK_GATE.projectDetailHint} className="!border-x-0 !border-t-0" />
                 {detail.project.status === "archived" ? <Alert type="warning" showIcon banner message="项目已归档，恢复后才能创建画布和生成任务" className="!border-x-0 !border-t-0" /> : null}
                 <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                     <div className={activeView === "chapters" || activeView === "workflow" || activeView === "editor" ? "min-h-0 flex-1" : "thin-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-5 lg:px-8 lg:py-7"}>

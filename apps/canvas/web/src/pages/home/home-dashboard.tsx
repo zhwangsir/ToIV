@@ -16,8 +16,8 @@ function formatDate(value: string) {
 }
 
 /**
- * W1 · 首页降级面（默认落地已改 /create）。
- * Hero = 去创作台；新建画布降次入口；capability 单行；最近 = 画布预览卡。
+ * W6 · 首页降级面（默认落地 /create）。
+ * Hero = 去创作台；禁主推新建画布；capability 无 /canvas；最近 = 自由画布专家轨预览。
  * homeIntentBarItems / HOME_INTENT_ENTRIES 禁止整墙铺首页（export 仍留给工具台/市场）。
  */
 export function HomeDashboard({
@@ -87,10 +87,6 @@ export function HomeDashboard({
                         {seeding ? <Loader2 className="animate-spin" /> : <Clapperboard />}
                         雨夜示例
                     </button>
-                    <button type="button" className="beeftv-home-secondary-btn" onClick={() => navigate("/canvas?mode=new")} aria-label="新建画布（专家）">
-                        <Plus />
-                        新建画布
-                    </button>
                 </div>
             </div>
 
@@ -121,14 +117,14 @@ export function HomeDashboard({
                 ))}
             </nav>
 
-            <section className="beeftv-home-section beeftv-recents" aria-label="最近项目">
+            <section className="beeftv-home-section beeftv-recents" aria-label="最近自由画布（专家）">
                 <header className="beeftv-section-heading">
-                    <h2>最近项目</h2>
-                    <Link to="/project">查看全部 <ArrowRight /></Link>
+                    <h2>最近自由画布（专家）</h2>
+                    <Link to="/project">查看画布库 <ArrowRight /></Link>
                 </header>
                 {error ? (
                     <button className="beeftv-home-error" type="button" onClick={onRetry}>
-                        <RefreshCw />画布读取失败，点击重试
+                        <RefreshCw />自由画布读取失败，点击重试
                     </button>
                 ) : (
                     <div className="beeftv-recent-grid">

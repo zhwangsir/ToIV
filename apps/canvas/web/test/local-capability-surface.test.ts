@@ -158,7 +158,8 @@ describe("local-capability-surface wiring (source)", () => {
         expect(grid).toContain("homeIntentBarItems");
         expect(grid).toContain("INTENT_TOOL_GROUPS");
         expect(dashboard).toContain("beefTVCapabilityItems");
-        expect(dashboard).toContain("新建画布创作");
+        expect(dashboard).toContain("打开创作台");
+        expect(dashboard).not.toContain("/canvas?mode=new");
         expect(home).not.toContain("add=lipsync");
         expect(home).not.toContain("add=inpaint");
         expect(home).not.toContain("add=dub");

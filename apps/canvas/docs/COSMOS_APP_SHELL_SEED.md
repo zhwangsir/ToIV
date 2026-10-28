@@ -16,15 +16,17 @@
 | `docs/APP_SHELL_M0_MAP.md` … `APP_SHELL_M2_1_HANDBACK.md` | 设计与验收记录 |
 | `docs/shots/m1-*.png` / `m2-*.png` 等 | FIXTURE 截图 |
 
-## 路由（COSMOS_SEED）
+## 路由（COSMOS_SEED · W6 断默认可达）
 
-当前仍注册（便于迁出前本地验种子），**不作** ToIV 登录落地：
+ToIV **默认不可达**：`/desktop*` 一律 `<Navigate to="/create" replace />`（web 薄壳裸 `/desktop*` 308 → `/studio/create`）。
 
-- `/desktop` → DesktopHomePage
-- `/desktop/store` → 应用商店
-- `/desktop/legacy-home` → 旧工作室 Home（兼容）
+源码页 **保留不删**（迁出 / 本地再挂时用）：
 
-ToIV 默认：`/` → `HomePage` + `AppWorkspaceShell`。
+- `pages/desktop/desktop-home-page.tsx`
+- `pages/desktop/app-store-page.tsx`
+- `components/desktop/*`、`lib/desktop/*`、`stores/use-desktop-store.ts`
+
+ToIV 默认：`/` → `/create`；根壳 = `AppWorkspaceShell`。**禁**把 DesktopShell 接回默认交付。
 
 ## 如何再挂 DesktopShell（Cosmos / 实验）
 
@@ -36,7 +38,7 @@ ToIV 默认：`/` → `HomePage` + `AppWorkspaceShell`。
      <DesktopShell>{children}</DesktopShell>
    </div>
    ```
-2. `router.tsx`：将 `/` 指回 `DesktopHomePage`（或 Cosmos 自有桌面页）；工作室 Home 可挂 `/desktop/legacy-home` 或 App 内。
+2. `router.tsx`：把 `/desktop`·`/desktop/store`·`/desktop/legacy-home` 从 Navigate→`/create` 改回挂 Desktop 页；可选将 `/` 指回 `DesktopHomePage`（或 Cosmos 自有桌面页）。
 3. 可选：恢复侧栏 `onDesktopLaunch` / `useDesktopStore`（见 git 历史 M2 差分，或从本种子 handback 复原）。
 4. 品牌：Cosmos 新项目把开始菜单 / `document.title` 换成「Cosmos 创作终端」；**勿**回改 ToIV 默认对外名。
 5. 定名勿撞：OS 商店 = `app-store`；`/toiv/market` = 工具台 `market-tools`；Comfy/RH = `wf:`。

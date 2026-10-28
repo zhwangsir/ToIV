@@ -11,9 +11,7 @@ import { isLocalWorkspaceMode } from "@/services/workspace-mode";
 const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
 const HomePage = lazy(loadHomePage);
-/** COSMOS_SEED：Desktop 路由页保留源码，默认入口不进；再挂见 docs/COSMOS_APP_SHELL_SEED.md */
-const DesktopAppStorePage = lazy(() => import("@/pages/desktop/app-store-page"));
-const DesktopHomePage = lazy(() => import("@/pages/desktop/desktop-home-page"));
+/** COSMOS_SEED：Desktop 页源码保留（pages/desktop、components/desktop）；W6 默认路由不可达，见 docs/COSMOS_APP_SHELL_SEED.md */
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
 const CreationWorkbenchPage = lazy(() => import("@/pages/create/creation-workbench"));
@@ -147,10 +145,11 @@ export const router = createWorkspaceRouter([
             // W1 F1：登录后 /studio/ 默认落地密台创作（Home 降级 /home，非默认）
             { path: "/", element: <Navigate to="/create" replace /> },
             { path: "/home", element: deferred(<HomePage />) },
-            // COSMOS_SEED：/desktop/* 非默认落地
-            { path: "/desktop", element: deferred(<DesktopHomePage />) },
-            { path: "/desktop/store", element: deferred(<DesktopAppStorePage />) },
-            { path: "/desktop/legacy-home", element: deferred(<HomePage />) },
+            // W6 F12：/desktop* 默认不可达 → /create（源码保留作 Cosmos 种子，禁接回默认交付）
+            { path: "/desktop", element: <Navigate to="/create" replace /> },
+            { path: "/desktop/store", element: <Navigate to="/create" replace /> },
+            { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
+            { path: "/desktop/*", element: <Navigate to="/create" replace /> },
             { path: "/create", element: deferred(<CreationWorkbenchPage />) },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
             { path: "/tasks", element: deferred(<ToivTasksPage />) },

@@ -86,6 +86,8 @@ const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
   // R12①: runs 保留 id → ?run=
   [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio/create?run=$1"],
   [/^\/toiv\/runs\/?$/, "/studio/create"],
+  // W6 F12：Cosmos Desktop 种子默认不可达
+  [/^\/desktop(?:\/.*)?$/, "/studio/create"],
   [/^\/library(\/.*)?$/, "/studio/library$1"],
   [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
   [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
@@ -134,4 +136,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.rewrite(url);
 }
 
-export const config = { matcher: ["/", "/studio", "/studio/:path*", "/create", "/create/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };
+export const config = { matcher: ["/", "/studio", "/studio/:path*", "/create", "/create/:path*", "/desktop", "/desktop/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };
