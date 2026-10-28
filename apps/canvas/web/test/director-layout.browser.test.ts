@@ -168,16 +168,23 @@ test("timeline load failure is explicit and retry restores real preview", async 
     await page.close();
 });
 
-test("agent view consumes canvas drafts and pending sessions inside the workbench", async () => {
+test("W7: create composer consumes canvas drafts and pending sessions", async () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await page.addInitScript(() => {
         localStorage.setItem("toiv_agent_draft", JSON.stringify({ text: "雨夜镜头续写", source: "canvas-node", nodeTitle: "SHOT 01" }));
         localStorage.setItem("toiv_agent_pending_session", "session-1");
     });
+    // W7：view=agent 已无独立面；harness 仍挂 /create workbench，composer 消费 stash
     await page.goto(`${server.url}?view=agent`);
-    const composer = page.getByPlaceholder("输入指令，Enter 发送 / Shift+Enter 换行");
-    await composer.waitFor();
-    expect(await composer.inputValue()).toContain("雨夜镜头续写");
+    const composer = page.getByLabel(/创作提示词/);
+    await composer.waitFor({ timeout: 15_000 });
+    await page.waitForFunction(() => {
+        const el = document.querySelector('[aria-label*="创作提示词"]') as HTMLElement | null;
+        const text = (el as HTMLTextAreaElement | HTMLInputElement | null)?.value
+            ?? el?.textContent
+            ?? "";
+        return text.includes("雨夜镜头续写");
+    }, { timeout: 15_000 });
     expect(await page.getByText("会话 session-1 已恢复").count()).toBe(1);
     expect(await page.evaluate(() => localStorage.getItem("toiv_agent_draft"))).toBeNull();
     expect(await page.evaluate(() => localStorage.getItem("toiv_agent_pending_session"))).toBeNull();

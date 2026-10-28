@@ -1,4 +1,4 @@
-import { ChevronRight, Clapperboard, ListChecks, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
+import { ChevronRight, Clapperboard, ListChecks, PanelLeftClose, PanelLeftOpen, Plus, Settings2, Store, Sun, Moon, WandSparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
@@ -55,10 +55,10 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
         {
             // W6 F4：高级默认折起；自由画布仅专家面，非一级五项
             heading: "高级 / 专家面",
+            // W7 F6：无独立 Agent 面；外部 Agent 客户端仅设置内链 /agents（非一级/非高级导航）
             items: [
                 { ...toolItem("canvas", "/project"), title: "自由画布库" },
                 { id: "canvas:new", title: "新建自由画布", icon: Plus, to: "/canvas?mode=new" },
-                { id: "agents", title: "外部 Agent", icon: Plug, to: "/agents" },
             ],
         },
     ];
@@ -238,7 +238,7 @@ function NavItem({
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; collapsed: boolean }) {
     const defaultOpen = group.heading !== "高级 / 更多" && group.heading !== "高级 / 专家面" && group.heading !== "高级 / 自由画布" && group.heading !== "高级 / 云端可选";
     const [isOpen, setIsOpen] = useState(defaultOpen);
-    const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")) || (item.id === "agents" && activeId === "agents"));
+    const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")));
 
     // 激活项所在分组自动展开，保证当前位置可见。
     useEffect(() => {
@@ -284,7 +284,7 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
     // `/project` is the LibTV-compatible alias for the existing canvas library route.
     const slug = rawSlug === "project" ? "canvas" : rawSlug;
     const section = searchParams.get("section");
-    // /toiv/agent|drama|market|library|tasks → toiv:agent 等，侧栏高亮对齐
+    // /toiv/drama|market|library|tasks → toiv:* 侧栏高亮；/toiv/agent 已 Navigate→/create（W7）
     // /create?project= 归「创作」；旧 /toiv/ws 已永久重定向
     const toivSection = pathParts[1] === "ws" ? "drama" : pathParts[1];
     const activeId =

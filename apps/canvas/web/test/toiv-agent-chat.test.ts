@@ -66,15 +66,18 @@ describe("toiv agent-chat service surface", () => {
         expect(src).toContain("toolCardPayload");
     });
 
-    test("sidebar 智能体对话并入创作台，不再单列 /toiv/agent 入口", () => {
+    test("sidebar 智能体对话并入创作台；W7 无独立外部 Agent 导航", () => {
         const src = read("src/components/layout/workspace-sidebar-nav.tsx");
-        // R12 strangler（f0d789a3/ae158cce）：智能体对话进 /create，与「创作」不双入口；
-        // /agents 仅保留外部 Agent 管理。
+        // R12 strangler：智能体对话进 /create；W7：侧栏也不再挂 /agents（设置侧链保留）
         expect(src).not.toContain('to: "/toiv/agent"');
+        expect(src).not.toContain('to: "/agents"');
+        expect(src).not.toContain('title: "外部 Agent"');
         expect(src).toContain('title: "创作"');
         expect(src).toContain('to: "/create"');
-        expect(src).toContain('title: "外部 Agent"');
-        expect(src).toContain('to: "/agents"');
+        const router = read("src/router.tsx");
+        expect(router).toContain('path: "/agents"');
+        const settings = read("src/pages/settings/channel-settings-pane.tsx");
+        expect(settings).toContain('to="/agents"');
     });
 });
 

@@ -496,7 +496,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
                                         <div className="space-y-2">
                                             <p className="mb-2 text-xs text-foreground/55">BeefAPI / 外部 Agent / 云厂商不在本地主路径；需要时再展开。</p>
                                             <div className="mb-2 flex flex-wrap gap-2">
-                                                <Link to="/agents" className="text-xs text-primary underline-offset-2 hover:underline" data-testid="cloud-optional-external-agent">外部 Agent UI</Link>
+                                                <Link to="/agents" className="text-xs text-primary underline-offset-2 hover:underline" data-testid="cloud-optional-external-agent">外部 Agent 客户端（设置侧链）</Link>
                                             </div>
                                             {onOpenRunningHub ? (
                                                 <div className="grid gap-2 lg:grid-cols-2 mb-2">

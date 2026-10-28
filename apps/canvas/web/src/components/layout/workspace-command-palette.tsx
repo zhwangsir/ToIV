@@ -1,4 +1,5 @@
 import {
+    Blocks,
     Clapperboard,
     Command,
     Film,
@@ -33,8 +34,8 @@ export type WorkspaceCommandEntry = {
 };
 
 /**
- * W1 F5 / W6 F4：⌘K 白名单 = 侧栏五项 + 短剧深链（含新建短剧动作 / 工具台锚点）。
- * 禁主推 /canvas·/project·/desktop；自由画布仅侧栏「高级 / 专家面」。
+ * W1 F5 / W6 F4 / W7 F6·F11：⌘K 白名单 = 侧栏五项 + 短剧/工具深链 + 插件中心（市场收口）。
+ * 禁主推 /canvas·/project·/desktop·独立 Agent 面；自由画布仅侧栏「高级 / 专家面」。
  */
 export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry, "run">> = [
     { id: "act:new-project", title: "新建短剧", icon: Plus, hint: "动作", to: "/toiv/drama?new=1" },
@@ -50,6 +51,8 @@ export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry,
     { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/toiv/market#tools-intent-drama" },
     { id: "settings:channels", title: "模型配置", icon: Settings2, hint: "设置", to: "/settings?section=channels" },
     { id: "settings:models", title: "模型设置", icon: Settings2, hint: "设置", to: "/settings?section=models" },
+    // W7：插件主入口落市场 ToolsIntent；⌘K 深链同 /plugins（非一级导航）
+    { id: "plugins", title: "插件中心", icon: Blocks, hint: "工具", to: "/plugins" },
 ];
 
 /** 纯过滤(可单测):大小写不敏感子串匹配标题,空查询返回全量。 */

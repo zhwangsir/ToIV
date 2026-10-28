@@ -232,10 +232,9 @@ export function ToivAgentFloat() {
         }
     }, [loadSessions, openSession]);
 
-    /** 在对话视图打开:stash 会话 id,工作台内 AgentPage 挂载时消费。 */
-    const openInAgentPage = useCallback((sid: string) => {
+    /** W7：在创作台打开 — stash 会话 id，/create composer 消费（卸 legacy AgentPage）。 */
+    const openInCreateComposer = useCallback((sid: string) => {
         stashPendingAgentSession(sid);
-        // W3: 浮窗只深链 create composer（不再挂 legacy AgentPage）
         navigate("/create");
     }, [navigate]);
 
@@ -466,7 +465,7 @@ export function ToivAgentFloat() {
                                 <Tooltip title="在对话页打开">
                                     <Button size="small" type="text" className="mr-1 opacity-0 transition-opacity group-hover:opacity-100"
                                         icon={<ExternalLink className="h-3 w-3" />} aria-label={`在对话页打开:${s.title || s.id}`}
-                                        onClick={() => openInAgentPage(s.id)} />
+                                        onClick={() => openInCreateComposer(s.id)} />
                                 </Tooltip>
                             </div>
                         ))}

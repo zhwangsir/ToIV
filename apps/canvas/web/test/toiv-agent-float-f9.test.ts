@@ -79,7 +79,8 @@ describe("F9 toiv agent float", () => {
         const src = read("src/pages/canvas/toiv-agent-float.tsx");
         expect(src).toContain("forkAgentSession");
         expect(src).toContain("stashPendingAgentSession");
-        // W3：浮窗只深链 /create composer，不再挂 legacy AgentPage
+        expect(src).toContain("openInCreateComposer");
+        // W3/W7：浮窗只深链 /create composer，不再挂 legacy AgentPage
         expect(src).toContain('navigate("/create")');
         expect(src).not.toContain('navigate("/toiv/agent")');
         expect(src).not.toContain("view=agent");

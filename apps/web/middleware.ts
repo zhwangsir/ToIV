@@ -117,6 +117,14 @@ function applyRetiredRedirect(url: URL, target: string, match: RegExpExecArray, 
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  // W7：/studio/desktop* 在 SPA hydrate 前 308→create，避免闪页（与 canvas Navigate 对齐）
+  if (/^\/studio\/desktop(?:\/.*)?$/.test(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/studio/create";
+    const res = NextResponse.redirect(url, 308);
+    res.headers.set("cache-control", "no-store");
+    return res;
+  }
   for (const [re, target] of RETIRED_FACE_REDIRECTS) {
     const m = re.exec(pathname);
     if (m) {

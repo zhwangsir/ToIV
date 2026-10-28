@@ -1,10 +1,10 @@
 /**
  * BF1 · 工具台意图密台网格。
  * 真源：homeIntentBarItems / HOME_INTENT_ENTRIES（首页禁止整墙铺；仅工具台/市场挂载）。
- * 分组：图像 / 视频 / 音频 / 短剧。W5：图像组挂「姿势参考」→ PoseBrowser（非市场深链）。
+ * 分组：图像 / 视频 / 音频 / 短剧 / 扩展。W5：姿势参考；W7：扩展组挂「插件中心」→ /plugins。
  * 禁营销海报 / 彩霓虹。
  */
-import { PersonStanding } from "lucide-react";
+import { Blocks, PersonStanding } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
@@ -14,7 +14,7 @@ import { homeIntentBarItems, type HomeIntentBarItem } from "@/pages/home/home-da
 
 import "@/components/toiv/tools-intent-grid.css";
 
-export type IntentToolGroupId = "image" | "video" | "audio" | "drama";
+export type IntentToolGroupId = "image" | "video" | "audio" | "drama" | "extensions";
 
 export type IntentToolGroup = {
     id: IntentToolGroupId;
@@ -44,6 +44,12 @@ export const INTENT_TOOL_GROUPS: readonly IntentToolGroup[] = [
         label: "短剧",
         intentIds: ["lipsync", "avatar"],
     },
+    {
+        // W7 F11：插件主入口 = 市场 ToolsIntent（禁新一级导航）
+        id: "extensions",
+        label: "扩展",
+        intentIds: [],
+    },
 ] as const;
 
 function itemsForGroup(group: IntentToolGroup): HomeIntentBarItem[] {
@@ -69,12 +75,12 @@ export function ToolsIntentGrid({ className, onSelectIntent }: ToolsIntentGridPr
         >
             <header className="toiv-tools-intent-grid__head">
                 <h2 className="toiv-tools-intent-grid__title">能力入口</h2>
-                <p className="toiv-tools-intent-grid__meta">图像 · 视频 · 音频 · 短剧 · 姿势参考 · 深链打开市场应用</p>
+                <p className="toiv-tools-intent-grid__meta">图像 · 视频 · 音频 · 短剧 · 姿势参考 · 插件中心 · 深链打开市场应用</p>
             </header>
             <div className="toiv-tools-intent-grid__groups">
                 {INTENT_TOOL_GROUPS.map((group) => {
                     const items = itemsForGroup(group);
-                    if (items.length === 0 && group.id !== "image") return null;
+                    if (items.length === 0 && group.id !== "image" && group.id !== "extensions") return null;
                     return (
                         <section
                             key={group.id}
@@ -140,6 +146,25 @@ export function ToolsIntentGrid({ className, onSelectIntent }: ToolsIntentGridPr
                                                 <em>体系 · 多角度浏览</em>
                                             </span>
                                         </button>
+                                    </li>
+                                ) : null}
+                                {group.id === "extensions" ? (
+                                    <li key="plugins">
+                                        <Link
+                                            to="/plugins"
+                                            className="toiv-tools-intent-card"
+                                            data-intent="plugins"
+                                            data-testid="tools-intent-plugins"
+                                            title="插件中心"
+                                        >
+                                            <span className="toiv-tools-intent-card__icon" aria-hidden>
+                                                <Blocks />
+                                            </span>
+                                            <span className="toiv-tools-intent-card__copy">
+                                                <strong>插件中心</strong>
+                                                <em>模型 · 素材 · 工作流扩展</em>
+                                            </span>
+                                        </Link>
                                     </li>
                                 ) : null}
                             </ul>

@@ -11,6 +11,8 @@ describe("F12 retired-face deep-link redirects", () => {
         assert.ok(mw.includes('"/create", "/create/:path*"'));
         assert.ok(mw.includes('"/desktop", "/desktop/:path*"'));
         assert.ok(mw.includes("/desktop(?:") || mw.includes("/desktop(?:\\/.*)?$"));
+        // W7：/studio/desktop* hydrate 前 308
+        assert.ok(mw.includes("/studio/desktop") || mw.includes("studio\\/desktop"));
         assert.ok(mw.includes("NextResponse.redirect(url, 308)"));
         assert.ok(mw.includes('"/studio/library$1"'));
         assert.ok(mw.includes('"/studio/toiv/market$1"'));

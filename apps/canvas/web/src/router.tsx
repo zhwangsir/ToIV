@@ -170,7 +170,7 @@ export const router = createWorkspaceRouter([
                 element: <RequireFeature feature="pluginCenterEnabled">{deferred(<EagleLibraryPage />)}</RequireFeature>,
             },
             { path: "/settings", element: deferred(<SettingsPage />) },
-            { path: "/agents", element: deferred(<AgentsPage />) },
+            { /* W7：外部 Agent 客户端面保留；入口仅设置侧链，非侧栏/⌘K 独立 Agent 对话面 */ path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
             { path: "/toiv/agent", element: <Navigate to="/create" replace /> },

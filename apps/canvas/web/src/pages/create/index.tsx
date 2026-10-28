@@ -37,6 +37,7 @@ import { attachCreationTaskContexts, completedCreationGenerationTask, conversati
 import { CreationComposer, CreationEmptySuggest, CreationFeaturedWorks, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationThreeDEntryModal, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
 import { findCreationCanonSkill } from "./creation-canon-skills";
 import { createDemoConversation } from "./creation-demo-data";
+import { consumeCreationAgentHandoff } from "./creation-agent-handoff";
 import { CreationConflictBanner, CreationConflictDialog } from "./creation-conflict";
 import type { CreationViewPreset, CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
 
@@ -305,6 +306,29 @@ export default function CreatePage() {
     }, [demoConversation, userId]);
 
     useEffect(() => () => abortRef.current?.abort(), []);
+
+    // W7 F6/F9：浮窗 pending session + 画布 draft → create composer（卸 legacy AgentPage）
+    useEffect(() => {
+        if (!hydrated || demoConversation) return;
+        let cancelled = false;
+        void consumeCreationAgentHandoff(conversationsRef.current, activeIdRef.current).then((result) => {
+            if (cancelled) return;
+            if (result.draft?.text?.trim()) {
+                setPrompt((current) => (current.trim() ? current : result.draft!.text));
+                if (result.draft.nodeTitle) {
+                    toastRef.current.success(`已从画布节点「${result.draft.nodeTitle}」带入，可编辑后发送`);
+                }
+            }
+            if (!result.sessionRestore) return;
+            skipPersistRef.current = true;
+            conversationsRef.current = result.sessionRestore.conversations;
+            setConversations(result.sessionRestore.conversations);
+            setActiveId(result.sessionRestore.activeId);
+        }).catch(() => {
+            if (!cancelled) toastRef.current.warning("浮窗会话未能恢复，可在创作台继续新对话");
+        });
+        return () => { cancelled = true; };
+    }, [hydrated, demoConversation]);
 
     useEffect(() => {
         activeIdRef.current = activeId;

@@ -6,13 +6,12 @@
 export const AGENT_DRAFT_KEY = "toiv_agent_draft";
 
 /**
- * F9(2026-10-15 UI 统一波):跨组件「新对话」指令。
- * ⌘K 命令面板等入口 dispatch,AgentPage 监听并重置为全新会话;
- * 页面尚未挂载时无需暂存——挂载初态本身就是新会话。
+ * F9 / W3：跨组件「新对话」指令（legacy AgentPage 已卸；现由 ⌘K → /create 新对话）。
+ * 事件名保留兼容；create composer 不再依赖监听。
  */
 export const EV_AGENT_NEW_SESSION = "toiv:agent-new-session";
 
-/** F9:浮层「在对话页打开」的一次性会话暂存键(与草稿通道同模式:take 即删)。 */
+/** F9/W7：浮层「在创作台打开」的一次性会话暂存键（create composer take 即删）。 */
 export const AGENT_PENDING_SESSION_KEY = "toiv_agent_pending_session";
 
 export function stashPendingAgentSession(sessionId: string): void {
