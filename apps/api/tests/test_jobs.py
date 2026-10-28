@@ -615,3 +615,41 @@ def test_job_dict_exposes_project_id():
 
     plain = Job(tenant_id="t", user_id="u", prompt_id="p3", worker="", kind="txt2img")
     assert _job_dict(plain)["project_id"] == ""
+
+
+def test_job_results_list_forces_list():
+    """P0 热修:job.result 可能是 object(error dict 等);FE results 必须恒为 list。"""
+    from app.routes.jobs import _job_dict, _job_results_list
+
+    listed = Job(
+        tenant_id="t", user_id="u", prompt_id="p-list", worker="w",
+        kind="txt2img", status="done",
+        result='["/a.png", "/b.png"]',
+    )
+    assert _job_results_list(listed) == ["/a.png", "/b.png"]
+    assert _job_dict(listed)["results"] == ["/a.png", "/b.png"]
+
+    obj = Job(
+        tenant_id="t", user_id="u", prompt_id="p-obj", worker="w",
+        kind="studio_batch_render", status="error",
+        result='{"error": "boom", "code": 1}',
+    )
+    assert _job_results_list(obj) == []
+    assert _job_dict(obj)["results"] == []
+
+    empty = Job(tenant_id="t", user_id="u", prompt_id="p-empty", worker="w", kind="txt2img")
+    assert empty.result in (None, "")
+    assert _job_results_list(empty) == []
+    assert _job_dict(empty)["results"] == []
+
+    blank = Job(
+        tenant_id="t", user_id="u", prompt_id="p-blank", worker="w",
+        kind="txt2img", result="",
+    )
+    assert _job_results_list(blank) == []
+
+    bad = Job(
+        tenant_id="t", user_id="u", prompt_id="p-bad", worker="w",
+        kind="txt2img", result="{not-json",
+    )
+    assert _job_results_list(bad) == []

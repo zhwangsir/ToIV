@@ -21,7 +21,7 @@ export interface AssetPick {
 
 /** 从作品首个产物解析媒体类型 + 句柄;解析不出返回 null。 */
 export function pickFromJob(job: JobItem): AssetPick | null {
-  const url = job.results?.[0];
+  const url = Array.isArray(job.results) ? job.results[0] : undefined;
   if (!url || typeof url !== "string") return null;
   const q = new URLSearchParams(url.split("?")[1] ?? "");
   const filename = (q.get("filename") ?? "").trim();

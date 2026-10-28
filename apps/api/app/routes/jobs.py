@@ -172,6 +172,18 @@ def _user_emails_map(session: Session, rows: list[Job]) -> dict[str, str]:
         return {}
 
 
+
+def _job_results_list(job: Job) -> list:
+    """FE 契约:results 必须是 list。写入侧可能塞 object(error dict 等),loads 后非 list 一律 []。"""
+    if not job.result:
+        return []
+    try:
+        raw = json.loads(job.result)
+    except (ValueError, TypeError):
+        return []
+    return raw if isinstance(raw, list) else []
+
+
 def _job_dict(j: Job, app_name: str = "", user_email: str = "", now: float | None = None) -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     from app.services.job_health import project_job_health
@@ -193,7 +205,7 @@ def _job_dict(j: Job, app_name: str = "", user_email: str = "", now: float | Non
         "prompt": j.prompt,
         "seed": j.seed,
         "created_at": j.created_at.isoformat(),
-        "results": json.loads(j.result) if j.result else [],
+        "results": _job_results_list(j),
         # 时长后处理(trim/extend)标记:processing 时 results 为未裁原片,
         # 前端结果区应显示「精确裁切中」,待清零后重拉取终产物
         "post_status": j.post_status or "",
@@ -251,7 +263,7 @@ def _video_duration(job: Job) -> float:
         except Exception:  # noqa: BLE001 — 缓存坏不影响主路
             pass
     try:
-        results = json.loads(job.result) if job.result else []
+        results = _job_results_list(job)
         url = ""
         for u in results:
             fn = (parse_qs(urlparse(str(u)).query).get("filename") or [str(u).split("/")[-1]])[0]
@@ -1210,7 +1222,7 @@ async def _forge_stream(prompt_id: str, request: Request):
             with Session(engine) as s:
                 db = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
                 if db and db.status == "done":
-                    yield {"event": "done", "data": json.dumps({"images": json.loads(db.result or "[]")})}
+                    yield {"event": "done", "data": json.dumps({"images": _job_results_list(db)})}
                     return
                 if db and db.status == "error":
                     yield {"event": "error", "data": json.dumps({"message": "Forge 出图失败"})}
@@ -1269,7 +1281,7 @@ async def job_events(
                 yield {"event": "error", "data": json.dumps({"message": db.hold_reason or "执行失败"})}
                 return
             if db.status == "done":
-                yield {"event": "done", "data": json.dumps({"images": json.loads(db.result or "[]"), "post_status": db.post_status or ""})}
+                yield {"event": "done", "data": json.dumps({"images": _job_results_list(db), "post_status": db.post_status or ""})}
                 return
             break  # queued/running:已放行,转正常 WS 流程
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果

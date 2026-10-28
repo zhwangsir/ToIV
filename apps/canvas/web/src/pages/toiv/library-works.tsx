@@ -178,7 +178,7 @@ export default function LibraryWorks() {
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                     {visible.map((job) => {
                         const st = statusLabel(job);
-                        const cover = job.results?.[0] ?? "";
+                        const cover = (Array.isArray(job.results) ? job.results[0] : undefined) ?? "";
                         const mediaKind_ = mediaKind(cover);
                         return (
                             <div
@@ -298,7 +298,7 @@ export default function LibraryWorks() {
             ) : null}
 
             {preview ? (() => {
-                const cover = preview.results?.[0] ?? "";
+                const cover = (Array.isArray(preview.results) ? preview.results[0] : undefined) ?? "";
                 const kind = mediaKind(cover);
                 return (
                     <div

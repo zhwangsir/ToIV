@@ -133,8 +133,9 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
     const exts = TYPE_EXTS[assetType];
     const out: { job: JobItem; filename: string; url: string }[] = [];
     for (const j of jobs) {
-      if (j.status !== "done" || !j.results?.length) continue;
-      const hit = j.results.find((u) => {
+      const results = Array.isArray(j.results) ? j.results : [];
+      if (j.status !== "done" || !results.length) continue;
+      const hit = results.find((u) => {
         const f = filenameOfResult(u) ?? "";
         return exts.includes(extOf(f));
       });

@@ -98,7 +98,7 @@ export function formatRetention(seconds: number): string {
 
 export function folderCover(folder: BoardFolder): ToivBoardItem {
     return (
-        folder.members.find((m) => m.job?.status === "done" && (m.job.results?.length ?? 0) > 0) ??
+        folder.members.find((m) => m.job?.status === "done" && Array.isArray(m.job.results) && m.job.results.length > 0) ??
         folder.members[0]!
     );
 }
@@ -141,10 +141,11 @@ export function classifyMediaUrl(url: string, jobKind?: string | null): LibraryM
 
 /** 列出作业全部可预览结果（去重保序）。 */
 export function listJobMedia(job: { results?: string[]; kind?: string } | null | undefined): LibraryMedia[] {
-    if (!job?.results?.length) return [];
+    const rows = Array.isArray(job?.results) ? job.results : [];
+    if (!rows.length) return [];
     const seen = new Set<string>();
     const out: LibraryMedia[] = [];
-    for (const raw of job.results) {
+    for (const raw of rows) {
         const url = (raw || "").trim();
         if (!url || seen.has(url)) continue;
         seen.add(url);

@@ -155,6 +155,14 @@ describe("library media classify / canvas path", () => {
         expect(primaryMedia({ results: ["https://x/c.wav"], kind: "tts" })?.kind).toBe("audio");
     });
 
+    test("listJobMedia tolerates non-array results object without throwing", () => {
+        const dirty = { kind: "studio", results: { error: "encode failed" } as unknown as string[] };
+        expect(listJobMedia(dirty)).toEqual([]);
+        expect(primaryMedia(dirty)).toBeNull();
+        expect(listJobMedia({ results: null as unknown as string[] })).toEqual([]);
+        expect(listJobMedia(undefined)).toEqual([]);
+    });
+
     test("canvasAddPathForMedia and filenameFromMediaUrl", () => {
         expect(canvasAddPathForMedia("image")).toBe("/canvas?mode=new&add=image");
         expect(canvasAddPathForMedia("video")).toBe("/canvas?mode=new&add=video");

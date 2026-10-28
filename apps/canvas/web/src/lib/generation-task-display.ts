@@ -151,7 +151,9 @@ type ToivGenerationDisplayTask = GenerationTaskProjectionInput & Pick<
 
 function toivGenerationTask(job: ToivJob): ToivGenerationDisplayTask {
     const status = toivTaskStatus(job).status;
-    const previewUrl = job.results?.find((result) => Boolean(result?.trim()));
+    const previewUrl = Array.isArray(job.results)
+        ? job.results.find((result) => Boolean(result?.trim()))
+        : undefined;
     return {
         id: job.id,
         projectId: job.project_id,

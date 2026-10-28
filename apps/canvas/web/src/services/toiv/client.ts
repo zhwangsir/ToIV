@@ -116,7 +116,11 @@ export async function fetchJobs(limit = 100): Promise<ToivJob[]> {
 
 export async function fetchJobById(jobId: string): Promise<ToivJob> {
     const { data } = await toivHttp.get("/jobs/lookup", { params: { job_id: jobId } });
-    return data as ToivJob;
+    const job = (data ?? {}) as ToivJob;
+    return {
+        ...job,
+        results: Array.isArray(job.results) ? job.results : [],
+    };
 }
 
 export async function cancelJob(jobId: string): Promise<boolean> {
@@ -148,13 +152,25 @@ export type ToivWorkJob = {
 };
 
 /** P-11:列表响应非数组/非信封对象=异常(如 200 的错误页),必须抛错,禁止静默空集当「没有作业」。 */
+function normalizeJobResults<T extends { results?: unknown }>(job: T): T & { results: string[] } {
+    return {
+        ...job,
+        results: Array.isArray(job.results) ? (job.results as string[]) : [],
+    };
+}
+
 function extractWorkJobList(data: unknown): ToivWorkJob[] {
-    if (Array.isArray(data)) return data as ToivWorkJob[];
-    if (data && typeof data === "object") {
-        const items = (data as { items?: unknown }).items;
-        if (Array.isArray(items)) return items as ToivWorkJob[];
+    let items: ToivWorkJob[];
+    if (Array.isArray(data)) {
+        items = data as ToivWorkJob[];
+    } else if (data && typeof data === "object") {
+        const raw = (data as { items?: unknown }).items;
+        if (Array.isArray(raw)) items = raw as ToivWorkJob[];
+        else throw new Error("作业列表响应形状异常(非数组/非 items 信封)");
+    } else {
+        throw new Error("作业列表响应形状异常(非数组/非 items 信封)");
     }
-    throw new Error("作业列表响应形状异常(非数组/非 items 信封)");
+    return items.map((job) => normalizeJobResults(job));
 }
 
 export type ToivWorksPage = { items: ToivWorkJob[]; offset: number; hasMore: boolean };
