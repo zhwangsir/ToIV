@@ -22,32 +22,44 @@ import { EV_AGENT_NEW_SESSION } from "@/services/toiv/agent-draft";
 const root = join(import.meta.dir, "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf-8");
 
+// R11：智能体对话收敛进 /create。
+// BF1：引擎工具孤面改指 /toiv/market（工具台意图网格），不再绑创作台。
 const REQUIRED_TARGETS = [
     "/",
     "/create",
     "/toiv/drama",
-    "/toiv/agent",
     "/project",
     "/canvas",
     "/library?source=materials",
     "/toiv/market",
     "/toiv/tasks",
-    "/toiv/audio",
-    "/toiv/image-tools",
-    "/toiv/video-tools",
-    "/toiv/dub-tools",
     "/agents",
     "/settings",
     "/settings?section=channels",
+    "/settings?section=models",
     "/toiv/drama?new=1",
     "/canvas?mode=new",
 ];
+
+/** 智能体对话仍进 /create；工具孤面 BF1 进工具台。 */
+const CREATE_ORPHAN_IDS = ["toiv:agent"];
+const MARKET_TOOL_ORPHAN_IDS = ["toiv:audio", "toiv:image-tools", "toiv:video-tools", "toiv:dub-tools"];
 
 describe("F9 workspace command palette", () => {
     test("命令面覆盖 canvas 全量路由 + 动作 + 设置段", () => {
         const targets = WORKSPACE_COMMAND_ROUTES.map((entry) => entry.to);
         for (const required of REQUIRED_TARGETS) {
             expect(targets).toContain(required);
+        }
+        for (const id of CREATE_ORPHAN_IDS) {
+            const entry = WORKSPACE_COMMAND_ROUTES.find((candidate) => candidate.id === id);
+            expect(entry).toBeDefined();
+            expect(entry?.to).toBe("/create");
+        }
+        for (const id of MARKET_TOOL_ORPHAN_IDS) {
+            const entry = WORKSPACE_COMMAND_ROUTES.find((candidate) => candidate.id === id);
+            expect(entry).toBeDefined();
+            expect(entry?.to?.startsWith("/toiv/market")).toBe(true);
         }
         // 分组提示齐备(动作/页面/工具/设置),对齐经典 web ⌘K 的信息密度
         const hints = new Set(WORKSPACE_COMMAND_ROUTES.map((entry) => entry.hint));
@@ -67,7 +79,7 @@ describe("F9 workspace command palette", () => {
         }
         expect(registered.size).toBeGreaterThan(10);
         for (const entry of WORKSPACE_COMMAND_ROUTES) {
-            const pathname = (entry.to ?? "").split("?")[0];
+            const pathname = (entry.to ?? "").split("#")[0].split("?")[0];
             expect(registered.has(pathname)).toBe(true);
         }
     });

@@ -155,14 +155,14 @@ def test_gentle_inpaint_prompt_soft_closed_eye_smile():
         + sheet_svc._EXPR_INPAINT_PROMPTS[3]
     ).lower()
     assert "eyes softly curved" in g or "softly curved" in g
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "expr_3" in src
     assert "assert_expr_cell_face_height_frac" in src
 
 
 def test_contemplative_side_base_contract_in_source():
-    # 23:18：side_base 已撤回；本测改为确认撤回契约（详见 test_character_sheet_2318_gates）
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert "撤回沉思 side_base" in src or "no side_base" in src
+    # 23:18:side_base 已撤回;现行实现已无 side_base 机制(拆分后标记注释不再保留)
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
+    assert "side_base" not in src
     assert "22:28 contemplative uses side-face base" not in src
     assert "assert_expr_cell_face_height_frac" in src

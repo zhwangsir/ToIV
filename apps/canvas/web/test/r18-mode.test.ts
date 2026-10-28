@@ -71,7 +71,8 @@ describe("r18 failure classification surface", () => {
         expect(again.reason).toBe(first.reason);
     });
 
-    test("underage 403 is adult-gate (guide CTA), not bare permission", () => {
+    // 次路径兼容：旧后端 underage 403 文案；主路径已是 FE isUnderage（见 redline-guard）
+    test("legacy underage 403 still classifies as adult-gate (compat, not primary)", () => {
         const { explainGenerationError } = require("../src/lib/generation-error");
         for (const detail of ["未成年账户不可开启或使用 R18 内容", "未成年用户不可开启 R18 模式"]) {
             const f = explainGenerationError({ status: 403, data: { detail } });
@@ -79,6 +80,10 @@ describe("r18 failure classification surface", () => {
             expect(f.guideEnableR18).toBe(true);
             expect(f.slot).toBe("route_guard_adult");
         }
+        // FE COPY_UNDERAGE_ADULT 文案亦识别（非后端 403）
+        const fe = explainGenerationError("当前账号未满足成人内容使用条件");
+        expect(fe.category).toBe("r18_context_required");
+        expect(fe.guideEnableR18).toBe(true);
     });
 
     test("non-content 403 never guides adult switch", () => {

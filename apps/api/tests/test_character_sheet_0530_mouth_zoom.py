@@ -1,7 +1,7 @@
 """05:30：嘴部放大复判——整格问答漏判小 O 形嘴（0505 expr_2）后的二次 VLM 门禁。"""
 from __future__ import annotations
 
-import inspect
+from pathlib import Path
 from io import BytesIO
 
 import pytest
@@ -28,7 +28,7 @@ def test_mouth_zoom_prompt_registered_and_strict():
 
 
 def test_crop_mouth_zoom_uses_lower_center_of_face(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_detect_face_bbox_xyxy", lambda _b: (234.0, 150.0, 534.0, 560.0))
+    monkeypatch.setattr(sheet_svc._impl, "_detect_face_bbox_xyxy", lambda _b: (234.0, 150.0, 534.0, 560.0))
     out = sheet_svc.crop_mouth_zoom(_face_png())
     im = Image.open(BytesIO(out)).convert("RGB")
     assert im.width == 512
@@ -40,14 +40,14 @@ def test_crop_mouth_zoom_uses_lower_center_of_face(monkeypatch):
 
 
 def test_crop_mouth_zoom_no_face_raises(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_detect_face_bbox_xyxy", lambda _b: None)
-    monkeypatch.setattr(sheet_svc, "_heuristic_skin_face_bbox", lambda _im: None)
+    monkeypatch.setattr(sheet_svc._impl, "_detect_face_bbox_xyxy", lambda _b: None)
+    monkeypatch.setattr(sheet_svc._impl, "_heuristic_skin_face_bbox", lambda _im: None)
     with pytest.raises(sheet_svc.CharacterSheetError, match="测不到脸"):
         sheet_svc.crop_mouth_zoom(_face_png())
 
 
 def test_crop_mouth_zoom_tiny_region_raises(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_detect_face_bbox_xyxy", lambda _b: (10.0, 10.0, 30.0, 25.0))
+    monkeypatch.setattr(sheet_svc._impl, "_detect_face_bbox_xyxy", lambda _b: (10.0, 10.0, 30.0, 25.0))
     with pytest.raises(sheet_svc.CharacterSheetError, match="裁区过小"):
         sheet_svc.crop_mouth_zoom(_face_png())
 
@@ -65,9 +65,9 @@ def test_assert_mouth_zoom_closed(q1, q2, ok):
 
 
 def test_pipeline_runs_mouth_zoom_after_expression_qa_and_before_ok_write():
-    src = inspect.getsource(sheet_svc)
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     i_qa = src.index("assert_expression_qa_match(ek, qa_result)")
     i_mz = src.index("assert_mouth_zoom_closed(ek, mz_result)")
-    i_ok = src.index('f"{ek}_qedit_ok_{int(seed or 0)}.png"')
+    i_ok = src.index("f'{ek}_qedit_ok_{int(seed or 0)}.png'")
     assert i_qa < i_mz < i_ok
-    assert 'expr_key="mouth_zoom"' in src[i_qa:i_mz]
+    assert "expr_key='mouth_zoom'" in src[i_qa:i_mz] or 'expr_key="mouth_zoom"' in src[i_qa:i_mz]

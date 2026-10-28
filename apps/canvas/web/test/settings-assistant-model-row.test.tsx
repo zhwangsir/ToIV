@@ -45,7 +45,7 @@ describe("设置页角色槽 · 助手一行", () => {
     test("默认选中跟随对话，并说明助手会做什么", () => {
         const markup = renderToStaticMarkup(<ModelSlotTable config={configWithTextChannel()} onChange={() => {}} />);
         expect(markup).toContain("跟随对话 / 剧本");
-        expect(markup).toContain("画布助手；可跟随对话槽或单独指定。");
+        expect(markup).toContain("可跟随对话槽");
         expect(markup).toContain("chat-1");
         expect(markup).toContain("chat-2");
     });

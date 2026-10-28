@@ -849,7 +849,7 @@ func (r *Repository) ConfirmProjectAssetCandidateActive(userID string, candidate
 		} else if err := tx.First(&model.Asset{}, "id = ? AND user_id = ?", asset.ID, asset.UserID).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("project_id = ? AND asset_id = ?", link.ProjectID, link.AssetID).FirstOrCreate(link).Error; err != nil {
+		if err := ensureProjectAssetLinkTx(tx, link); err != nil {
 			return err
 		}
 		result := tx.Model(&model.ProjectAssetCandidate{}).
@@ -863,6 +863,19 @@ func (r *Repository) ConfirmProjectAssetCandidateActive(userID string, candidate
 		}
 		return bumpProjectRevisionTx(tx, candidate.ProjectID, candidate.UpdatedAt)
 	})
+}
+
+// ensureProjectAssetLinkTx 保证项目素材链接存在；已链接时不重复插入（FirstOrCreate 在预置主键时会误判未找到）。
+func ensureProjectAssetLinkTx(tx *gorm.DB, link *model.ProjectAssetLink) error {
+	var existing model.ProjectAssetLink
+	err := tx.Where("project_id = ? AND asset_id = ?", link.ProjectID, link.AssetID).First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return tx.Create(link).Error
 }
 
 func (r *Repository) SaveShotWithRevisionActive(userID string, shot *model.Shot, revision *model.ShotRevision, create bool, expectedCurrentRevisionID string) error {

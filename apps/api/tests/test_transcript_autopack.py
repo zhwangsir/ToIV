@@ -211,6 +211,12 @@ def ctx(drama_root):
         t = Tenant(name="t"); s.add(t); s.commit(); s.refresh(t)
         s.add(User(id="u1", email="a@t.iv", hashed_password=hash_password("x"), tenant_id=t.id, role="user"))
         s.commit()
+        # P-1 归属前置:Job.result 引用产物名 → assert_media_path_owned 放行
+        for _n in ("clip.mp4", "wan_a.mp4", "noc.mp4"):
+            s.add(Job(tenant_id=t.id, user_id="u1", prompt_id=f"p-{_n}", worker="http://w",
+                      kind="ltx_i2v", status="done",
+                      result=json.dumps([f"/api/drama/output/{_n}", f"/api/studio/files/{_n}"])))
+        s.commit()
         h = {"Authorization": "Bearer " + create_token("u1")}
     yield TestClient(app), h, drama_root
     app.dependency_overrides.clear()

@@ -73,6 +73,10 @@ def _reconcile_shot(session: Session, shot: StudioShot) -> bool:
                 shot.video_url = urls[0]
                 shot.status = "rendered"
                 shot.error = ""
+                # C1a:成片归属发起 render 修订(候选自带);用户中途编辑过内容则
+                # 指纹比对出 stale,完成结果不会被记到新修订
+                if cands[i].get("revision_id"):
+                    shot.rendered_revision_id = str(cands[i]["revision_id"])
         elif job.status in ("error", "canceled"):
             cands[i]["status"] = "error"
             cands[i]["error"] = (
@@ -81,9 +85,9 @@ def _reconcile_shot(session: Session, shot: StudioShot) -> bool:
             changed = True
     if not changed:
         return False
-    # 全部候选终态且无任何入选 → 镜失败
+    # 全部候选终态且无任何入选 → 镜失败(superseded=本地放弃,同视为终态,见 M2)
     terminal = all(
-        c.get("status") in ("done", "error") for c in cands if c.get("db_job_id")
+        c.get("status") in ("done", "error", "superseded") for c in cands if c.get("db_job_id")
     )
     has_pick = any(c.get("is_picked") and c.get("url") for c in cands)
     if terminal and not has_pick:

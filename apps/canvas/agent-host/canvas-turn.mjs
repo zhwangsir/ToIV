@@ -8,7 +8,7 @@ export const SUPPORTED_APIS = ['openai-completions', 'openai-responses', 'anthro
 
 export function newTurnAccumulator() {
   return { turnId: '', seq: 0, toolSeq: 0, revisionBefore: 0, revisionAfter: 0,
-    createdNodeIds: [], updatedNodeIds: [], createdEdgeIds: [], operationIds: [], proposals: [] };
+    createdNodeIds: [], updatedNodeIds: [], createdEdgeIds: [], operationIds: [], proposals: [], productionProposals: [] };
 }
 
 export function resetTurnAccumulator(turn, revisionBefore, turnId = '') {
@@ -22,6 +22,7 @@ export function resetTurnAccumulator(turn, revisionBefore, turnId = '') {
   turn.createdEdgeIds.length = 0;
   turn.operationIds.length = 0;
   turn.proposals.length = 0;
+  turn.productionProposals.length = 0;
   return turn;
 }
 
@@ -58,10 +59,34 @@ export function collectTurnEffects(turn, opID, result, operationId) {
             canvasRevision: result.source.canvasRevision, modelConfigRevision: result.source.modelConfigRevision } } : {}) });
       }
       break;
+    case 'studio.review.propose':
+      if (result.proposalId && result.kind === 'studio_production') {
+        turn.productionProposals.push({
+          proposalId: String(result.proposalId), kind: 'studio_production', projectId: String(result.projectId || ''),
+          summary: String(result.summary || ''), warnings: asStringList(result.warnings),
+          source: {
+            projectId: String(result.source?.projectId || ''), stageRevision: Number(result.source?.stageRevision || 0),
+            ...(result.source?.shotId ? { shotId: String(result.source.shotId) } : {}),
+            ...(result.source?.candidatesDigest ? { candidatesDigest: String(result.source.candidatesDigest) } : {}),
+          },
+          nextActions: (Array.isArray(result.nextActions) ? result.nextActions : []).map((action) => ({
+            kind: String(action.kind || ''),
+            ...(action.stage ? { stage: String(action.stage) } : {}),
+            ...(action.shotId ? { shotId: String(action.shotId) } : {}),
+            ...(action.candidateId ? { candidateId: String(action.candidateId) } : {}),
+            label: String(action.label || ''), section: String(action.section || ''), requiresHuman: true,
+          })),
+        });
+      }
+      break;
     default:
       break;
   }
   return turn;
+}
+
+export function turnEndPayload(turn, fields) {
+  return { type: 'turn_end', ...fields, studioProposals: [...(turn?.productionProposals || [])] };
 }
 
 // 刚创建、官方会话文件还没落盘的当前会话，历史应是空对话，而不是 404。
@@ -98,8 +123,10 @@ export function turnContextPrefix({ canvasId, selectedNodeIds = [], references =
   if (selected.length > 0) parts.push(`选中对象: ${selected.join(', ')}`);
   const assets = references.filter((item) => item?.kind === 'asset' && item.id).map((item) => String(item.id));
   const canvases = references.filter((item) => item?.kind === 'canvas' && item.id).map((item) => String(item.id));
+  const studioProjects = references.filter((item) => item?.kind === 'studio_project' && item.id).map((item) => String(item.id));
   if (assets.length > 0) parts.push(`已引用素材: ${assets.join(', ')}`);
   if (canvases.length > 0) parts.push(`已引用画布（只读）: ${canvases.join(', ')}`);
+  if (studioProjects.length > 0) parts.push(`已引用 Studio 项目（只读）: ${studioProjects.join(', ')}`);
   return `[${parts.join('｜')}]`;
 }
 
@@ -147,7 +174,7 @@ export function projectTurnHistory(entries, turnType, activeTurnId = '') {
       turns.set(data.turnId, { finished: true, data });
     } else if (entry.customType === `${turnType}.started` && !turns.has(data.turnId)) {
       turns.set(data.turnId, { finished: false, data: {
-        ...data, reply: '', toolCalls: [], change: null, proposals: [], cancelled: false,
+        ...data, reply: '', toolCalls: [], change: null, proposals: [], studioProposals: [], cancelled: false,
         error: '上一轮执行中断，请核对已落地的改动。', errorReason: 'turn_interrupted',
       } });
     }

@@ -176,6 +176,17 @@
 .canvas-assistant-card strong {
     font-weight: 600;
 }
+.canvas-assistant-studio-proposal {
+    font-size: var(--fs-caption);
+}
+.canvas-assistant-studio-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted-foreground);
+}
 .canvas-assistant-change { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 12px 14px; border-left: 2px solid var(--border); font-size: 13px; }
 .canvas-assistant-change strong { font-weight: 500; }
 .canvas-assistant-feedback { font-size: 13px; line-height: 1.7; }

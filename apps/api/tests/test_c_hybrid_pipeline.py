@@ -361,7 +361,7 @@ def test_c_hybrid_chain_first_shot_full_body_then_prev_tail(ctx, monkeypatch, tm
     r0 = client.post(
         f"/api/studio/shots/{sids[0]}/render",
         headers=H,
-        json={"pipeline": "c_hybrid", "num_candidates": 2},
+        json={"pipeline": "c_hybrid", "num_candidates": 2, "force_direct": True},
     )
     assert r0.status_code == 200, r0.text
     assert len(seen) == 2
@@ -377,7 +377,7 @@ def test_c_hybrid_chain_first_shot_full_body_then_prev_tail(ctx, monkeypatch, tm
     r1 = client.post(
         f"/api/studio/shots/{sids[1]}/render",
         headers=H,
-        json={"pipeline": "c_hybrid", "num_candidates": 2},
+        json={"pipeline": "c_hybrid", "num_candidates": 2, "force_direct": True},
     )
     assert r1.status_code == 200, r1.text
     kw1 = seen[2]
@@ -406,7 +406,7 @@ def test_c_hybrid_first_shot_without_full_body_errors(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sids[0]}/render",
         headers=H,
-        json={"pipeline": "c_hybrid", "num_candidates": 1},
+        json={"pipeline": "c_hybrid", "num_candidates": 1, "force_direct": True},
     )
     assert r.status_code == 502, r.text
     assert "全身定妆图" in r.text
@@ -420,7 +420,7 @@ def test_default_ref2va_no_first_frame(ctx, monkeypatch):
     _pid, sids = _make_project(client, H, 1)
     seen: list = []
     _install_fake_renderer(monkeypatch, seen)
-    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"num_candidates": 1})
+    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert seen[0]["pipeline"] == "ref2va"
     assert "first_frame_url" not in seen[0]
@@ -434,7 +434,7 @@ def test_render_body_rejects_unknown_pipeline(ctx):
     H = {"Authorization": f"Bearer {token}"}
     _pid, sids = _make_project(client, H, 1)
     r = client.post(
-        f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "bogus"}
+        f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "bogus", "force_direct": True}
     )
     assert r.status_code == 422
 
@@ -451,7 +451,7 @@ def test_worker_url_admin_gate_and_whitelist(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sids[0]}/render",
         headers=H,
-        json={"num_candidates": 1, "worker_url": W8195},
+        json={"num_candidates": 1, "force_direct": True, "worker_url": W8195},
     )
     assert r.status_code == 403, r.text
     assert seen == []
@@ -461,7 +461,7 @@ def test_worker_url_admin_gate_and_whitelist(ctx, monkeypatch):
         r = client.post(
             f"/api/studio/shots/{sids[0]}/render",
             headers=HA,
-            json={"num_candidates": 1, "worker_url": bad},
+            json={"num_candidates": 1, "force_direct": True, "worker_url": bad},
         )
         assert r.status_code == 422, (bad, r.text)
     assert seen == []
@@ -470,7 +470,7 @@ def test_worker_url_admin_gate_and_whitelist(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sids[0]}/render",
         headers=HA,
-        json={"num_candidates": 1, "worker_url": W8195 + "/", "pipeline": "c"},
+        json={"num_candidates": 1, "force_direct": True, "worker_url": W8195 + "/", "pipeline": "c"},
     )
     assert r.status_code == 200, r.text
     assert seen[-1]["worker_url"] == W8195

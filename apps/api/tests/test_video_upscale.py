@@ -276,6 +276,13 @@ def test_endpoint_nsfw_source_requires_r18_context(ctx, monkeypatch):
     r = client.post("/api/video/upscale", headers=_h(token), json={"video_url": url})
     assert r.status_code == 403
 
+    # D-U1=B:账号成人态放行(X-NSFW 仅审计)
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
+
     async def healthy(_urls=None):
         return ["http://w1"]
 

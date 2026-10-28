@@ -15,6 +15,10 @@ export type ToivAppParam = {
     step?: number;
     hint?: string;
     required?: boolean;
+    /** B1c：后端 engine schema 透传的声明式上限；缺省 undefined = 前端不伪称知道模型能力 */
+    max_chars?: number;
+    max_bytes?: number;
+    max_items?: number;
 };
 
 const MEDIA_PARAM_TYPES = new Set<ToivAppParamType>(["images", "audio", "video"]);
@@ -46,10 +50,71 @@ export function normalizeToivAppParam(raw: unknown): ToivAppParam {
         const n = Number(p[k]);
         if (Number.isFinite(n)) out[k] = n;
     }
+    for (const k of ["max_chars", "max_bytes", "max_items"] as const) {
+        const n = Number(p[k]);
+        if (Number.isFinite(n) && n >= 0) out[k] = n;
+    }
     if (typeof p.hint === "string" && p.hint) out.hint = p.hint;
     if (p.required === true) out.required = true;
     else if (p.required === false) out.required = false;
     return out;
+}
+
+/**
+ * B1c 声明式上限的消费端 helper。
+ * 只消费 ToivAppParam 已透传的声明，不在前端另造引擎能力目录。
+ */
+
+/**
+ * 兼容回退：param 未声明 max_bytes 时维持 B1c 之前 market-page 的硬编码上限。
+ * 这是页面旧行为的保留，不代表模型真实能力；声明到达后即被 max_bytes 取代。
+ */
+export const MARKET_MEDIA_FALLBACK_BYTES: Record<"images" | "audio" | "video", number> = {
+    images: 20 * 1024 * 1024,
+    audio: 20 * 1024 * 1024,
+    video: 200 * 1024 * 1024,
+};
+
+/** 媒体字节闸：param.max_bytes 声明优先；缺省回退 MARKET_MEDIA_FALLBACK_BYTES。 */
+export function resolveMarketMediaByteLimit(param: Pick<ToivAppParam, "type" | "max_bytes">): number {
+    if (typeof param.max_bytes === "number" && Number.isFinite(param.max_bytes) && param.max_bytes >= 0) {
+        return param.max_bytes;
+    }
+    return MARKET_MEDIA_FALLBACK_BYTES[param.type as keyof typeof MARKET_MEDIA_FALLBACK_BYTES]
+        ?? MARKET_MEDIA_FALLBACK_BYTES.images;
+}
+
+/** 展示用：整 MB 显示 MB，否则 KB/B。 */
+export function formatMarketByteLimit(bytes: number): string {
+    if (bytes % (1024 * 1024) === 0) return `${Math.round(bytes / (1024 * 1024))}MB`;
+    if (bytes % 1024 === 0) return `${Math.round(bytes / 1024)}KB`;
+    return `${bytes}B`;
+}
+
+/** LoRA 可选数量上限：param.max_items 声明优先；缺省回退 3（B1c 前硬编码，兼容回退）。 */
+export function resolveLoraItemCap(param: Pick<ToivAppParam, "max_items">): number {
+    if (typeof param.max_items === "number" && Number.isFinite(param.max_items) && param.max_items >= 0) {
+        return Math.floor(param.max_items);
+    }
+    return 3;
+}
+
+export type MarketTextLimitState = {
+    /** 是否有 max_chars 声明；未声明时不展示计数，不伪称限制 */
+    declared: boolean;
+    /** 按码点计数 */
+    count: number;
+    max: number | null;
+    over: boolean;
+};
+
+/** 文本字数反馈：仅计数与超限标记，不硬截断输入。 */
+export function marketTextLimitState(value: unknown, maxChars?: number): MarketTextLimitState {
+    const text = value == null ? "" : String(value);
+    const declared = typeof maxChars === "number" && Number.isFinite(maxChars) && maxChars >= 0;
+    const max = declared ? Math.floor(maxChars as number) : null;
+    const count = Array.from(text).length;
+    return { declared, count, max, over: max != null && count > max };
 }
 
 /** 用 schema 默认值填表；switch 缺省 false；媒体槽空数组 */
@@ -216,7 +281,9 @@ export function buildToivRunValues(schema: ToivAppParam[], values: Record<string
                         };
                     })
                     .filter((item) => item.name !== "")
-                    .slice(0, 3);
+                    // B1c：按 param.max_items 声明封顶（未声明回退 3）。UI 已在选择层禁选超限项，
+                    // 这里与声明契约对齐，不保留旧的硬编码 3。
+                    .slice(0, resolveLoraItemCap(p));
                 continue;
             }
             out[p.key] = [];
@@ -575,6 +642,51 @@ export function requiredToivParamLabel(schema: ToivAppParam[], values: Record<st
         }
         if (p.default != null) continue;
         if (v == null || String(v).trim() === "") return p.label || p.key;
+    }
+    return null;
+}
+
+export type MarketRunValidation = {
+    kind: "missing" | "text_over" | "loras_over";
+    label: string;
+    message: string;
+} | null;
+
+/**
+ * 提交前唯一校验入口（B1c）：必填缺口 + 声明式 max_chars 文本超限 + LoRA 超 max_items。
+ * 内部复用 requiredToivParamLabel，不与页面形成两套必填校验；
+ * 未声明 max_chars / max_items 的对应检查跳过（兼容回退，不伪称限制）。
+ * LoRA 超 cap 在此拒绝而非靠 buildToivRunValues 的防御性 slice——
+ * 设置钉选/异常 values 可绕过 UI 勾选层，slice 只是最后一道兜底。
+ */
+export function marketRunValidation(schema: ToivAppParam[], values: Record<string, unknown>): MarketRunValidation {
+    const missing = requiredToivParamLabel(schema, values);
+    if (missing) return { kind: "missing", label: missing, message: `还差必填项：${missing}` };
+    for (const p of schema) {
+        if (!p.key) continue;
+        if ((p.type === "text" || p.type === "textarea") && p.max_chars != null) {
+            const state = marketTextLimitState(values[p.key], p.max_chars);
+            if (state.over) {
+                const label = p.label || p.key;
+                return {
+                    kind: "text_over",
+                    label,
+                    message: `「${label}」超出字数上限 ${state.max}（当前 ${state.count}）`,
+                };
+            }
+        }
+        if (p.type === "loras" && p.max_items != null) {
+            const v = values[p.key];
+            // null=AI 选配 / []=关闭 放行；非数组脏值交给 build 层归一，不在此误拒
+            if (Array.isArray(v) && v.length > p.max_items) {
+                const label = p.label || p.key;
+                return {
+                    kind: "loras_over",
+                    label,
+                    message: `「${label}」最多 ${p.max_items} 个（当前 ${v.length}），请取消多余 LoRA`,
+                };
+            }
+        }
     }
     return null;
 }

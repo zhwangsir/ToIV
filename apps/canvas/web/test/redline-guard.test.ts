@@ -202,3 +202,54 @@ describe("redline account content_mode ordinary|adult", () => {
         expect(mod.getAccountContentMode()).toBe("ordinary");
     });
 });
+
+describe("underage FE-only birthdate sync", () => {
+    test("extractBirthdateFromAuthMe: missing field → undefined; empty → null; ISO → day", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        expect(mod.extractBirthdateFromAuthMe({ email: "a" })).toBeUndefined();
+        expect(mod.extractBirthdateFromAuthMe({ birthdate: null })).toBeNull();
+        expect(mod.extractBirthdateFromAuthMe({ birthdate: "" })).toBeNull();
+        expect(mod.extractBirthdateFromAuthMe({ birthdate: "2010-06-15T00:00:00Z" })).toBe("2010-06-15");
+        expect(mod.extractBirthdateFromAuthMe({ user: { birthdate: "2000-01-02" } })).toBe("2000-01-02");
+        expect(mod.normalizeBirthdateIso("1999-12-31")).toBe("1999-12-31");
+        expect(mod.normalizeBirthdateIso("nope")).toBeNull();
+    });
+
+    test("setStoredBirthdate empty clears; underage applyAccountModePayload forces ordinary", () => {
+        const { store } = installBrowserStub(null, null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        // 先成年态 adult，再写入未成年 birthdate（模拟 /auth/me 同步）
+        expect(mod.setR18Mode(true)).toBe(true);
+        expect(mod.isR18Mode()).toBe(true);
+        mod.setStoredBirthdate("2012-03-04");
+        expect(mod.isUnderage()).toBe(true);
+        expect(mod.isR18Mode()).toBe(false); // underage 短路，即便缓存曾是 adult
+        // 他端脏 adult 载荷 → 强制 ordinary（此时内存缓存仍可能是 adult）
+        expect(mod.applyAccountModePayload({ content_mode: "adult", updated_at: "2026-10-28T00:00:00Z" })).toBe(true);
+        expect(mod.getAccountContentMode()).toBe("ordinary");
+        expect(mod.isR18Mode()).toBe(false);
+        expect(store.get("toiv_r18_mode") ?? null).toBeNull();
+        expect(mod.setR18Mode(true)).toBe(false);
+        // empty clears → 不再未成年，可开成人
+        mod.setStoredBirthdate(null);
+        expect(mod.isUnderage()).toBe(false);
+        expect(mod.applyAccountModePayload({ content_mode: "adult", updated_at: "2026-10-28T00:00:01Z" })).toBe(true);
+        expect(mod.isR18Mode()).toBe(true);
+    });
+
+    test("REDLINE_GUARD_COVERAGE mentions underage FE-only", () => {
+        installBrowserStub(null);
+        const id = require.resolve("../src/redline");
+        delete require.cache[id];
+        const mod = require("../src/redline");
+        const blob = (mod.REDLINE_GUARD_COVERAGE || []).join("\n");
+        expect(blob).toContain("未成年硬关 FE-only");
+        expect(blob).toContain("birthdate");
+    });
+});
+

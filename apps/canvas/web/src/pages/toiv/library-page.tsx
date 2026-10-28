@@ -1,4 +1,4 @@
-import { ArrowLeft, FolderOpen, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
@@ -6,7 +6,9 @@ import { MediaLibrarySourceRail } from "@/components/library/media-library-sourc
 import LibraryWorks from "./library-works";
 import LibraryTranscriptSearch from "./library-transcript-search";
 import { ToolButton } from "@/components/ui/base/buttons";
-import { EmptyState } from "@/components/ui/product/empty-state";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
+import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
+import "@/styles/toiv-freezone-desk.css";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { mediaLibraryWorksDetailPath } from "@/lib/media-library-routes";
 import { formatDateTime } from "@/lib/time-format";
@@ -50,32 +52,27 @@ export default function LibraryPage() {
     }, []);
 
     return (
-        <WorkspacePage fluid className="toiv-library-page library-page assets-library-page">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-            <header className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl font-semibold leading-7 text-foreground">作品</h1>
-                    <p className="text-xs leading-5 text-muted-foreground">{activeTab === "works" ? "我生成的作品（普通模式仅普通内容；切换到成人模式后可见成人作品）" : activeTab === "transcript" ? "已转录媒体的台词全文检索（仅管理员）" : "成片与分镜作品集"}</p>
-                <div className="mt-2 flex items-center gap-1" role="tablist" aria-label="作品库来源">
+        <WorkspacePage fluid className="toiv-library-page library-page assets-library-page fz-desk">
+            <div className="fz-desk-page mx-auto flex w-full max-w-6xl flex-col gap-3">
+            <header className="fz-desk-toolbar">
+                <h1>作品</h1>
+                <p>{activeTab === "works" ? "生成作品 · 普通态仅普通内容" : activeTab === "transcript" ? "台词检索（管理员）" : "成片与分镜画板"}</p>
+                <div className="fz-desk-actions">
+                    {activeTab === "boards" && (
+                        <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
+                    )}
+                    <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
+                </div>
+                <div className="fz-pill-row w-full" role="tablist" aria-label="作品库来源">
                     {(transcriptVisible
                         ? ([["works", "作品"], ["boards", "画板"], ["transcript", "台词检索"]] as const)
                         : ([["works", "作品"], ["boards", "画板"]] as const)
                     ).map(([k, label]) => (
                         <button key={k} type="button" role="tab" aria-selected={activeTab === k}
                             onClick={() => setTab(k)}
-                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${activeTab === k
-                                ? "border-transparent bg-[var(--workspace-accent)] text-[var(--workspace-accent-foreground)]"
-                                : "border-[var(--border-semantic,var(--border))] text-muted-foreground hover:text-foreground"}`}
+                            className={"fz-pill" + (activeTab === k ? " is-active" : "")}
                             data-testid={`library-tab-${k}`}>{label}</button>
                     ))}
-                </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    {/* 刷新只重载画板列表;作品/台词检索面各自带刷新,这里再放一个会变成点了没反应 */}
-                    {activeTab === "boards" && (
-                        <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
-                    )}
-                    <Link to="/"><ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" /></Link>
                 </div>
             </header>
 
@@ -84,30 +81,34 @@ export default function LibraryPage() {
             ) : activeTab === "transcript" ? (
                 <LibraryTranscriptSearch />
             ) : loading ? (
-                <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
+                <ToivSkeletonGrid count={8} />
             ) : error ? (
-                <EmptyState description="读取失败，请刷新重试" />
+                <ToivEmptyState
+                    className="fz-panel fz-auth-gap"
+                    icon={RefreshCw}
+                    title="画板列表暂不可用"
+                    description="可能是会话失效或接口未就绪（含 401）。请刷新重试。"
+                    action={<button type="button" className="toiv-empty-cta" onClick={() => void load()}>重试加载</button>}
+                />
             ) : boards.length === 0 ? (
-                <EmptyState description="画板还是空的；完成第一个短剧项目后会出现在这里" />
+                <ToivEmptyState
+                    className="fz-panel"
+                    icon={FolderOpen}
+                    title="画板还是空的"
+                    description="完成第一个短剧项目后会出现在这里。"
+                    action={<Link to="/toiv/drama" className="toiv-empty-cta">去短剧项目</Link>}
+                />
             ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+                <div className="fz-dense-grid">
                     {boards.map((board) => (
-                        <Link
-                            key={board.id}
-                            to={mediaLibraryWorksDetailPath(board.id)}
-                            className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-[var(--workspace-accent)]"
-                        >
-                            <div className="flex h-28 items-center justify-center rounded-xl bg-[var(--muted)]">
+                        <Link key={board.id} to={mediaLibraryWorksDetailPath(board.id)} className="fz-card is-compact group">
+                            <div className="fz-card-poster flex items-center justify-center" aria-hidden>
                                 {board.cover_url
-                                    ? <img src={board.cover_url} alt="" className="h-full w-full rounded-xl object-cover" />
-                                    : <FolderOpen className="h-8 w-8 text-muted-foreground" />}
+                                    ? <img src={board.cover_url} alt="" className="h-full w-full rounded-[7px] object-cover" />
+                                    : <FolderOpen className="h-5 w-5 text-[var(--fz-muted)]" />}
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <p className="truncate text-sm font-medium" title={board.name}>{board.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {board.item_count} 件作品 · {formatDateTime(board.created_at)}
-                                </p>
-                            </div>
+                            <p className="fz-card-title" title={board.name}>{board.name}</p>
+                            <p className="fz-card-meta">{board.item_count} 件 · {formatDateTime(board.created_at)}</p>
                         </Link>
                     ))}
                 </div>

@@ -30,7 +30,6 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import App, Job, User
-from app.redline import nsfw_allowed
 from app.scoring import VideoScorer, VideoScoreResult
 
 router = APIRouter()
@@ -173,9 +172,20 @@ def _user_emails_map(session: Session, rows: list[Job]) -> dict[str, str]:
         return {}
 
 
-def _job_dict(j: Job, app_name: str = "", user_email: str = "") -> dict:
+def _job_dict(j: Job, app_name: str = "", user_email: str = "", now: float | None = None) -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
+    from app.services.job_health import project_job_health
+
+    health = project_job_health(
+        status=j.status,
+        progress=j.progress,
+        created_at=j.created_at,
+        hold_reason=j.hold_reason or "",
+        now=now,
+    )
     return {
+        "progress": health["progress"],
+        "runtime": health["runtime"],
         "id": j.id,
         "prompt_id": j.prompt_id,
         "kind": j.kind,
@@ -330,9 +340,7 @@ def list_active_jobs(
     )
     if not (all_users and user.role == "admin"):
         stmt = stmt.where(Job.user_id == user.id)
-    # R18 门槛:与 GET /api/jobs 同口径(账号 content_mode;头不算)
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    # P0-5 R2:列表不再按 content_mode 过滤 NSFW(限制只前端)
     rows = session.exec(stmt.order_by(Job.created_at)).all()  # type: ignore[arg-type]
     # admin all=1 时透出属主 email(Admin P1 作业队列域);本人口径恒空串
     emails = _user_emails_map(session, list(rows)) if (all_users and user.role == "admin") else {}
@@ -343,12 +351,18 @@ def list_active_jobs(
         if created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
         wait_sec = max(0, int((now - created).total_seconds()))
-        try:
-            snap = json.loads(j.progress) if j.progress else {}
-        except (ValueError, TypeError):
-            snap = {}
-        queue_pos = snap.get("queue_pos")
-        pct = snap.get("pct")
+        from app.services.job_health import project_job_health
+
+        health = project_job_health(
+            status=j.status,
+            progress=j.progress,
+            created_at=j.created_at,
+            hold_reason=j.hold_reason or "",
+            now=now.timestamp(),
+        )
+        snap = health["progress"]
+        queue_pos = snap["queue_pos"]
+        pct = snap["pct"]
         typical = _typical_sec(j.kind)
         eta_sec: int | None
         if j.status == "held":
@@ -359,9 +373,6 @@ def list_active_jobs(
             eta_sec = max(0, int(typical * (100 - pct) / 100))
         else:
             eta_sec = typical
-        from app.services.job_phase import enrich_progress_snap
-
-        snap = enrich_progress_snap(snap, status=j.status)
         items.append(
             {
                 "id": j.id,
@@ -373,15 +384,8 @@ def list_active_jobs(
                 "created_at": created.isoformat(),
                 "wait_sec": wait_sec,
                 "eta_sec": eta_sec,
-                "progress": {
-                    "pct": pct if isinstance(pct, int) else None,
-                    "step": snap.get("step"),
-                    "total": snap.get("total"),
-                    "queue_pos": queue_pos if isinstance(queue_pos, int) else None,
-                    "updated_at": snap.get("updated_at"),
-                    "phase": snap.get("phase"),
-                    "phase_label": snap.get("phase_label"),
-                },
+                "progress": snap,
+                "runtime": health["runtime"],
                 "hold_reason": j.hold_reason or "",
                 "nsfw": bool(j.nsfw),
                 # 属主(Admin P1 作业队列域):admin all=1 时透出,本人口径空串
@@ -432,9 +436,7 @@ def list_jobs(
         stmt = stmt.where(Job.user_id == user.id)
     # 软删除(SAFETY):撤销窗口内已移除的作品不进列表;undo 恢复后自动回归
     stmt = stmt.where(Job.deleted_at == None)  # noqa: E712
-    # R18 门槛:仅 /nsfw 专页(带 X-NSFW header)才返回成人向作品;主站一律剔除。
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
+    # P0-5 R2:列表不再按 content_mode 过滤 NSFW(限制只前端);nsfw 字段仍透出
     if status:
         stmt = stmt.where(Job.status == status)
     if kind:
@@ -466,8 +468,7 @@ def count_jobs(
     # 计数恒为本人口径(不提供 all 参数,与作品库浏览范围一致)
     stmt = stmt.where(Job.user_id == user.id)
     stmt = stmt.where(Job.deleted_at == None)  # noqa: E712
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    # P0-5 R2:不再因 ordinary 剔除 NSFW;显式 ?nsfw= 查询参数仍可用
     if nsfw in ("true", "false"):
         stmt = stmt.where(Job.nsfw == (nsfw == "true"))
     if kind:
@@ -595,8 +596,7 @@ def lookup_job(
         job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
     if not job or job.user_id != user.id or job.deleted_at is not None:
         raise HTTPException(status_code=404, detail="作业不存在")
-    if job.nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=404, detail="作业不存在")
+    # P0-5 R2:详情不再因 NSFW+ordinary 伪装 404
     out = _job_dict(job, _app_names_map(session, [job]).get(_app_id_of(job), ""))
     if job.status == "done":
         dur = _video_duration(job)
@@ -815,8 +815,7 @@ def list_trash(
     )
     if not (all_users and user.role == "admin"):
         stmt = stmt.where(Job.user_id == user.id)
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    # P0-5 R2:回收站不再按 content_mode 过滤 NSFW
     rows = session.exec(
         stmt.order_by(Job.deleted_at.desc()).offset(offset).limit(limit)
     ).all()
@@ -880,8 +879,7 @@ def purge_trash(
         Job.deleted_at != None,  # noqa: E712  SQLModel 需 == 比较生成 SQL
         Job.deleted_at > _trash_cutoff(),
     )
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    # P0-5 R2:清空回收站不再因 ordinary 跳过 NSFW 条目
     rows = session.exec(stmt).all()
     for job in rows:
         audit.purge_job_row(session, job)
@@ -901,10 +899,11 @@ def purge_trash(
 
 
 def _owned_job(session: Session, user: User, key: str) -> Job:
-    """按 id 或 prompt_id 取当前用户的作业;不存在/非本人/主站碰 R18 一律 404。
+    """按 id 或 prompt_id 取当前用户的作业;不存在/非本人一律 404。
 
     admin 兜底(2026-09-22 Admin P1 作业队列域):本人口径未命中时再按全员查一次,
     普通用户保持「非本人 404 不泄露存在性」语义。
+    P0-5 R2:不再因 NSFW+ordinary 伪装 404。
     """
     job = session.exec(select(Job).where(Job.id == key, Job.user_id == user.id)).first()
     if job is None:
@@ -918,7 +917,7 @@ def _owned_job(session: Session, user: User, key: str) -> Job:
     # 软删除(SAFETY):已移除作品视同不存在(rerun/版本链/详情均不可达;undo 恢复后回归)
     if job is not None and job.deleted_at is not None:
         job = None
-    if job is None or (job.nsfw and not nsfw_allowed(user)):
+    if job is None:
         raise HTTPException(status_code=404, detail="作品不存在")
     return job
 
@@ -1062,14 +1061,12 @@ def job_versions(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """同根版本链(时间升序)。主站过滤 R18 版本(与 /jobs 列表同一门槛)。"""
+    """同根版本链(时间升序)。P0-5 R2:不再按 content_mode 过滤 R18 版本。"""
     job = _owned_job(session, user, job_key)
     root = job.root_id or job.id
     stmt = select(Job).where(
         Job.user_id == user.id, or_(Job.id == root, Job.root_id == root)
     )
-    if not nsfw_allowed(user):
-        stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
     rows = session.exec(stmt.order_by(Job.created_at.asc(), Job.id.asc())).all()
     names = _app_names_map(session, list(rows))
     return [_job_dict(j, names.get(_app_id_of(j), "")) for j in rows]

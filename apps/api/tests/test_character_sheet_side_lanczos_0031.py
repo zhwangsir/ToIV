@@ -104,11 +104,11 @@ def test_expression_grid_local_feature_hard_mask():
 
 
 def test_source_has_0031_rules():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert ("00:31_lanczos_native" in src or "00:59_head_height_lanczos" in src or "00:31：原分辨率裁头" in src or "00:59：按头高" in src)
     assert "regenerate_hires_side_head_master" in src
     assert "apply_expression_grid_local_features" in src
     assert "只改每一格的眉毛" in src
     assert "TOIV_SHEET_SIDE_DEBLUR" in src
     # 默认仍关 deblur
-    assert 'os.environ.get("TOIV_SHEET_SIDE_DEBLUR"' in src
+    assert 'os.environ.get("TOIV_SHEET_SIDE_DEBLUR"' in src or "os.environ.get('TOIV_SHEET_SIDE_DEBLUR'" in src

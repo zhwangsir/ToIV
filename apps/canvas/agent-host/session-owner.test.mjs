@@ -181,8 +181,9 @@ describe('画布预约、指针回滚与 chat 占位', () => {
           return next;
         }),
       ]);
+      // ensure 对已存在会话同步 resolve，其外部 .then 可插进 replace factory 的 await 窗口；以下顺序都合法。
       const order = events.join(',');
-      expect(order === 'ensure,replace-start,replace-end' || order === 'replace-start,replace-end,ensure').toBe(true);
+      expect(['ensure,replace-start,replace-end', 'replace-start,ensure,replace-end', 'replace-start,replace-end,ensure']).toContain(order);
       expect(replaced).toBe(next);
       expect(store.sessions.get('canvas-er')).toBe(next);
       expect(ensured === old || ensured === next).toBe(true);

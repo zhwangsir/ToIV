@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIXTURE · W3-B landing mop</title>
+<style>
+/* A3v2 site gate: dense desk tool entry — not AI SaaS poster */
+@font-face { font-family: "Inter Variable"; src: url("/site/fonts/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "JetBrains Mono Variable"; src: url("/site/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
+
+:root {
+  --font-sans: "Inter Variable", "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --background: #0b0c0f;
+  --canvas-deep: #07080b;
+  --surface: #14151a;
+  --surface-panel: #101116;
+  --surface-raised: #1a1b21;
+  --foreground: #f4f6f7;
+  --text-strong: #f4f6f7;
+  --text-body: #8b8e98;
+  --text-muted: #8b8e98;
+  --text-faint: #6b6e78;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-soft: rgba(255, 255, 255, 0.06);
+
+  --primary: #4A7FC1;
+  --primary-hover: #6B96D0;
+  --primary-active: #3D6BA8;
+  --primary-fg: #f4f6f7;
+  --accent: #4A7FC1;
+  --accent-soft: rgba(74, 127, 193, 0.12);
+
+  --btn-solid-bg: var(--primary);
+  --btn-solid-hover-bg: var(--primary-hover);
+  --btn-solid-active-bg: var(--primary-active);
+  --btn-solid-fg: var(--primary-fg);
+
+  --r-sm: 6px; --r-md: 8px; --r-lg: 10px;
+  --button-radius: 8px; --card-radius: 10px;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
+  --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
+
+  --motion-fast: 140ms;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; color-scheme: dark; }
+body {
+  margin: 0; min-height: 100vh;
+  background: var(--background); color: var(--text-strong);
+  font-family: var(--font-sans); font-size: 13px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+h1, h3, p { margin: 0; }
+.wrap { width: min(1080px, 100% - 2 * var(--space-6)); margin-inline: auto; }
+
+/* nav — flat tool chrome */
+.nav {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner { height: 48px; display: flex; align-items: center; justify-content: space-between; }
+.logo {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 14px; font-weight: 650;
+  letter-spacing: -0.02em; color: var(--foreground);
+}
+.logo-mark {
+  width: 14px; height: 14px; border-radius: 3px;
+  background: var(--accent);
+}
+.logo-sm { font-size: 13px; }
+.logo-sm .logo-mark { width: 12px; height: 12px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding-inline: 12px; border-radius: var(--button-radius);
+  border: 1px solid transparent; font-size: 13px; font-weight: 600; line-height: 1;
+  white-space: nowrap;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+}
+.btn-sm { height: 28px; padding-inline: 10px; font-size: 12px; }
+.btn-primary {
+  background: var(--btn-solid-bg); color: var(--btn-solid-fg);
+  box-shadow: none;
+}
+.btn-primary:hover { background: var(--btn-solid-hover-bg); }
+.btn-primary:active { background: var(--btn-solid-active-bg); }
+.btn-ghost {
+  background: transparent; border-color: var(--border-strong); color: var(--text-strong);
+}
+.btn-ghost:hover {
+  background: var(--surface); border-color: var(--border-strong); color: #fff;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* hero — compact tool entry */
+.hero {
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--space-10); align-items: center;
+  padding-block: var(--space-12) var(--space-10);
+}
+.kicker {
+  margin-bottom: var(--space-3);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+  color: var(--text-muted); text-transform: none;
+}
+h1 {
+  font-size: 28px; line-height: 1.25; font-weight: 650; letter-spacing: -0.03em;
+  color: var(--foreground);
+}
+.hero-lead {
+  margin-top: var(--space-3); max-width: 36ch;
+  color: var(--text-body); font-size: 13px; line-height: 1.55;
+}
+.cta { margin-top: var(--space-6); }
+
+/* desk preview — truncated chrome, no glow marketing card */
+.desk-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: none;
+}
+.desk-chrome {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--border);
+}
+.desk-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border-strong);
+}
+.desk-title {
+  margin-left: 8px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+}
+.desk-body { display: grid; grid-template-columns: 88px 1fr; min-height: 220px; }
+.desk-rail {
+  border-right: 1px solid var(--border);
+  background: var(--canvas-deep);
+  padding: 8px 0;
+}
+.desk-rail-item {
+  padding: 8px 12px; font-size: 12px; color: var(--text-muted);
+}
+.desk-rail-item.is-active {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-right: 2px solid var(--accent);
+}
+.desk-main { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.desk-strip {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+}
+.desk-cell {
+  aspect-ratio: 9 / 14;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-panel);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 8px; gap: 2px;
+  font-size: 11px; color: var(--text-body);
+}
+.desk-cell span {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+}
+.desk-meta {
+  display: flex; gap: 12px; font-size: 11px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* features — quiet density */
+.features {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3); padding-bottom: var(--space-12);
+}
+.card {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.card h3 { font-size: 13px; font-weight: 600; color: var(--text-strong); }
+.card .muted { margin-top: 4px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+
+.footer { border-top: 1px solid var(--border); }
+.footer-inner { height: 48px; display: flex; align-items: center; justify-content: space-between; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; padding-block: var(--space-10); gap: var(--space-8); }
+  .features { grid-template-columns: 1fr; }
+  .desk-body { grid-template-columns: 72px 1fr; min-height: 180px; }
+}
+@media (max-width: 560px) {
+  .wrap { width: calc(100% - 2 * var(--space-4)); }
+  h1 { font-size: 24px; }
+  .desk-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cta .btn { width: 100%; }
+}
+
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;left:8px;z-index:9;font:600 9px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:#4A7FC1;padding:4px 6px;border-radius:4px">FIXTURE · W3-B · 390</div>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="/" aria-label="ToIV"><span class="logo-mark" aria-hidden="true"></span>ToIV</a>
+    <a class="btn btn-ghost btn-sm" href="#">登录</a>
+  </div>
+</header>
+<main>
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <p class="kicker">工具入口</p>
+      <h1>进工作室。</h1>
+      <p class="hero-lead">剧本 · 分镜 · 成片轨。登录后进入密台，不在这里演示。</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#" id="cta">进入工作室</a>
+      </div>
+    </div>
+    <div class="desk-preview" aria-label="工作台预览（示意）">
+      <div class="desk-chrome">
+        <span class="desk-dot"></span><span class="desk-dot"></span><span class="desk-dot"></span>
+        <span class="desk-title">项目 · 雨夜便利店</span>
+      </div>
+      <div class="desk-body">
+        <aside class="desk-rail">
+          <div class="desk-rail-item is-active">分镜</div>
+          <div class="desk-rail-item">成片</div>
+          <div class="desk-rail-item">素材</div>
+        </aside>
+        <div class="desk-main">
+          <div class="desk-strip" aria-hidden="true">
+            <div class="desk-cell"><span>01</span>进店</div>
+            <div class="desk-cell"><span>02</span>冷柜</div>
+            <div class="desk-cell"><span>03</span>结账</div>
+            <div class="desk-cell"><span>04</span>出门</div>
+          </div>
+          <div class="desk-meta">
+            <span>4 镜</span>
+            <span>竖屏 9:16</span>
+            <span>草稿</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="features wrap" aria-label="工作区">
+    <article class="card"><h3>分镜台</h3><p class="muted">镜头表与参考</p></article>
+    <article class="card"><h3>成片轨</h3><p class="muted">预览与导出</p></article>
+    <article class="card"><h3>素材池</h3><p class="muted">镜头 / 音频</p></article>
+  </section>
+</main>
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <span class="logo logo-sm"><span class="logo-mark" aria-hidden="true"></span>ToIV</span>
+    <span class="muted">工作台</span>
+  </div>
+</footer>
+
+</body>
+</html>

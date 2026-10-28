@@ -18,7 +18,6 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
-from app.redline import nsfw_allowed
 from app.routes.nas_models import (
     NasDownloadRequest,
     require_admin,
@@ -88,9 +87,8 @@ async def search(
     nsfw: str = Query(default="false"),
     user: User = Depends(get_current_user),
 ) -> dict:
-    # R18 门槛:与全站 jobs/presets 一致,读 X-NSFW 请求上下文(/nsfw 专页标记),
-    # 不再看 User.nsfw_enabled(账户软开关已废弃,仅作历史记录保留,见 models.User)。
-    effective_nsfw = nsfw if nsfw_allowed(user) else "false"
+    # P0-5 R4:不再因 ordinary 强制 nsfw=false;查询参数原样透传(限制只前端)。
+    effective_nsfw = nsfw
     try:
         if source == "civitai":
             params: dict = {"limit": 24, "sort": "Most Downloaded", "nsfw": effective_nsfw}

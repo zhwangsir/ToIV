@@ -1,0 +1,468 @@
+/* App Shell · DesktopShell (M1)
+   theme: toiv-noir only this wave.
+   Skin layer = wallpaper / start / taskbar / window chrome ONLY.
+   App content (BeefTV + A6 #4A7FC1) does NOT follow skin packs.
+*/
+.toiv-desktop-shell {
+  --desk-bg: #0b0c0f;
+  --desk-elev: #14151a;
+  --desk-text: #f4f6f7;
+  --desk-muted: #8b8e98;
+  --desk-border: #25262c;
+  --desk-accent: #4a7fc1;
+  --desk-taskbar-h: 48px;
+  --desk-icon: 72px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--desk-bg);
+  color: var(--desk-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.toiv-desktop-shell[data-theme="toiv-noir"] {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(74, 127, 193, 0.08), transparent 55%),
+    radial-gradient(900px 500px at 90% 110%, rgba(255, 255, 255, 0.03), transparent 50%),
+    var(--desk-bg);
+}
+
+.toiv-desktop-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.toiv-desktop-icons {
+  position: absolute;
+  inset: 12px 12px calc(var(--desk-taskbar-h) + 8px) 12px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px 10px;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.toiv-desktop-icon {
+  width: var(--desk-icon);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--desk-text);
+  cursor: default;
+  user-select: none;
+}
+.toiv-desktop-icon:hover,
+.toiv-desktop-icon:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+.toiv-desktop-icon:focus-visible {
+  box-shadow: 0 0 0 2px rgba(74, 127, 193, 0.35);
+}
+.toiv-desktop-icon__glyph {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--desk-elev);
+  border: 1px solid var(--desk-border);
+  color: var(--desk-muted);
+}
+.toiv-desktop-icon__label {
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--desk-text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.toiv-desktop-windows {
+  position: absolute;
+  inset: 0 0 var(--desk-taskbar-h) 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.toiv-desk-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 420px;
+  min-height: 280px;
+  border-radius: 10px;
+  border: 1px solid var(--desk-border);
+  background: var(--desk-elev);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  pointer-events: auto;
+  color: var(--desk-text);
+}
+.toiv-desk-window.is-focused {
+  border-color: color-mix(in srgb, var(--desk-accent) 45%, var(--desk-border));
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(74, 127, 193, 0.18);
+}
+.toiv-desk-window.is-maximized {
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.toiv-desk-window.is-minimized {
+  display: none;
+}
+
+.toiv-desk-window__titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 12px;
+  background: color-mix(in srgb, var(--desk-bg) 70%, var(--desk-elev));
+  border-bottom: 1px solid var(--desk-border);
+  cursor: default;
+  user-select: none;
+  flex-shrink: 0;
+}
+.toiv-desk-window__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--desk-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toiv-desk-window__controls {
+  display: flex;
+  gap: 4px;
+}
+.toiv-desk-window__controls button {
+  width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--desk-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.toiv-desk-window__controls button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--desk-text);
+}
+.toiv-desk-window__controls button.is-close:hover {
+  background: #b85c5c;
+  color: #fff;
+  border-color: #b85c5c;
+}
+
+.toiv-desk-window__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--toiv-bg, var(--desk-bg));
+  overflow: hidden;
+}
+.toiv-desk-window__body > .app-workspace-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.toiv-desktop-taskbar {
+  position: relative;
+  z-index: 5;
+  height: var(--desk-taskbar-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--desk-elev) 92%, #000);
+  border-top: 1px solid var(--desk-border);
+  backdrop-filter: blur(10px);
+}
+.toiv-desktop-taskbar__start {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--desk-border);
+  background: var(--desk-elev);
+  color: var(--desk-text);
+  font-size: 12px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.toiv-desktop-taskbar__start.is-on,
+.toiv-desktop-taskbar__start:hover {
+  border-color: color-mix(in srgb, var(--desk-accent) 40%, var(--desk-border));
+}
+.toiv-desktop-taskbar__apps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.toiv-desktop-taskbar__btn {
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--desk-muted);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toiv-desktop-taskbar__btn.is-open {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--desk-text);
+  border-color: var(--desk-border);
+}
+.toiv-desktop-taskbar__btn.is-active {
+  color: var(--desk-text);
+  box-shadow: inset 0 -2px 0 var(--desk-accent);
+}
+.toiv-desktop-taskbar__btn.is-minimized {
+  opacity: 0.7;
+}
+.toiv-desktop-taskbar__clock {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--desk-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+}
+
+.toiv-desktop-start {
+  position: absolute;
+  left: 10px;
+  bottom: calc(var(--desk-taskbar-h) + 8px);
+  width: min(320px, calc(100vw - 20px));
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid var(--desk-border);
+  background: var(--desk-elev);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  z-index: 6;
+  overflow: hidden;
+}
+.toiv-desktop-start__head {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--desk-border);
+  font-size: 12px;
+  font-weight: 650;
+}
+.toiv-desktop-start__list {
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.toiv-desktop-start__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--desk-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.toiv-desktop-start__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.toiv-desktop-start__foot {
+  border-top: 1px solid var(--desk-border);
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+}
+.toiv-desktop-start__foot button {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--desk-border);
+  background: var(--desk-bg);
+  color: var(--desk-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.toiv-desktop-start__foot button.primary {
+  background: var(--desk-accent);
+  border-color: var(--desk-accent);
+  color: #f4f6f7;
+  font-weight: 600;
+}
+
+/* App store page (window content) */
+.toiv-app-store {
+  height: 100%;
+  overflow: auto;
+  padding: 20px 22px 28px;
+  background: var(--toiv-bg, #0b0c0f);
+  color: var(--toiv-text, #f4f6f7);
+}
+.toiv-app-store h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.toiv-app-store .sub {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+.toiv-app-store__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.toiv-app-store__card {
+  border: 1px solid var(--toiv-border, #25262c);
+  background: var(--toiv-surface, #14151a);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.toiv-app-store__card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.toiv-app-store__card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--toiv-text-muted, #8b8e98);
+  min-height: 32px;
+}
+.toiv-app-store__meta {
+  font-size: 11px;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+.toiv-app-store__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.toiv-app-store__actions button {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border, #25262c);
+  background: transparent;
+  color: var(--toiv-text-muted, #8b8e98);
+  font-size: 12px;
+  cursor: pointer;
+}
+.toiv-app-store__actions button.primary {
+  background: #4a7fc1;
+  border-color: #4a7fc1;
+  color: #f4f6f7;
+  font-weight: 600;
+}
+.toiv-app-store__actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* When DesktopShell hosts workspace: root no longer full-bleed chrome outside windows */
+.app-user-workspace.is-desktop-host .app-workspace-shell {
+  /* window body supplies height */
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* M2.1：未安装拒装回 toast */
+.toiv-desktop-toast {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(480px, calc(100% - 32px));
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--toiv-border, #25262c);
+  background: color-mix(in srgb, var(--toiv-elevated, #14151a) 92%, #4a7fc1);
+  color: var(--toiv-text, #f4f6f7);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.toiv-desktop-toast__go {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid #4a7fc1;
+  background: #4a7fc1;
+  color: #f4f6f7;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* M2.1：深链拒装回后高亮商店卡片 */
+.toiv-app-store__card.is-focus {
+  border-color: color-mix(in srgb, #4a7fc1 55%, var(--toiv-border, #25262c));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #4a7fc1 35%, transparent), 0 10px 28px rgba(0, 0, 0, 0.35);
+}

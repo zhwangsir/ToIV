@@ -238,22 +238,31 @@ def test_rerun_nsfw_source_hidden_on_main_site(ctx):
 
 
 def test_versions_chain_and_nsfw_gate(ctx):
-    """版本链:同根全列(时间升序);主站过滤 R18 版本,/nsfw 专页可见。"""
+    """版本链:同根全列(时间升序);普通态过滤 R18 版本,成人态可见(D-U1=B)。"""
     client, token, engine, uid, tid = ctx
     H = {"Authorization": f"Bearer {token}"}
     a = _mk_job(engine, uid, tid, params=_SNAPSHOT)
     b = _mk_job(engine, uid, tid, parent_id=a.id, root_id=a.id, nsfw=True)
     c = _mk_job(engine, uid, tid, parent_id=a.id, root_id=a.id)
 
+    def _set_mode(mode: str) -> None:
+        with Session(engine) as s:
+            u = s.get(User, uid)
+            u.content_mode = mode
+            s.add(u)
+            s.commit()
+
     r = client.get(f"/api/jobs/{c.id}/versions", headers=H)
     assert r.status_code == 200, r.text
     ids = [v["id"] for v in r.json()]
-    assert ids == [a.id, c.id]  # 主站不见 R18 版本
+    assert ids == [a.id, c.id]  # 普通态不见 R18 版本
 
+    _set_mode("adult")
     r2 = client.get(f"/api/jobs/{c.id}/versions", headers={**H, "X-NSFW": "1"})
     assert [v["id"] for v in r2.json()] == [a.id, b.id, c.id]
 
-    # 从根寻址得到同一条链;版本条目带 has_params 标记
+    # 从根寻址得到同一条链(普通态);版本条目带 has_params 标记
+    _set_mode("ordinary")
     r3 = client.get(f"/api/jobs/{a.id}/versions", headers=H)
     rows = r3.json()
     assert [v["id"] for v in rows] == [a.id, c.id]

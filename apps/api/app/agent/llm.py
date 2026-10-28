@@ -219,10 +219,11 @@ async def chat(
     max_tokens: int | None = None,
     temperature: float = 0.4,
     enable_thinking: bool | None = None,
+    user: "User | None" = None,
 ) -> dict:
     """一次对话补全;返回 assistant message(可能含 tool_calls)。
 
-    NSFW 路由:当前请求带 X-NSFW 标记且配了 NSFW 专用 LLM(settings.llm_nsfw_model)
+    NSFW 路由:成人账号且配了 NSFW 专用 LLM(settings.llm_nsfw_model)
     时,优先用 NSFW LLM;失败则 fallback 到主 LLM(默认模型也 uncensored,可兜底)。
     非 NSFW 请求走主备路由:主模型重试 _MAX_ATTEMPTS 次,全失败且配了备用模型时切备用。
 
@@ -243,7 +244,7 @@ async def chat(
 
     # NSFW 模式:优先用 NSFW 专用 LLM;未配则复用主 LLM
     from app.redline import nsfw_allowed
-    if nsfw_allowed() and settings.llm_nsfw_model.strip():
+    if nsfw_allowed(user) and settings.llm_nsfw_model.strip():
         nsfw_url = (settings.llm_nsfw_base_url or settings.llm_base_url).rstrip("/")
         nsfw_key = settings.llm_nsfw_api_key or settings.llm_api_key
         nsfw_model = settings.llm_nsfw_model.strip()
@@ -352,6 +353,7 @@ async def chat_layered(
     max_tokens: int | None = None,
     temperature: float = 0.5,
     enable_thinking: bool | None = None,
+    user: "User | None" = None,
 ) -> dict:
     """四层模型流水线调用。
 
@@ -372,7 +374,7 @@ async def chat_layered(
 
     if layer == "L4":
         # L4 NSFW: 复用现有 NSFW 路由
-        return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+        return await chat(messages, max_tokens=max_tokens, temperature=temperature, user=user,
                           enable_thinking=enable_thinking)
 
     if layer == "L2":
@@ -396,7 +398,7 @@ async def chat_layered(
                 "L2 降级到 L1 原因=%s model=%s → 主模型",
                 l2_err, model,
             )
-            return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+            return await chat(messages, max_tokens=max_tokens, temperature=temperature, user=user,
                               enable_thinking=enable_thinking)
 
     if layer == "L3":
@@ -437,9 +439,9 @@ async def chat_layered(
                     "L2 降级到 L1 原因=%s model=%s → 主模型",
                     l2_err, l2_ep.model_id,
                 )
-                return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+                return await chat(messages, max_tokens=max_tokens, temperature=temperature, user=user,
                                   enable_thinking=enable_thinking)
 
     # L1 默认:走标准 chat() 路由
-    return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+    return await chat(messages, max_tokens=max_tokens, temperature=temperature, user=user,
                       enable_thinking=enable_thinking)

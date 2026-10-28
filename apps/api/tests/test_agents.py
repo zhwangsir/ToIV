@@ -3,7 +3,7 @@
 覆盖:
   - 内置种子幂等播种(seed_builtin_agents 重复调不覆盖用户改过的)
   - CRUD:list / get / create / update / delete(内置拒删)
-  - NSFW 智能体对未授权用户不可见(列表 + 详情均不泄露)
+  - NSFW:P0-5 R4 ordinary 列表/详情可见并透出 is_nsfw
   - kind 过滤(含 'all' 也返回)
   - optimize 带 agent_id:智能体 system_prompt 拼在 kind 系统提示前
   - optimize NSFW 智能体无 X-NSFW → 403;applies_to 不含 kind → 400;不存在 → 404
@@ -27,7 +27,7 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 # fixtures
 # --------------------------------------------------------------------------- #
-def _make_user(session: Session, email: str, role: str = "user") -> str:
+def _make_user(session: Session, email: str, role: str = "user", content_mode: str = "ordinary") -> str:
     tenant = Tenant(name=email.split("@")[0])
     session.add(tenant)
     session.commit()
@@ -37,6 +37,7 @@ def _make_user(session: Session, email: str, role: str = "user") -> str:
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
         role=role,
+        content_mode=content_mode,
     )
     session.add(user)
     session.commit()
@@ -108,22 +109,24 @@ def test_builtin_agents_count():
 # 列表 + NSFW 可见性 + kind 过滤
 # --------------------------------------------------------------------------- #
 def test_list_returns_all_sfw_for_normal_user(ctx):
+    """P0-5 R4:ordinary 也能看见 NSFW 智能体,并透出 is_nsfw。"""
     c, _, user_token, _ = ctx
     r = c.get("/api/agents", headers={"Authorization": f"Bearer {user_token}"})
     assert r.status_code == 200, r.text
-    ids = {a["id"] for a in r.json()}
-    # SFW 内置全在
-    assert "realist" in ids and "anime" in ids and "voice_dub" in ids
-    # NSFW 对未授权用户不可见
-    assert "nsfw_photographer" not in ids
-    assert "nsfw_anime" not in ids
+    by_id = {a["id"]: a for a in r.json()}
+    assert "realist" in by_id and "anime" in by_id and "voice_dub" in by_id
+    assert "nsfw_photographer" in by_id and by_id["nsfw_photographer"]["is_nsfw"] is True
+    assert "nsfw_anime" in by_id and by_id["nsfw_anime"]["is_nsfw"] is True
 
 
 def test_list_includes_nsfw_with_r18_header(ctx):
-    c, _, user_token, _ = ctx
+    """R18 可见性按账号成人态(D-U1=B):adult 账号可见 NSFW 智能体(X-NSFW 仅审计)。"""
+    c, _, _, engine = ctx
+    with Session(engine) as s:
+        adult = create_token(_make_user(s, "adult-bob@toiv.ai", content_mode="adult"))
     r = c.get(
         "/api/agents",
-        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {adult}", "X-NSFW": "1"},
     )
     assert r.status_code == 200
     ids = {a["id"] for a in r.json()}
@@ -135,40 +138,25 @@ def test_list_includes_nsfw_with_r18_header(ctx):
 
 
 def test_nsfw_video_agents_hidden_from_main_site(ctx):
-    """新增 3 个 NSFW 视频智能体:主站(无 X-NSFW)列表不可见,详情 404。"""
-    c, _, user_token, _ = ctx
+    """P0-5 R4:NSFW 视频智能体 ordinary 列表/详情可见并透出 is_nsfw。"""
+    c, _, user_token, engine = ctx
     r = c.get(
         "/api/agents?kind=video",
         headers={"Authorization": f"Bearer {user_token}"},
     )
     assert r.status_code == 200
-    ids = {a["id"] for a in r.json()}
-    assert "nsfw_camera_director" not in ids
-    assert "nsfw_drama_writer" not in ids
-    assert "nsfw_longcat_shot" not in ids
+    by_id = {a["id"]: a for a in r.json()}
+    assert "nsfw_camera_director" in by_id
+    assert "nsfw_drama_writer" in by_id
+    assert "nsfw_longcat_shot" in by_id
+    assert by_id["nsfw_camera_director"]["is_nsfw"] is True
 
-    # kind=video + X-NSFW:3 个新智能体按 applies_to=video 过滤命中
-    r2 = c.get(
-        "/api/agents?kind=video",
-        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
-    )
-    ids2 = {a["id"] for a in r2.json()}
-    assert "nsfw_camera_director" in ids2
-    assert "nsfw_drama_writer" in ids2
-    assert "nsfw_longcat_shot" in ids2
-
-    # 详情:无头 404(不泄露存在性),带头 200
     r3 = c.get(
         "/api/agents/nsfw_camera_director",
         headers={"Authorization": f"Bearer {user_token}"},
     )
-    assert r3.status_code == 404
-    r4 = c.get(
-        "/api/agents/nsfw_camera_director",
-        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
-    )
-    assert r4.status_code == 200
-    assert r4.json()["is_nsfw"] is True
+    assert r3.status_code == 200
+    assert r3.json()["is_nsfw"] is True
 
 
 def test_list_kind_filter(ctx):
@@ -228,20 +216,24 @@ def test_get_detail(ctx):
 
 
 def test_get_nsfw_detail_hidden_for_unauthorized(ctx):
-    """NSFW 智能体对未授权用户返 404(不泄露存在性)。"""
+    """P0-5 R4:ordinary 可见 NSFW 智能体详情并透出 is_nsfw。"""
     c, _, user_token, _ = ctx
     r = c.get(
         "/api/agents/nsfw_photographer",
         headers={"Authorization": f"Bearer {user_token}"},
     )
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert r.json()["is_nsfw"] is True
 
 
 def test_get_nsfw_detail_visible_with_r18(ctx):
-    c, _, user_token, _ = ctx
+    """成人账号可见 NSFW 智能体详情(D-U1=B 账号态为准,X-NSFW 仅审计)。"""
+    c, _, _, engine = ctx
+    with Session(engine) as s:
+        adult = create_token(_make_user(s, "adult-bob3@toiv.ai", content_mode="adult"))
     r = c.get(
         "/api/agents/nsfw_photographer",
-        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {adult}", "X-NSFW": "1"},
     )
     assert r.status_code == 200
     assert r.json()["is_nsfw"] is True
@@ -388,7 +380,7 @@ def test_delete_requires_admin(ctx):
 def _patch_llm(monkeypatch) -> dict:
     captured: dict = {}
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None, user=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"category": "portrait", "positive": "a girl", "negative": "bad"}'}
 
@@ -424,23 +416,27 @@ def test_optimize_agent_not_found(ctx, monkeypatch):
     assert r.status_code == 404
 
 
-def test_optimize_nsfw_agent_without_header_forbidden(ctx, monkeypatch):
+def test_optimize_nsfw_agent_ordinary_ok(ctx, monkeypatch):
+    """P0-5 R3:普通态可用 NSFW 智能体优化(成人 UX 403 退役)。"""
     c, _, user_token, _ = ctx
-    _patch_llm(monkeypatch)
+    captured = _patch_llm(monkeypatch)
     r = c.post(
         "/api/optimize",
         headers={"Authorization": f"Bearer {user_token}"},
         json={"prompt": "x", "kind": "image", "agent_id": "nsfw_photographer"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    assert "NSFW" in captured["system"] or "不拒绝" in captured["system"] or captured.get("system")
 
 
 def test_optimize_nsfw_agent_with_header_ok(ctx, monkeypatch):
-    c, _, user_token, _ = ctx
+    c, _, _, engine = ctx
+    with Session(engine) as s:
+        adult = create_token(_make_user(s, "adult-bob4@toiv.ai", content_mode="adult"))
     captured = _patch_llm(monkeypatch)
     r = c.post(
         "/api/optimize",
-        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
+        headers={"Authorization": f"Bearer {adult}", "X-NSFW": "1"},
         json={"prompt": "x", "kind": "image", "agent_id": "nsfw_photographer"},
     )
     assert r.status_code == 200, r.text

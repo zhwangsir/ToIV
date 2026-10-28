@@ -49,7 +49,7 @@ import {
     X,
 } from "lucide-react";
 
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { SkillRuntimePicker, useSkillRuntimeCatalog } from "@/components/skills/skill-runtime-picker";
 import { ModelPicker } from "@/components/model-picker";
@@ -144,6 +144,30 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
     const selectedUnit = selectedUnitSummary;
     const chapterNumberById = useMemo(() => new Map(orderedUnits.map((unit, index) => [unit.id, index + 1])), [orderedUnits]);
     const canvasCountByUnitId = useMemo(() => new Map(Object.entries(detail.unitCanvasCounts || {}).map(([unitId, count]) => [unitId, Number(count)])), [detail.unitCanvasCounts]);
+    // ?shot= 深链（跨集对账漂移入口）：在章工作区选中并定位到目标镜头。
+    const [searchParams, setSearchParams] = useSearchParams();
+    const queryShotId = searchParams.get("shot") || "";
+    const [selectedShotId, setSelectedShotId] = useState("");
+    const unitShots = useMemo(
+        () => detail.shots.filter((shot) => shot.unitId === (selectedUnit?.id || "")).slice().sort((left, right) => left.position - right.position),
+        [detail.shots, selectedUnit?.id],
+    );
+    const shotChipRefs = useRef(new Map<string, HTMLButtonElement>());
+    const queryShotMissing = Boolean(queryShotId) && !unitShots.some((shot) => shot.id === queryShotId);
+    useEffect(() => {
+        if (!queryShotId || !unitShots.some((shot) => shot.id === queryShotId)) return;
+        setSelectedShotId(queryShotId);
+    }, [queryShotId, unitShots]);
+    useEffect(() => {
+        const chip = selectedShotId ? shotChipRefs.current.get(selectedShotId) : undefined;
+        chip?.scrollIntoView({ block: "nearest", inline: "center" });
+    }, [selectedShotId, unitShots.length]);
+    const selectShotAnchor = (shotId: string) => {
+        setSelectedShotId(shotId);
+        const next = new URLSearchParams(searchParams);
+        next.set("shot", shotId);
+        setSearchParams(next, { replace: true });
+    };
     const storyboardImpact = useMemo(() => chapterStoryboardReplaceImpact(detail, selectedUnit?.id || ""), [detail, selectedUnit?.id]);
     const serverChapterOperations = useMemo(() => {
         const operations = new Map<string, ChapterOperation>();
@@ -715,6 +739,33 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
                                 >
                                     已生成的分镜还在，不会重新生成。确认后才会写入本章。
                                 </Callout>
+                            </div>
+                        ) : null}
+                        {unitShots.length || queryShotId ? (
+                            <div className="shrink-0 border-b border-border/70 px-4 py-2.5">
+                                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-[var(--fs-tiny)] font-medium text-foreground/42">本章镜头{unitShots.length ? ` · ${unitShots.length} 个` : ""}</span>
+                                    {queryShotMissing ? (
+                                        <span data-testid="chapter-shot-missing" className="text-[var(--fs-tiny)] text-status-warning">镜头 {queryShotId} 已不在本章</span>
+                                    ) : null}
+                                </div>
+                                {unitShots.length ? (
+                                    <div data-testid="chapter-shot-anchor" className="thin-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
+                                        {unitShots.map((shot, index) => (
+                                            <button
+                                                key={shot.id}
+                                                ref={(node) => { if (node) shotChipRefs.current.set(shot.id, node); else shotChipRefs.current.delete(shot.id); }}
+                                                type="button"
+                                                aria-current={shot.id === selectedShotId ? "true" : undefined}
+                                                onClick={() => selectShotAnchor(shot.id)}
+                                                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2 text-left text-[var(--fs-tiny)] ${shot.id === selectedShotId ? "border-[var(--workspace-accent)] bg-[var(--workspace-accent-soft)] text-foreground" : "border-border/60 text-foreground/55 hover:bg-surface-hover"}`}
+                                            >
+                                                <span className="tabular-nums text-foreground/45">分镜 {String(index + 1).padStart(2, "0")}</span>
+                                                <span className="max-w-40 truncate">{shot.title}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
                             </div>
                         ) : null}
                         <EditorToolbar editor={editor} />

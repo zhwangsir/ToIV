@@ -199,7 +199,7 @@ def test_render_shot_invalid_accel_422(ctx):
     H = _h(token)
     pid = _mk_project(client, H)
     sid = _mk_shot(client, H, pid)
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"accel": "bogus"})
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"accel": "bogus", "force_direct": True})
     assert r.status_code == 422, r.text
 
 
@@ -222,7 +222,7 @@ def test_render_shot_passes_accel_and_echoes(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"accel": "balanced"})
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"accel": "balanced", "force_direct": True})
     assert r.status_code == 200, r.text
     assert seen["accel"] == "balanced"
     body = r.json()
@@ -245,7 +245,7 @@ def test_render_shot_default_accel_off(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert seen["accel"] == "off"
     assert r.json()["acceleration"] == "off"

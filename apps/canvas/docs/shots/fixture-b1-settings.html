@@ -1,0 +1,45 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · B1 settings · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;--hover:rgba(255,255,255,.08);--lock:#6B7280}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--bg);padding:12px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.is-on{color:var(--text);background:var(--hover);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.nav a.new{background:var(--raised);color:var(--text);font-weight:600;border:1px solid var(--line);margin-bottom:6px}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--line);font-weight:600}
+.body{display:grid;grid-template-columns:200px 1fr;min-height:0;flex:1}
+.sub{border-right:1px solid var(--line);padding:16px;background:var(--bg)}
+.sub a{display:block;padding:8px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:12px;margin-bottom:4px}
+.sub a.on{background:var(--hover);color:var(--text)}
+.pane{padding:20px}
+.pane h2{margin:0 0 6px;font-size:16px}.pane p{margin:0 0 16px;color:var(--muted);font-size:12px}
+.field{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.field b{font-size:13px;font-weight:560}.field span{font-size:12px;color:var(--muted)}
+.cta{height:32px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:12px}
+.note{margin-top:16px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · B1 settings · sidebar 250</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav"><a class="new" href="#">创作</a><a href="#">短剧</a><a href="#">任务</a><a href="#">工具</a><a class="is-on" href="#">设置</a></nav></aside>
+<div class="main">
+<header class="top">设置</header>
+<div class="body">
+<aside class="sub"><a class="on" href="#">模型</a><a href="#">内容模式</a><a href="#">账户</a><a href="#">关于</a></aside>
+<section class="pane">
+<h2>模型配置</h2>
+<p>登录后壳跟 BeefTV 密台；accent 仅 CTA。</p>
+<div class="field"><b>文本模型</b><span>已配置</span></div>
+<div class="field"><b>图像模型</b><span>已配置</span></div>
+<div class="field"><b>内容模式</b><span style="color:var(--lock)">普通 · 灰锁</span></div>
+<div style="margin-top:16px"><button class="cta" id="cta">保存</button></div>
+<p class="note">nav 灰阶 · CTA #4A7FC1 · 无 cyan/spatial glow</p>
+</section>
+</div></div></div>
+</body></html>

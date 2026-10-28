@@ -1,4 +1,4 @@
-import { App, Collapse, Modal } from "antd";
+import { App, Collapse } from "antd";
 import { useEffect, useState } from "react";
 
 import {
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 /** 次要：快捷示例预填。主控是角色槽自选，不保证最优。 */
 export function ModelMixPresetsBar({ onApplied }: { onApplied?: () => void } = {}) {
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
     const effectiveConfig = useEffectiveConfig();
     const replaceConfig = useConfigStore((s) => s.replaceConfig);
     const [active, setActive] = useState<ModelMixPresetId | null>(() => readActivePresetId());
@@ -28,7 +28,7 @@ export function ModelMixPresetsBar({ onApplied }: { onApplied?: () => void } = {
     const apply = (id: ModelMixPresetId) => {
         const preset = MODEL_MIX_PRESETS.find((p) => p.id === id);
         if (!preset) return;
-        Modal.confirm({
+        modal.confirm({
             title: `预填快捷示例：${preset.label}`,
             content: preset.confirmBody,
             okText: "预填（仍可改）",

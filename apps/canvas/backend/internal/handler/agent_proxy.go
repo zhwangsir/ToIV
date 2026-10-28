@@ -47,6 +47,10 @@ func newTurnID() string {
 // RegisterAgentProxyRoutes 让浏览器通过同源后端使用内置创作助手：
 // 页面只发业务消息，宿主凭据由后端注入；宿主不可用时返回明确状态而不是空回复。
 func RegisterAgentProxyRoutes(r gin.IRouter, svc *app.Service, clients *agentops.ClientRegistry, ui *uiSessionStore, host *assistantruntime.Host) {
+	RegisterAgentProxyRoutesWithStudio(r, svc, clients, ui, host, nil)
+}
+
+func RegisterAgentProxyRoutesWithStudio(r gin.IRouter, svc *app.Service, clients *agentops.ClientRegistry, ui *uiSessionStore, host *assistantruntime.Host, studio agentops.StudioGateway) {
 	client := agentHostClient(10 * time.Minute)
 
 	guard := func(c *gin.Context, requireWrite bool) bool {
@@ -377,7 +381,7 @@ func RegisterAgentProxyRoutes(r gin.IRouter, svc *app.Service, clients *agentops
 		}
 		// 额外素材/画布引用必须由界面明确请求：这里校验归属，校验不过就整轮拒绝，
 		// 不把「模型说可以读」当成授权。
-		references, refErr := normalizeAssistantReferences(svc, c.GetString("agentUserId"), payload.References)
+		references, refErr := normalizeAssistantReferences(svc, c.GetString("agentUserId"), payload.References, studio)
 		if refErr != nil {
 			fail(c, http.StatusBadRequest, app.BadAuthRequest(refErr.Error()))
 			return

@@ -1,0 +1,40 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · B1 create外壳 · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;--hover:rgba(255,255,255,.08)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--bg);padding:12px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.is-on{color:var(--text);background:var(--hover);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.nav a.new{background:var(--raised);color:var(--text);font-weight:600;border:1px solid var(--line);margin-bottom:6px}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+.top .spacer{flex:1}
+.stage{flex:1;display:grid;grid-template-columns:240px 1fr 320px;min-height:0}
+.col{border-right:1px solid var(--line);background:var(--bg);padding:12px}
+.col:last-child{border-right:0}
+.col h3{margin:0 0 10px;font-size:12px;color:var(--muted);font-weight:600}
+.canvas{background:var(--raised);border:1px dashed var(--line);border-radius:8px;min-height:280px;display:grid;place-items:center;color:var(--muted);font-size:12px}
+.dock{width:380px;position:absolute;right:0;top:56px;bottom:0;border-left:1px solid var(--line);background:var(--raised);padding:12px;display:none}
+.note{position:absolute;bottom:14px;left:270px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+.cta{height:32px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:12px}
+.ghost{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font-size:12px}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · B1 create外壳 · 250壳 · dock only</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav"><a class="new is-on" href="#">创作</a><a href="#">短剧</a><a href="#">任务</a><a href="#">工具</a><a href="#">设置</a></nav></aside>
+<div class="main" style="position:relative">
+<header class="top"><span style="font-weight:600">创作台</span><span class="spacer"></span><button class="ghost">助手 · dock</button><button class="cta" id="cta">生成</button></header>
+<div class="stage">
+<div class="col"><h3>资源 · 240</h3><div style="height:28px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px"></div><div style="height:28px;border:1px solid var(--line);border-radius:6px"></div></div>
+<div class="col"><h3>画布</h3><div class="canvas">三栏几何保留 · 表面跟 BeefTV 密台<br/>无 Toonflow float · 无 spatial glow</div></div>
+<div class="col"><h3>检视 · 320</h3><div style="height:36px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px"></div><div style="height:80px;border:1px solid var(--line);border-radius:6px"></div></div>
+</div>
+<p class="note">B1 create外壳 · B2 未开 · accent #4A7FC1 CTA only</p>
+</div></div>
+</body></html>

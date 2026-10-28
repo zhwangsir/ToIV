@@ -25,7 +25,7 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import Agent, User
-from app.redline import nsfw_allowed
+from app.redline import nsfw_allowed, require_not_underage
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 from app.workflows.style_presets import ALL_PRESETS
@@ -228,14 +228,15 @@ def _video_system_for(engine: str | None) -> str:
 
 
 def _wan_triggers_for(body: "OptimizeRequest", user: User) -> tuple[list[str], list[list[str]]]:
-    """Wan NSFW LoRA 触发词确定性解析:仅 R18 上下文 + 注册表内条目生效(SFW 静默忽略,
-    防主站被诱导产出 R18 词)。返回 (必选词, 候选组):
+    """Wan NSFW LoRA 触发词确定性解析:注册表内条目生效(P0-5 R3 不再因 ordinary 静默丢弃)。
+    返回 (必选词, 候选组):
     - 必选词(trigger_mode=all):system 告知「全部置前」,后处理逐个补齐
     - 候选组(trigger_mode=pick_one):按种子文本关键词预选一个;system 告知全候选,
       LLM 可按场景语义改选;后处理校验「组内任一词在文中」,全缺才补预选词
     """
-    if not body.loras or not nsfw_allowed(user):
+    if not body.loras:
         return [], []
+    # P0-5 R3:触发词注入不再因 ordinary 静默丢弃(限制只前端);未成年提交链另拦
     required: list[str] = []
     choices: list[list[str]] = []
     for name in body.loras:
@@ -443,11 +444,12 @@ def _style_context_block(style_id: str | None) -> str:
     return "\n".join(lines)
 
 
-async def _llm_text(system: str, prompt: str, layer: str = "L1") -> str:
+async def _llm_text(system: str, prompt: str, layer: str = "L1", *, user: User | None = None) -> str:
     try:
         msg = await get_ctx().service("llm").chat_layered(
             [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             layer=layer,
+            **({"user": user} if user is not None else {}),
             enable_thinking=False,  # 结构化输出不需要 reasoning,抑制后 14.7x 加速
         )
     except llm.LLMError as e:
@@ -461,7 +463,7 @@ def _resolve_agent_prefix(
     """解析智能体并返回要拼在 kind 系统提示前的人格前缀(空串=不拼)。
 
     解析顺序:body.agent_id → user.default_agent_id → 空(走 kind 默认)。
-    校验:agent 不存在→404;is_nsfw 且无 X-NSFW→403;applies_to 不含 kind 且
+    校验:agent 不存在→404;is_nsfw 时仅未成年硬关;applies_to 不含 kind 且
     不含 all→400。返回 agent.system_prompt(调用方负责拼 "\n\n" + kind 系统提示)。
     """
     aid = body.agent_id or getattr(user, "default_agent_id", None)
@@ -470,8 +472,8 @@ def _resolve_agent_prefix(
     agent = session.get(Agent, aid)
     if not agent:
         raise HTTPException(status_code=404, detail="智能体不存在")
-    if agent.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="该智能体需要 R18 鉴权")
+    if agent.is_nsfw:
+        require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
     applies = [s.strip() for s in (agent.applies_to or "").split(",") if s.strip()]
     if body.kind not in applies and "all" not in applies:
         raise HTTPException(status_code=400, detail="该智能体不适用于此 kind")
@@ -518,7 +520,7 @@ async def optimize_prompt(
 
     # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:
-        raw = await _llm_text(_compose(_image_system_for(body.kind, effective_model)), body.prompt, layer=llm_layer)
+        raw = await _llm_text(_compose(_image_system_for(body.kind, effective_model)), body.prompt, layer=llm_layer, user=user)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')
@@ -544,7 +546,7 @@ async def optimize_prompt(
             for group in choices:
                 parts.append(f"按场景任选一个置前(预选 {group[0]}):{', '.join(group)}")
             system += "\n\n【已选 LoRA 触发词】" + ";".join(parts)
-        raw = await _llm_text(_compose(system), body.prompt, layer=llm_layer)
+        raw = await _llm_text(_compose(system), body.prompt, layer=llm_layer, user=user)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')
@@ -564,7 +566,7 @@ async def optimize_prompt(
         "你是提示词工程师。把用户的想法改写成一段精炼的英文提示词。"
         "只输出提示词本身,不要解释、不要引号、不要换行。"
     )
-    text = (await _llm_text(_compose(system), body.prompt, layer=llm_layer)).strip('"').strip()
+    text = (await _llm_text(_compose(system), body.prompt, layer=llm_layer, user=user)).strip('"').strip()
     if not text:
         raise HTTPException(status_code=502, detail="优化失败,请重试")
     return OptimizeResponse(optimized=text)

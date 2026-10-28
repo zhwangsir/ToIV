@@ -357,6 +357,8 @@ def test_success_inherits_nsfw_flag(ctx, monkeypatch, tmp_path):
     _patch_pipeline(monkeypatch, tmp_path, {})
     with Session(engine) as s:
         user = s.get(User, uid)
+        user.content_mode = "adult"  # D-U1=B:R18 产物操作须账号成人态
+        s.add(user)
         s.add(Job(
             tenant_id=user.tenant_id, user_id=uid, prompt_id="p-gs2",
             worker="http://w", kind="avatar_talk", status="done", seed=1, nsfw=True,

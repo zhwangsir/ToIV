@@ -23,8 +23,17 @@ const agentOpsMaxBody = 5 << 20
 // RegisterAgentOpsRoutes 暴露统一操作层：CLI、MCP 与内置 pi 都调用同一组端点，
 // 不各自打开数据库或另起 worker。
 func RegisterAgentOpsRoutes(r gin.IRouter, svc *app.Service, store *agentops.Store, clients *agentops.ClientRegistry) *agentops.Registry {
+	return registerAgentOpsRoutes(r, svc, store, clients, nil)
+}
+
+func RegisterAgentOpsRoutesWithStudio(r gin.IRouter, svc *app.Service, store *agentops.Store, clients *agentops.ClientRegistry, ui *uiSessionStore) *agentops.Registry {
+	return registerAgentOpsRoutes(r, svc, store, clients, configuredStudioGateway(ui))
+}
+
+func registerAgentOpsRoutes(r gin.IRouter, svc *app.Service, store *agentops.Store, clients *agentops.ClientRegistry, studio agentops.StudioGateway) *agentops.Registry {
 	registry := agentops.NewRegistry(svc, store)
 	agentops.RegisterDefaultOps(registry)
+	agentops.RegisterStudioOps(registry, studio)
 
 	r.GET("/ops", func(c *gin.Context) {
 		if !isTrustedOpsSource(c.Request) {

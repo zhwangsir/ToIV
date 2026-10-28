@@ -81,6 +81,8 @@ WAN_I2V_NSFW_LORAS: dict[str, WanNsfwLoraMeta] = {
     "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors": WanNsfwLoraMeta(
         "high", 0.8, (), "all", "accel"),
     # LOW 侧(细节/质感)
+    "NSFW-22-L-e8.safetensors": WanNsfwLoraMeta(
+        "low", 0.8, ("nsfwsks",), "all", "concept"),
     "DR34ML4Y_I2V_14B_LOW_V2.safetensors": WanNsfwLoraMeta(
         "low", 0.8, ("m15510n4ry", "bl0wj0b", "d0gg1e", "c0wg1rl", "d0ubl3_bj"), "pick_one", "pose"),
     "56Low-noise-Cumshot-Aesthetics.safetensors": WanNsfwLoraMeta(

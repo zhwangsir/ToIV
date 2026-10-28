@@ -1,3 +1,488 @@
+## 2026-10-28 06:45 Asia/Shanghai · 项目管家 · await 确认 shell_rebuild_full_site
+
+- **确认**：用户厅内卡点亲口「现在开全站壳推倒…不微调」——**不是候选**。
+- **await_user**：`shell_rebuild_full_site`（已从 `real_env_acceptance_partial` 切走并复核）。
+- **执行**：跨端 A0–A3 拆单进行中；TL 汇总后归档。
+- **REA**：`rea_login_delegation.verify=paused`；无需 resume；Stop 误伤如前。
+- **权限**：push/deploy 仍 false。
+
+---
+
+## 2026-10-28 06:44 Asia/Shanghai · 项目管家 · 全站壳推倒开账
+
+- **口令**：用户亲口（经技术负责人）现在开**全站壳推倒**。
+- **模式**：对照 BeefTV / DramaClaw / Toonflow 等**重定视觉，不微调**。
+- **await_user**：`shell_rebuild_full_site`。
+- **执行**：跨端设计厅内已派；TL 汇总后再交管家归档细节。
+- **并行挂账**：REA 仍 partial（create=pass；multitrack=pass_non_prod；login=blocked/verify=paused；NLE=blocked）；**勿自行 resume 委托链**。
+- **权限**：push/deploy 仍 false。
+
+---
+
+## 2026-10-28 06:43 Asia/Shanghai · 项目管家 · REA 委托链验暂停（用户改向）
+
+- **口径**：厅内 Stop 为误伤，非停管家；**勿自行 resume 委托链**。
+- **用户改口**（经 TL）：现网 UI 配色乱、几乎没吃进参考仓，不像完整项目；REA 登录委托链验**暂停**。
+- **await**：维持 `real_env_acceptance_partial`。
+- **四项现状不变**：create=pass；multitrack=pass_non_prod；login=blocked（verify=paused）；NLE=blocked。
+- **下一刀候选**：壳推倒 / 全站视觉 — **等用户是否开口令**；push/deploy 仍 false。
+- **先前**：用户曾点「已登录可验委托链」，随即改向，线上完整链未结。
+
+---
+
+## 2026-10-28 06:19 Asia/Shanghai · 项目管家 · 后端补证入账（REA）
+
+- **来源**：后端开发补证（经技术负责人）。
+- **证据**：MateBook `/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/`；box `/workspace/toiv-accept-export/`。
+- **`rea_login_delegation`**（总评仍 **blocked**）：
+  - 本机 core `:8090` login/me/projects = pass
+  - Go 委托单测 = pass
+  - 活 canvas ui-session→gateway = **blocked**（`:8080` 无 `/assistant/*`、无 `CANVAS_TOIV_AUTH_BASE`）
+  - 线上完整链仍 blocked
+- **`rea_multitrack_unpack`**（维持 **pass_non_prod**）：
+  - pytest 16p + 夹具 edl/fcpxml/zip = pass
+  - live core `:8090` export = **404**（OpenAPI 无路由，脏树未 deploy）
+  - 现网实包仍待口令 commit/deploy
+- **await**：`real_env_acceptance_partial`；push/deploy 仍 false。
+
+---
+
+## 2026-10-28 06:18 Asia/Shanghai · 项目管家 · 真环境四项回传入账（partial）
+
+- **报告**：`/workspace/toiv-real-env-acceptance.md`；样本 MateBook `/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/`。
+- **结果**：
+  1. `rea_studio_create` = **pass**（200 无 Location；/create 308；BUILD `20261026-193533-0a426713`；health ok）
+  2. `rea_login_delegation` = **blocked**（`blocked_need_user_jwt`；契约/Go 单测 OK；线上完整链未验）
+  3. `rea_multitrack_unpack` = **pass_non_prod**（六文件齐全；本地脏树纯函数/pytest；**非**现网 API 实包）
+  4. `rea_nle_sample` = **blocked**（`blocked_no_nle_app`；已备 EDL/FCPXML + 手检步骤）
+- **await_user**：`real_env_acceptance_partial`；push/deploy 仍 false。
+- **解阻**：①用户现网登录可验或短时 JWT；②本机装 NLE 后手检或指定有 NLE 机器。
+- **不冒充**：pass_non_prod / blocked 不作生产认证；E 未上线公网。
+
+---
+
+## 2026-10-28 06:17 Asia/Shanghai · 项目管家 · 真环境三项已派工
+
+- **已结**：`rea_studio_create`=pass（运维只读证据此前已入账）。
+- **已派 in_progress**：
+  - `rea_login_delegation` → 后端开发 + 执行器（文档/冒烟）
+  - `rea_multitrack_unpack` → 后端实包 + 执行器解包
+  - `rea_nle_sample` → 执行器定位样本；无 NLE 真机则 blocked + 用户手检步骤
+- **await**：`real_env_acceptance_in_progress`；push/deploy 仍 false。
+- **续**：执行结果回传后逐项勾账。
+
+---
+
+## 2026-10-28 06:16 Asia/Shanghai · 项目管家 · 真环境·公网关键路径 pass
+
+- **项**：`rea_studio_create`（公网关键路径 / `/studio/create`）→ **pass**。
+- **证据**（运维只读，经 TL）：`/studio/create` 200 无 Location；`/create` 308→`/studio/create`；BUILD=`20261026-193533-0a426713`；`/api/health` ok。
+- **仍 pending**：`rea_login_delegation`、`rea_multitrack_unpack`、`rea_nle_sample`。
+- **权限**：push/deploy 仍 false；await=`real_env_acceptance_in_progress`。
+
+---
+
+## 2026-10-28 06:15 Asia/Shanghai · 项目管家 · 真环境验收开账
+
+- **口令**：用户亲口（经技术负责人）下一步=①真环境验收。
+- **await_user**：`real_env_acceptance_in_progress`。
+- **权限**：`push_authorized=false`；`deploy_authorized=false`。
+- **暂缓**：创作台壳推倒 A；`redline.py` 清理。
+- **四项跟踪（pending）**：
+  1. `rea_login_delegation` — 真实 ToIV 登录委托链
+  2. `rea_studio_create` — `/studio/create` 公网/现网关键路径
+  3. `rea_multitrack_unpack` — 多轨 ZIP 解包结构校验
+  4. `rea_nle_sample` — NLE 真机抽检（达芬奇/Premiere/FCP）
+- **本轮不含**：生产 GPU/Comfy/付费链（仍挂账）。
+- **管家**：只改 STATE/TEST_LOG 挂账跟踪；不擅自执行验收、不 push/deploy。
+
+---
+
+## 2026-10-28 06:12 Asia/Shanghai · 项目管家 · 生产治理 A–E 本地收口核对入账
+
+- **核对来源**：技术负责人厅交接（用户厅：生产治理 A–E 本地收口）。
+- **路径/分支/HEAD**：ToIV / `work/p0-fusion-20261016` / `0a426713`（脏树大量未提交，**禁 reset/clean**）。
+- **STATE**：`production_governance_plan_2026_10_27.status=completed_local_external_boundaries_recorded`；`remaining_stages=[]`；管家 `steward_booked_at=2026-10-28T06:12:00+08:00`。
+- **E 摘要**：`export_timeline` + `/export/edl|fcpxml|multitrack` + `studio-export-menu`；`model_quality_matrix` 本地 smoke。
+- **本地验（据 TL/既有 TEST_LOG）**：FastAPI 4936p；Canvas web 3795p；Go/agent-host/Next 绿；**未 push/deploy**。
+- **权限复位**：`deploy_authorized=false`；`push_authorized=false`。
+- **挂账**：登录委托链；生产 GPU/付费链；NLE 真机；ZIP 解包；公网关键路径实测；`redline.py` dual-gate 与 FE-only 口径差；另保留 P1-3 / P2×5 / 前端 redline。
+- **await_user**：`user_choose_next_after_governance_ae`（真环境验收 / UI 壳推倒 A / 是否清 redline.py）。
+- **P0 目视**：`/studio/create` 已上线 tip=`0a426713`；原 `user_studio_visual_check` 吸收进本轮下一步选择，不另开闸。
+
+---
+
+## 2026-10-28 06:05 Asia/Shanghai · TL · E 最终审计（本地验收收口）
+
+- **审计范围**：A–D 已归档阶段 + E 多轨导出/模型矩阵/导出 UI，逐项对照目标：统一任务与 dock、跨集对账、能力单源、配方/修订 stale、阶段确认、成本准入、Inspector/take 唯一拍板、Agent 只读提案、多轨导出切点一致、NSFW/SFW 模型质量可复核产物。
+- **最终本地验证**：FastAPI **4936 passed / 41 skipped**；Canvas Go `go vet ./... && go test ./...` exit 0（56 包 ok / 3 无测试）；agent-host **93 pass / 0 fail**；Canvas Web **3811 total / 3795 pass / 0 fail / 16 skip / 23494 expects**；Next web **356 pass / 0 fail** 且 typecheck 通过；Canvas lint、typecheck、`/studio/` 正式 build 通过；矩阵 `entries=10 self_check_passed=true problems=[]`，矩阵测试 **8 passed**；`git diff --check` 全部相关路径通过。
+- **页面/产物证据**：`production-d0/d1a/d1b/d1b2/`、`production-e-export/` 暗色真实组件截图；`test-results/model-quality/matrix.{json,md}`；多轨 `timeline.edl`/`timeline.fcpxml`/切点与缺素材清单由专项测试实际生成并断言与剪映一致。
+- **政策核对**：本轮与 E 均未新增后端 content_mode/NSFW 内容闸；未 commit/push/deploy。历史 `apps/api/app/redline.py` 仍是旧 dual-gate 实现，本轮未改，作为已知历史口径差异挂账，不冒充 FE-only 已完全落地。
+- **外部边界（明确挂账，不冒充通过）**：真实 ToIV 登录委托链、生产 FastAPI/PG、GPU/Comfy/付费生成、达芬奇/Premiere/FCP NLE 导入、公网现网 BUILD/关键路径均未在本机验证；矩阵未重跑 GPU e2e；多轨 ZIP 文件结构未实包校验。
+- **结论**：本地目标功能、测试、构建、证据与 STATE/TEST_LOG 已收口；外部项保留为显式未验边界，不标记为生产认证。
+
+---
+
+## 2026-10-28 05:59 Asia/Shanghai · TL · E 前端导出菜单与页面证据
+
+- **导出入口**：新增 `services/toiv/multitrack-export.ts`，提供 EDL / FCPXML / 多轨包导出，统一解析 `Content-Disposition`、`X-Toiv-Export-Format`、`X-Toiv-Missing-Assets`、`X-Toiv-Duration-Issues`；JSON 错误体（含 200 误回 JSON）转用户可读错误，下载复用 `triggerBlobDownload`。
+- **创作台 UI**：`StudioExportMenu` 替换旧 `JianyingExportButton`，antd Dropdown + ToolButton 风格，动作含剪映草稿 / EDL 剪辑表 / FCPXML 工程 / 多轨导出包。无成片片段全部禁用并提示先完成 final_clip；导出中禁用；成功显示文件名/格式，缺素材与时长问题用 warning 明示，不伪装成纯成功。`drama-workspace.tsx` final 区段两处接入。
+- **验证**：单测 **15 pass / 0 fail / 40 expects**（multitrack-export 9 + jianying-draft 6）；真实组件浏览器证据 **5 pass / 0 fail / 10 expects**（chromium `--disable-gpu`，本地 mock API）；`bun run lint`、`bun run typecheck`、`BEEFTV_PUBLIC_BASE=/studio/ VITE_CANVAS_BACKEND_URL=/studio/api bun run build` 通过；`git diff --check -- apps/canvas/web` 通过。
+- **证据**：`apps/canvas/web/test-results/production-e-export/export-menu-dark.png`（菜单展开含四项）、`export-success-issues-dark.png`（问题计数）、`export-error-dark.png`、`export-disabled-dark.png`。真实 ConfigProvider、`html.dark`、完整 CSS，不是无样式 DOM。
+- **边界**：本地 mock API，未连真实 FastAPI/PG/GPU；多轨 ZIP 内文件结构未实包校验；后端 422 `require_video_clips` 未在 UI 预判，靠错误透出。未改后端、STATE/TEST_LOG 由本记录更新，未 commit/push/deploy。
+- **下一步**：E 最终审计、关键路径实测与收口。
+
+---
+
+## 2026-10-28 05:40 Asia/Shanghai · TL · E 多轨导出与模型质量矩阵（后端/离线）
+
+- **多轨导出 P2-9**：新增 `apps/api/app/services/studio/export_timeline.py`，把 StudioShot 投影为视频/台词/字幕/BGM 四轨；切点严格对齐 `jianying_draft.clips_from_studio_shots`（同批 shots 的视频 start/end、voice 对齐 shot_start、BGM 0 覆盖总长）。原创 CMX3600 EDL 与 FCPXML，多轨、时码、clip/shot 可追溯；不复制 AGPL/GPL 第三方草稿库。
+- **导出端点**：`GET /api/studio/projects/{pid}/export/edl`、`/export/fcpxml`、`/export/multitrack`。multitrack ZIP 含 `timeline.edl`、`timeline.fcpxml`、`toiv_manifest.json`、`cut_list.json`、`missing_assets.json`、`duration_issues.json`。缺素材/非法时长/超 60s 明确列入清单，不静默伪造；空项目/无 final_clip_url 422，跨租户 404。现有 `/export/jianying` 主链零改动。
+- **模型质量矩阵**：新增 `scripts/eval/model_quality_matrix.py`，离线读取 `docs/MODEL_SOURCES.json` 与既有本地产物，生成 `test-results/model-quality/matrix.json` / `matrix.md`。10 条目（NSFW 6 / SFW 4），区分 identity/source/license、NSFW/SFW、离线证据/指标、真实 GPU/付费链未验边界；单样本最高 `single_sample_smoke`，`production_certified` 恒 false，缺证据显式 unverified/unknown，不编造分数。
+- **验证**：多轨专项+剪映 F4 **23 passed**；assemble 相关 **53 passed**；FastAPI 全量 **4936 passed / 41 skipped**（202.85s）；矩阵生成 `entries=10 self_check_passed=true problems=[]`；矩阵测试 **8 passed**；`git diff --check -- apps/api scripts/eval` 通过。
+- **证据**：`apps/api/app/services/studio/export_timeline.py`、`apps/api/app/routes/studio.py` 的 export edl/fcpxml/multitrack 段、`apps/api/tests/test_studio_multitrack_export.py`；`test-results/model-quality/matrix.{json,md}`（本地证据，随 test-results 忽略策略留存）。
+- **边界**：EDL/FCPXML 为按公开格式原创 best-effort，未做达芬奇/Premiere/FCP 真机导入抽检；真实 PG/GPU/付费链未验；矩阵未重跑 GPU e2e。尚未补前端导出下拉页面证据与最终审计。未 commit/push/deploy，无新增后端 content_mode/NSFW 内容闸。
+- **下一步**：E 前端导出下拉与页面证据、NLE/关键路径抽检、最终审计与 STATE/TEST_LOG 收口。
+
+---
+
+## 2026-10-28 05:15 Asia/Shanghai · TL · D1b2 Agent 生产协作（只读提案）
+
+- **协作边界**：官方 pi 助手只读 Studio 上下文，只能提出需人工处理的阶段复核、渲染估价、take 对比提案；不允许 Agent 自动确认阶段、启动渲染、选择 take 或恢复已退场旧循环。
+- **委托与安全**：Go Studio gateway 仅用 `CANVAS_TOIV_AUTH_BASE`，15s 超时、4MiB 上限、禁重定向和 URL userinfo；无委托明确 `studio_delegation_required`。delegated bearer 只在 `ToivAuthenticated` 时取自 Authorization，按用户保存在内存 30 分钟，不落盘、不进响应/工具结果。真实归属先 GET 项目，单镜预估先验证 shot 属于项目。
+- **提案链**：`studio.project.get` / `studio.estimate.preview` / `studio.review.propose` 均只读；提案从真实 detail 派生 `stage_review` / `render_estimate` / `take_compare`，每项 `requiresHuman:true`，不创建任务、不改项目、不扣费。assistant scope 持久化 Studio 项目引用但不保存 token；agent-host 单列 `productionProposals`，不混入画布 generation proposals。
+- **前端**：提案卡明确“待人工处理，尚未执行”；三类深链进入 `/create` 的阶段、估价和对比面板，只打开面板/聚焦阶段，不触发渲染。非法 stage、`requiresHuman!==true`、take 缺 shot 不生成动作链接。
+- **验收纠偏**：完整复核曾暴露 2 个 agent-host 测试假设失败、1 个 Web 旧委托请求体契约失败、2 个 Go 包在全量并发下失败。已逐项复现根因并修复：Bun 不维护 `http.Agent.freeSockets`，keepalive 真值改由 Node 探针验证后仍检查 stdin EOF 3s 关停；ensure/replace 补齐合法微任务顺序但保留互斥/唯一会话/单次 dispose 不变量；Web 统一为 Authorization Bearer，token 不进签发/聊天 body；desktopupdate 用 helper 完成信道替代 50ms 猜测；冷启动 5s 墙钟预算移入显式 `perf` 串行验证，默认套件保留零出站与 `local_open_ms` 样本，预算未删未放宽未跳过。
+- **验证**：agent-host **93 pass / 0 fail / 356 expects**（13 文件）；Canvas Go `go vet ./... && go test ./... -count=1` **exit 0，56 包 ok / 3 无测试 / 0 fail**；`perf` 冷启动 **872ms < 5000ms，idle_outbound_requests=0**；Canvas Web **3795 total / 3779 pass / 0 fail / 16 skip / 23454 expects**，lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas` 通过。
+- **证据**：`apps/canvas/web/test-results/production-d1b2/studio-proposal-card-dark.png`、`deep-link-take-compare-dark.png`、`deep-link-render-estimate-dark.png`；后端 `studio_d1b2_test.go`、agent-host `studio-production.test.mjs`。真实完整暗色组件与 CSS，不是无样式 DOM。
+- **边界**：真实 ToIV 登录中间件到 Go delegated token 再到 FastAPI 的线上完整委托链未验；未接生产执行动作，未验真实 PG/GPU/付费链。测试媒体均为中性本地文件。未 commit/push/deploy，无新增后端 content_mode/NSFW 内容闸。
+- **下一步**：E 多轨导出、NSFW/SFW 模型质量矩阵与最终审计。
+
+---
+
+## 2026-10-28 02:46 Asia/Shanghai · TL · D1b Inspector take 对比与唯一拍板
+
+- **唯一拍板**：`_shot_out` 新增 `candidates_digest`，pick 支持 `expected_candidates_digest`。只有 done+URL 可拍板；快照不符或并发更新返回 409，不写媒体、不触发 transcript。数据库条件 UPDATE 同时写候选标记、video/final URL、video_model、rendered_revision_id 与 final 来源清空，保持每镜最多一个 is_picked。
+- **并发与归属**：临时文件 SQLite 双独立连接验证同快照先到者成功、后到者失败，最终候选与视频指针一致。重复拍板、无 body 旧客户端保持兼容；缺失 revision_id 继续 unknown，不伪造归属，跨租户仍 404。
+- **候选对比台**：Inspector 增加 AppDrawer 两列/窄屏一列真实视频，展示 seed、引擎、管线、revision 与可选 QA，不虚构缺失信息。全部播放/暂停操作实际 video；autoplay 拒绝有提示。pending 防重，成功只经 onSaved 刷新，409 刷新且保留未保存草稿；旧 shot/digest 回包不写新状态。
+- **验证**：FastAPI **4920 pass / 0 fail / 41 skip**；take/修订/项目/transcript 专项 **78 pass**；Canvas **3769 pass / 0 fail / 16 skip**；D1b 专项 **13 pass**，D0+take 组合 **19 pass**；lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas` 通过。
+- **证据**：`apps/canvas/web/test-results/production-d1b/` 与 `test/fixtures/d1b-media/neutral.mp4`，含并排真实视频、唯一采用、409 冲突与播放操作。真实完整暗色 CSS，不是无样式 DOM；真实 PG/活集群/生产拍板未验。
+- **测试复盘**：组合浏览器曾出现 GPU 合成/共享图像异常与按钮不稳定，两份相关测试改用 `--disable-gpu` 软件渲染后组合 19/19，通过全量 3769；未改业务断言。拍板成功计数先于 DOM 更新的竞态改为等待真实“当前采用”出现，未放宽检查；早期 DEBUG 遗留进程已清理。
+- **下一步**：D1b2 Agent 生产协作，复用阶段确认、成本准入、任务健康和 take 拍板，不恢复已退场旧 Agent 循环。
+
+---
+
+## 2026-10-28 02:20 Asia/Shanghai · TL · D1a 跨源任务健康与统一队列
+
+- **健康读模型**：新增 `job_health` 纯函数，复用 `Job.progress.updated_at` 与 `job_phase`，在 `/jobs`、lookup、active 返回 progress/runtime。fresh/watch/stalled/waiting/terminal/unknown 仅描述进度证据，不宣称 worker 存活或计费健康；旧任务缺进度时间明确 unknown。
+- **证据完整性**：terminal/held 保留最后有效进度时间和 age；无有效快照才回 terminal/none。老 queued 无心跳不判死，running 久无进度只标待核查，不自动取消/重试。Studio 批量 progress 写入真实 Unix 时间和 phase，终态后不刷新时间。
+- **统一投影**：`generationSourceProjection()` 适配 ToivJob 后复用原 artifact/nextAction 算法，Canvas updatedAt 只标状态更新证据。/tasks 与 queue dock 合并两个生成源，保留 agent-run 独立区；stalled/held 仍按活跃作业轮询。
+- **可靠交互**：分源错误可见，畸形 200 不再伪装空队列；双源 ID/DOM sourceId 唯一，项目过滤一致，AB/ABA 慢响应不会覆盖新结果。Toiv 取消/重试 false 有反馈，日志深链任务中心；真实 results 走现有媒体 URL 与前端锁，不新增后端内容闸。
+- **验证**：FastAPI **4915 pass / 0 fail / 41 skip**；D1a 后端专项 **91 pass**；Canvas **3756 pass / 0 fail / 16 skip**；D1a 与受影响前端专项 **50 pass / 235 assertions**；lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas` 通过。
+- **证据**：`apps/canvas/web/test-results/production-d1a/`，含双源健康、/tasks 同口径、分源错误、操作错误及 ABA 最新结果。真实完整暗色 CSS 与 Chromium 交互；后端 TestClient 验证真实路由、租户隔离和批量进度。未连接生产 FastAPI 执行取消/重试，未验真实 PG/GPU/活集群。
+- **边界**：健康是进度证据评估，不是 worker 存活性或自动恢复承诺；跨源统一读投影与动作已完成，未把 Go/FastAPI 改成同一持久化任务表。未 commit/push/deploy。
+- **下一步**：D1b Inspector 深化、take 对比与唯一拍板、Agent 生产协作。
+
+---
+
+## 2026-10-28 01:46 Asia/Shanghai · TL · D0 渲染前成本准入与写路径联动
+
+- **同源估算与准入**：新增单镜/整批 `render-estimate` 与共享确定性服务，计算待渲染镜、候选上限、目标时长/帧和 pixel-frame；预览不调用模型/worker，真实提交重新校验 stage、关键帧、费率和预算，不信任前端价格或指纹。批量 keyframe 能力校验与单镜同口径，空批次保持原语义。
+- **诚实成本**：默认 `TOIV_STUDIO_COST_RATES_JSON` 为空、`TOIV_STUDIO_RENDER_BUDGET_LIMIT=0`，未定价不等于免费。运维可配置族/精确管线费率，Decimal 金额以字符串返回；缺任一组成则整体 unpriced，不做部分求和。启用预算后无法核价或超限均阻断，非法配置明确 503，显式零费率与未配置区分。
+- **输入与留痕**：`input_fingerprint` 覆盖项目规格、驱动、引擎、参考、修订、stage_revision 和费率/预算；仅内部摘要，不作为提交凭证。批量 Job.params 保存估算摘要，单镜保存到 render revision；批量 UI 改走 `wait=false` 返回 job_id 后轮询真实 Job。
+- **创作台**：整批确认页和单镜 Inspector 展示工作量、未定价/金额、预算与阻断原因；加载/失败/超预算不可提交，配置变化重新估算，在途修订/关键帧变化使旧响应失效。单镜移除旧 allowed 缓存捷径，连点只发一个渲染意图；结构化 KEYFRAME_REQUIRED 不再显示 `[object Object]`。
+- **阶段联动补漏**：角色创建/删除、设定卡参考写入、分镜回滚和配方真实应用均接入 needs_review；删除角色只失效实际关联下游，无变化不误标。原有 CAS、租户隔离和审计语义保持。
+- **验证**：FastAPI **4889 pass / 0 fail / 41 skip**；D0 后端相关专项 **123 pass**；Canvas **3741 pass / 0 fail / 16 skip**；D0 API/纯函数/浏览器/真实联调 **27 pass**；lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas deploy/.env.example` 通过。
+- **真实联调**：临时 FastAPI + SQLite + 无 GPU 替身，浏览器使用真实 `services/toiv/client.ts`。实际走完项目/分镜创建、storyboard 阻断、三阶段流转、重新 estimate、202 job_id、Job done、detail rendered；缺关键帧预览与真实提交均 422，新增任务数为 0。测试进程和临时目录已清理。
+- **证据**：`apps/canvas/web/test-results/production-d0/`，含未定价放行、定价预算超限、单镜关键帧阻断，以及 `live-batch-estimate.png` 的非零工作量和完成态。真实完整暗色 CSS，非无样式 DOM；真实 PG、活集群、GPU、供应商费率/结算与登录后的完整创作台未验。
+- **边界与复盘**：本次是请求估算与提交准入，不是供应商预扣/结算或实际耗时承诺。c_chain 等专门链未纳入本切片报价。曾因旧批量夹具缺关键帧出现 2 个后端失败，已改为真实采用关键帧/direct 专家夹具并全量通过；配方测试桩缺失曾出现 9 个前端失败，已补齐并全量通过；高负载截图超时单独复跑通过，未将失败记录为成功。未 commit/push/deploy，无新增后端内容闸。
+- **下一步**：D1 任务运行时健康、跨源写路径与轮询收敛，随后 Inspector 深化、take 对比拍板和 Agent 生产协作。
+
+---
+
+## 2026-10-28 00:39 Asia/Shanghai · TL · C1c 阶段确认与待复核联动（本地）
+
+- **阶段真源**：项目详情现算 script/assets/storyboard/generate/voice/timeline 六阶段的 state、ready 与 blockers；人工态单独持久化，不用 confirmed 代替产物时效。新增不可变确认审计、confirm/skip/reopen、跳过说明、租户隔离历史及旧项目不自动确认。
+- **原子并发**：`stage_revision` 使用数据库条件 UPDATE CAS，审计随冲突回滚；失效操作重读合并，按六阶段稳定序去重，记录真实 from_state。双独立 SQLite 连接复现写后写并由后到者 409 收口；未伪称已验证多进程 PG。
+- **生产门禁**：有待渲染镜的批量 render 要求 storyboard confirmed/skipped；assemble 要求 voice confirmed/skipped 且 final 不 stale。空批次、单镜迭代与旧缺片语义保留；raw final 依视觉归属投影，无对白不再被空配音指针永久卡 unknown。
+- **上游联动**：项目 premise/style/ckpt、分镜保存/删除最后镜/改词重排、角色卡视觉与音色 PATCH 触发定向下游 needs_review，不杀在途、不删媒体、无变化不误标。角色删除、直接参考采用等其他写路径列入 D 的前置审计，本切片不宣称所有写路径已统一。
+- **创作台**：右栏 Inspector 经 slots 共享项目 detail/load，提供六阶段操作、历史抽屉、阻断定位、409 后刷新；不另造 confirmed 状态。旧服务/无项目保留四阶段；项目切换隔离历史请求与聚焦。中舞台保留旧 StageRail 与三栏壳。
+- **验证**：FastAPI **4867 pass / 0 fail / 41 skip**；阶段/修订/合成/批量专项 **71 pass**；Canvas **3714 pass / 0 fail / 16 skip**；C1c HTTP/纯函数/真实浏览器 **43 pass / 208 assertions**；lint、typecheck、`/studio/` 正式 build 与 Go `go vet ./... && go test ./...` 通过；`git diff --check -- apps/api apps/canvas` 通过。
+- **证据**：`apps/canvas/web/test-results/production-c1c/`，含真实 `CreationStudioThreePane` 暗色三栏、确认刷新、409、历史、阻断打开右栏与旧四阶段回退；完整 CSS 与对比度断言，非无样式 DOM 截图。
+- **边界**：真实 PG、活集群、付费生成与登录后的真机全链未验；失效重试耗尽时上游业务变更保留并显式 409，需重读重试。base tip `0a426713e0b7025403260db3d59faca3aa14511f`，工作树含既有未提交改动；未 commit/push/deploy，无新增后端内容闸。
+- **下一步**：D 渲染前成本/资源准入（估算未知必须明示）、任务运行时健康、深度创作体验；先补阶段联动遗漏写路径审计。
+
+---
+
+## 2026-10-27 18:47 Asia/Shanghai · TL · C1b 用户配方与修订复用
+
+- **可复用快照**：新增 `StudioRecipe` 与幂等迁移。配方来自真实渲染修订、内容修订或旧镜头的明确快照，保留模型、参数、提示词、参考位与 `auto_best|manual` 选优策略；没有历史不伪造。worker 绑定、上一镜上下文、父任务、签名 query 与 userinfo 不带入；`/api/images` 的 filename/subfolder/worker/type 定位信息保留。
+- **完整库操作**：从 shot 创建、编辑名称/描述/prompt/negative/选优策略、克隆、每用户每引擎唯一默认、删除、导出/导入 `toiv_generation_recipe_v1`。默认有事务与部分唯一索引兜底；删除不碰源镜或产物。导入做大小、枚举、数值、规格与 URL 分类校验，非法返回 422 而非 500。
+- **差异应用与重渲**：按字段 from/to 预览，保留 scene/dialogue/speaker/beats/角色 roster；expected_revision 409 不覆盖人工编辑。参考图/引擎变化也留修订，重复内容去重。项目 width/height/fps/ckpt 只有显式选择才按 ProjectPatch 校验修改。`auto_pick` 已贯通 RenderShotBody→orchestrator，ltx 缺省不再被强制改成 h3。
+- **参考安全**：拒绝裸本机路径与未授权 worker，复用 `deps.resolve_worker`；公网参考下载拒绝私网/环回/链路本地/保留地址和 userinfo，仅显式 `TOIV_REF_FETCH_ALLOWED_HOSTS` 主机可例外。两个 `.env.example` 已同步空默认，未改真实部署配置。语音参考日志脱敏。
+- **验证**：FastAPI **4844 pass / 0 fail / 41 skip**；配方与参考安全定向 **59 pass**；Canvas **3671 pass / 0 fail / 16 skip**；配方 API/UI/真实浏览器 **44 pass / 203 assertions**；lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas deploy/.env.example` 通过。
+- **证据**：`apps/canvas/web/test-results/production-c1b/`（真实暗色列表、diff、删除、错误与导出）。`exported-recipe.json` 经真实浏览器下载并读取，保留定位参数且无签名，可重新导入；API/生成使用替身，不伪称真实付费链验收。
+- **边界**：真实 PG/Comfy/TTS/付费生成未验；c_hybrid 首帧派生未入配方；批量 RenderProjectBody 未新增 auto_pick（本切片按单镜）；私网参考下载需要显式主机白名单，在线 DNS 重绑定间隙与真实供应商行为未验证。未 commit/push/deploy，无新增后端内容闸。
+- **下一步**：C1c 阶段确认、确认记录与上游改动后的待复核联动。
+
+---
+
+## 2026-10-27 16:56 Asia/Shanghai · TL · C1a 修订、回滚与 stale 基座
+
+- **不可变修订**：新增 `StudioShotRevision` 与 `(shot_id,version)` 唯一约束、幂等迁移及当前/渲染/配音/最终合成归属指针。内容变更才建版，重复保存去重；历史 diff、rollback 新修订、expected_revision 409 均已接入。旧行无归属显示 unknown，不伪造已同步。
+- **真实生成依据**：渲染保存实际参数与内容快照；配音在提交前捕获台词、说话人和音色来源。参考图、视频模型、时长变化会让视觉 stale；台词/说话人/音色变化会让配音 stale；final 按视频与配音双来源判定。旧媒体文件不删，切换生成方式的在途候选标本地 superseded，不杀上游任务也不再回写覆盖。
+- **并发与归属**：修订号冲突通过 SAVEPOINT 只回滚本次 insert，保留外层未提交内容；非版本约束错误不被误报为 409。修复后台规划完成与用户取消之间的原子状态竞态，取消不再被 awaiting_confirm/error 覆盖。候选拍板更新归属，最终合成可重对口型。
+- **Inspector**：`ShotRevisionInspector` 支持提示词/台词编辑、全量保存的 expected_revision、409 不覆盖、历史 diff/回滚、三轴 stale 徽标及重渲/重配音/重对口型；同屏仅一个口型主操作，跳过口型保留。没有 final stale 时不再把旧成片段标成最新。
+- **验证**：FastAPI **4784 pass / 0 fail / 41 skip**；修订与 Agent Team 定向 **55 pass**；Canvas **3627 pass / 0 fail / 16 skip**；修订 Inspector/API/浏览器及看板定向 **40 pass / 165 assertions**；lint、typecheck 与 `/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas` 通过。全量曾暴露一次取消竞态，已修复后重新全量通过，未忽略失败。
+- **证据**：`apps/canvas/web/test-results/production-c1a/`（真实组件、完整暗色 CSS、对比度断言、编辑/409/回滚/stale/口型操作）；API 使用真实 HTTP mock/TestClient 与替身 worker，未调真实 GPU、TTS 或付费模型。
+- **边界**：合成前强制阶段确认留到 C1c；旧非 pipeline-c 渲染不都有 Job.params revision；PG 真并发与活集群未验；同 URL 音频内容替换未做在线指纹验证。未 commit/push/deploy，无新增后端内容闸。
+- **下一步**：C1b 用户配方复用可验证的生成快照，并支持编辑、克隆与差异预览。
+
+---
+
+## 2026-10-27 14:47 Asia/Shanghai · TL · B1c 模型能力单源与提交校验
+
+- **本地引擎**：复用 `engine_registry` spec 与 `app/limits.py` 纯常量源，补提示词/媒体字节/LoRA 上限。`_to_out` 与 `run_app` 共用有效 `params_schema`，已知引擎的 `max_chars`/`max_bytes`/`max_items` 同时驱动 UI 与提交校验；H3 正向 4000、负向 2000、媒体 9/3/3、LoRA 3 保持同源。普通 generate=8、市场=3 按真实作用域区分，不擅自改档；未知/RH 应用不虚构上限。
+- **真实交互**：市场媒体上传按声明字节拦截，文本按码点计数并阻断超限，LoRA 勾选与提交都校验 `max_items`，不再只靠静默截断。媒体数量的 `max` 与 LoRA 强度 min/max 语义未混用。
+- **渠道目录**：接通已有 Go `GET /api/model-catalog`；在线 system 模型的规范化 `capabilityConfig` 进入 `modelProfiles`，TS 默认仅离线回退。账号切换/迟到响应不合并，用户自定义渠道保留；系统能力只读，自定义显式 override 可编辑，未安装协议诚实拒绝提交。保留托管协议覆盖层 `video_contracts.json`。
+- **验收**：FastAPI **4750 pass / 0 fail / 41 skip**；Canvas **3594 pass / 0 fail / 16 skip**；能力链专项 **46 pass / 151 assertions**；暗色设置页 **2 pass / 17 assertions**（含标题/背景对比度 ≥4.5）。Canvas lint、typecheck 与 `/studio/` 正式 build 通过；`git diff --check -- apps/api apps/canvas` 通过。
+- **证据**：`apps/canvas/web/test-results/production-b1c/`（上传/文本/LoRA、系统只读与自定义编辑，真实组件 + 完整 CSS）。API 以 TestClient/替身 worker 验证实际 GET/POST 与 422/200，未调付费模型或活集群。
+- **边界**：`source=frontend` 的逻辑模型映射未做；未知模型未声明能力不回填假值；在线目录尚未做活实例端到端验收；B1a 的运行时健康和跨源写路径治理另挂后续，不宣称消灭所有后端任务来源。base tip `0a426713e0b7025403260db3d59faca3aa14511f`，未 commit/push/deploy，无新增后端内容闸。
+- **下一步**：C 阶段实现用户配方、提示词修订/stale 联动与阶段确认。
+
+---
+
+## 2026-10-27 12:45 Asia/Shanghai · TL · B1b 跨集资产对账
+
+- **真实功能**：Go 新增对账读模型与幂等决策接口；逐集列出镜头真实引用的资产版本，识别缺引用、旧版本、多版本、stale、缺定妆与悬空引用。候选保留跨集出现，同集仍去重；按名称/别名传递闭包给合并/新建建议，不虚构 AI 置信度或不存在的 `ref_epoch`。
+- **写入保护**：同实体冲突决策、跨分类合并、改挂另一资产均在写入前拒绝；同实体只落点一次，其他集自动归并。角色合并不覆盖人工设定，重放不新增资产/版本，也不覆盖后续编辑。修复已有资产链接 `FirstOrCreate` 的唯一键冲突。
+- **产品界面**：项目资产区新增「跨集对账」页签，支持行内改判、同分类目标筛选、全部确认、50 条分批、失败保留决策与中文回执。漂移可深链到章工作区并定位 `?shot=` 对应镜头；使用现有 Freezone tokens，未新建产品外壳。
+- **验收**：Canvas 全量 **3548 pass / 0 fail / 16 skip**；对账专项 **34 pass / 0 fail / 140 assertions**；Go `go vet ./... && go test ./...` 全过，含真实 Gin 路由成功/无权限/重放测试。Canvas lint、typecheck、`/studio/` 正式 build 通过；`git diff --check -- apps/canvas` 通过。
+- **页面证据**：`apps/canvas/web/test-results/production-b1b/`（明暗对账、镜头深链、分类筛选、回执、空载错）。证据来自真实组件 + CSS + HTTP mock；Go HTTP 使用真实测试服务，未对活集群/真实 PG 联调，未 deploy。
+- **边界**：FastAPI 短剧资产与 Go 项目资产仍是两个数据面，未伪称跨域统一；presence-check/qa_gate 尚未并入；批量写入保留逐候选 CAS 的 N+1 开销，后续需安全合批。无 schema 变更、无后端内容闸，未 commit/push/deploy。
+- **下一步**：B1c 以现有引擎注册表与模型目录为源收敛能力元数据，不再新增第三套目录。
+
+---
+
+## 2026-10-27 10:23 Asia/Shanghai · TL · B1a 任务中心投影与动作收口
+
+- **真实改动**：恢复 Canvas `/tasks`；Canvas 任务与创作台队列 dock 共用 `generationTaskProjection()`，分离任务进度、产物状态与下一步；失败诊断透出 provider request id，任务页真实调用重试/取消并刷新。普通态 NSFW 继续沿用前端锁定，不新增后端内容闸。
+- **边界**：本切片统一 Canvas 任务投影，不伪称 ToIV Job、AgentRun 已共用同一领域状态机；运行时健康仍未实现。
+- **验证**：专项 **7 pass / 0 fail / 26 assertions**；`bun run lint`、`bun run typecheck` 与 `/studio/` 正式 build 通过。此前本切片全量 Canvas 测试亦通过。
+- **证据**：`apps/canvas/web/test-results/production-b1/tasks-center.png` 为功能 harness 截图，未作为完整视觉验收；base tip `0a426713e0b7025403260db3d59faca3aa14511f`，工作树含既有未提交改动，未 commit/push/deploy。
+- **下一步**：B1b 跨集资产版本与漂移对账；随后 B1c 模型能力单源。
+
+---
+
+## 2026-10-27 10:05 Asia/Shanghai · TL · 新方案 A 阶段基线收口
+
+- **R14 质量门禁**：Canvas 过期契约逐项校准并修真实缺陷；`ModelMixPresetsBar` 改 App 上下文 modal、首页启动断言对齐；角色表 templates 补拆分桥接、fusion 裸产物名 sidecar 回退修复。API 由 96 个失败逐项区分过期契约与真实缺陷，最终全量通过。
+- **R15 会话连续性**：旧 Agent 以 `/create?view=agent` 并入单一工作台；画布草稿、pending session、⌘K 新对话恢复真实消费者，Next/Canvas 旧路由同步迁移。
+- **A1 LLM 修复**：账号上下文贯通 `chat` / `chat_layered` / Harness Provider / optimize；成人/普通路由分流且旧 mock 兼容，未新增内容硬闸。
+- **最终验证**：API **4726 pass / 0 fail / 41 skip**；Canvas **3509 pass / 0 fail / 16 skip**；Go vet + 全量 test 通过；Next **356 pass / 0 fail**；双端 typecheck、正式 build 通过。
+- **证据**：`apps/canvas/web/test-results/freezone-r15/agent-view-consumed.png`；全量日志在本会话任务记录。未 commit/push/deploy。
+- **新路线**：A 阶段完成，下一阶段 B1 统一任务中心、跨集资产对账与模型能力单源。
+
+---
+
+## 2026-10-27 07:50 Asia/Shanghai · TL · 自主重构 R13 模型质量 A/B
+
+- **接入**：`NSFW-22-L-e8` 补入 Wan I2V 低噪注册表与引擎标签，HIGH+LOW 共用触发词去重；配方由 6→7 项。
+- **实测**：:8197 串行同参考/seed=20261027/832×480/49帧/8步；A=基座，B=HIGH+LOW 各 0.8。A/B 均产出 3.0625s MP4；prompt_id=`4c93bbd3…` / `524c075b…`。
+- **画面**：两组人物与窗景一致；B 成人脱衣语义更明显，采样帧未见灾难性脸/背景崩坏。首段 216.1s、第二段 45.8s 含缓存差异，不作速度结论；单参考单 seed 不作全场景质量认证，未改默认。
+- **环境**：首次因 :8197 缺 Seko 加速文件被 400 拒绝，未采样；改两组同一 `accel=off` 链后成功。H3 既有任务未触碰，无服务重启。
+- **验证**：API Wan/视频/引擎 114 pass / 0 fail；Web 356 pass / 0 fail；双端 typecheck、正式 build 通过。测试账号按成人/普通分别校准，未改生产红线。
+- **证据**：`test-results/freezone-r13/wan-nsfw22-ab/`（视频、帧、接触表、report.json）；`docs/MODEL_SOURCES.json` 已回写实测指针。
+- **下一轮**：R14 全量回归与剩余质量门禁。
+
+---
+
+## 2026-10-27 07:34 Asia/Shanghai · TL · 自主重构 R12 全局交互硬化
+
+- **跨镜头**：播放头定位到另一视频段时同步选中与监视器偏移，不再停留在旧镜头。
+- **边界**：片段结束暂停在切点，避免长视频越过时间线片段后回跳；首帧/末帧及跳转按钮有真实 disabled 状态。
+- **失败恢复**：预览加载失败不再伪装空数据；显示错误并可重试，实测恢复真实 MP4。
+- **验证**：八组浏览器测试串行 23 pass / 0 fail（113 assertions）；Web 356 pass / 0 fail；双端 typecheck、`/studio/` 基座正式 build 通过。测试壳补齐空态 CSS 后复核错误态截图。
+- **证据**：`apps/canvas/web/test-results/freezone-r12/`（第二镜头、加载失败恢复）。
+- **下一轮**：R13 模型生成质量 A/B 与证据补强。
+
+---
+
+## 2026-10-27 07:25 Asia/Shanghai · TL · 自主重构 R11 Strangler 关键路径
+
+- **迁移修复**：Next 旧 `/toiv/ws/:id/:section` 不再落通用 `/studio/toiv/*`；308 到 `/studio/create` 并保留 project/section/query。Canvas 同步支持 ws 根、项目、六段内链。
+- **真实 HTTP**：本地生产 Next + 正式 `/studio/` Canvas dist：`/studio/create` 200；`/create/legacy`、`/toiv/ws` 308 参数正确；`/version.json` 200。
+- **浏览器**：旧 ws → Canvas `/create` 后 project/section/foo 完整、workbench 可见、pageerror=0。匿名无 Cookie/Token 初始 200，随后进入现有登录页，`next=/studio/create`；未伪称完成凭据登录验收。
+- **环境纠偏**：首次 dist 未配置返回 503，随后默认根基座导致静态 404；按部署口径 `BEEFTV_PUBLIC_BASE=/studio/` 重建后资源恢复。临时 Next 已关闭，未 deploy。
+- **验证**：Web 356 pass / 0 fail；Canvas 八组浏览器测试串行 21 pass / 0 fail；双端 typecheck、正式 build 通过。
+- **证据**：`apps/web/test-results/strangler-r11/http-routes.txt`、`apps/canvas/web/test-results/freezone-r11/`。
+- **下一轮**：R12 全局交互硬化。
+
+---
+
+## 2026-10-27 07:13 Asia/Shanghai · TL · 自主重构 R10 设置与模型管理
+
+- **兼容**：LoRA 钉选复用生成前兼容校验；换基座后明确提示不兼容，保留原选择，不静默删除。
+- **降级**：在线引擎清单失败与真空候选分离；本地调研库存继续可用，支持重试。
+- **保存真值**：`writeSlotLoras` 返回实际写入结果；存储配额失败提示错误、不关弹层、不更新已保存摘要，不再假报成功。
+- **验证**：设置相关 38 pass / 0 fail；八组浏览器测试按文件串行 21 pass / 0 fail（104 assertions）；Web 355 pass / 0 fail；双端 typecheck、正式 build 通过。两个过期文案断言按现行角色槽口径校准。
+- **证据**：`apps/canvas/web/test-results/freezone-r10/`；测试壳补 Ant reset，Modal 截图确认列表可见后采集。
+- **下一轮**：R11 跨端一致性与 Strangler 关键路径。
+
+---
+
+## 2026-10-27 07:00 Asia/Shanghai · TL · 自主重构 R9 空态与反馈
+
+- **可恢复**：媒体筛选无结果提供「清空筛选」；空库提供「上传素材」；分镜空态提供「返回剧本解析」，真实导航保留 project 查询参数。
+- **状态纠偏**：筛选无结果不再误报为成人内容隐藏；已知 NSFW 继续可见锁定，未评级才在普通态隐藏。
+- **反馈一致性**：32px 空态 CTA、键盘焦点环、减少动态效果时关闭 shimmer；移除空态多余光晕。
+- **验证**：七组浏览器测试按文件串行 19 pass / 0 fail（98 assertions）；Web 355 pass / 0 fail；双端 typecheck、正式 build 通过。视觉截图固定到动画终态，避免以半透明中间帧验收。
+- **证据**：`apps/canvas/web/test-results/freezone-r9/`（深色无结果、浅色空库、分镜空态焦点）。
+- **下一轮**：R10 设置与模型管理。
+
+---
+
+## 2026-10-27 06:56 Asia/Shanghai · TL · 自主重构 R8 预览监视器
+
+- **媒体**：时间线新增当前镜头监视器，真实 `media_url` 视频、`preview_url` 海报、无媒体与加载错误反馈；切镜头暂停并回片段起点。
+- **逐帧**：播放与暂停定位解耦，逐帧命令同时推进播放头和视频，消除浮点阈值漏同步与旧偏移回写。
+- **验证**：真实 MP4 + HTTP Range 验证播放、下一帧、音频空态；R1–R8 六组浏览器测试按文件串行共 15 pass / 0 fail（76 assertions），双端 typecheck、正式 build 通过，Web 全量 355 pass / 0 fail。一次并发整组测试无进展已停止，未计为通过；独立重跑均通过。
+- **证据**：`apps/canvas/web/test-results/freezone-r8/timeline-preview.png`（真实解码帧，不是 poster）。
+- **下一轮**：R9 空态、加载态与反馈统一。
+
+---
+
+## 2026-10-27 06:20 Asia/Shanghai · TL · 自主重构 R7 生成队列
+
+- **弹层**：300→420px，任务提示词进入列表；触发器补 focus-visible。
+- **进度**：42% 精确显示，未知进度 indeterminate，不伪造 100% 或确定百分比。
+- **反馈**：日志展开可见；重试失败显示「操作未完成」，不再误报整个队列不可用；错误文本限两行。
+- **验证**：真实 `CreationStudioQueueDock` 不同状态与动作；Canvas 7 pass / 0 fail（43 assertions）；Web 全量 355 pass / 0 fail；双端 typecheck 与正式 build 通过。
+- **证据**：深浅色队列与错误态截图 `apps/canvas/web/test-results/freezone-r7/`。
+- **下一轮**：R8 视频预览与时间线播放器。
+
+---
+
+## 2026-10-27 06:08 Asia/Shanghai · TL · 自主重构 R6 导演台空间纠偏
+
+- **原因**：用户反馈当前 UI 怪；判定问题在空间结构而非继续美化卡片。
+- **默认态**：创作页全局侧栏 56px（可扩 216）、资产栏 240px、Inspector 默认收起、无项目时间线 40px（可扩 260）。
+- **实测**：1600px 默认主舞台 768→1296px；打开 Inspector 后 968px；选中镜头自动恢复属性区；其他路由侧栏状态不变。
+- **验证**：真实 `CreationStudioThreePane` + `CreationStudioPreviewTimeline` + live `/create`；Canvas 12 pass / 0 fail（72 assertions）；Web 全量 355 pass / 0 fail；双端 typecheck 与 build 通过；pageerror=0。
+- **证据**：`apps/canvas/web/test-results/freezone-r6/` 含默认、Inspector 展开和 live 截图。
+- **下一轮**：R7 生成队列与任务状态。
+
+---
+
+## 2026-10-27 05:57 Asia/Shanghai · TL · 自主重构 R5 节点编排
+
+- **范围**：真实 `CanvasNode` + `ConnectionPath` React 验收；未 commit / push / deploy。
+- **视觉**：节点选中改 accent 内描边 + 24px glow；类型色映射与活跃连线实测；暗色 muted 提升 `#9298a6`；更新旧主题断言。
+- **交互**：连接端口键盘 focus 时强制 `opacity=1` 并显示 2px 焦点环，不再只依赖 hover/selected。
+- **验证**：Canvas 11 pass / 0 fail（70 assertions）；Web 全量 355 pass / 0 fail；双端 typecheck 与正式 build 通过。
+- **证据**：暗色节点、浅色键盘端口焦点截图 `apps/canvas/web/test-results/freezone-r5/`；暗色节点表面也有 computed-style 断言。
+- **下一轮**：R6 资产库与媒体池。
+
+---
+
+## 2026-10-27 05:40 Asia/Shanghai · TL · 自主重构 R4 剧本与分镜
+
+- **范围**：本地工作区；未 commit / push / deploy；真实 `CreationStudioStoryboardFlow` React 组件验收。
+- **分镜**：固定 4/5 列改 `auto-fit minmax(220px)`；768px 三列、568px 两列；SHOT 编号、运镜、角色、时长、台词引用与衔接进入卡片。
+- **交互**：鼠标/Enter 选中；右栏 420px 内联扩宽且不遮中栏；增加 hover/focus 可见态；Inspector 去除尺寸/技术说明。
+- **剧本**：中心只留正文与明确下一步，参数仍在右侧。
+- **验证**：Canvas 10 pass / 0 fail（61 assertions）；Web **全量 355 pass / 0 fail**；双端 typecheck 与正式 build 通过。
+- **测试修复**：`designTokens.test.ts` 不再读取已归档 `docs/DESIGN.md`，改验真实 CSS 核心 token 与 engineStudio 零 hex。
+- **证据**：深浅色与窄屏选中截图 `apps/canvas/web/test-results/freezone-r4/`。
+- **下一轮**：R5 节点编排引擎外观与交互；模型生成 A/B 仍待后续专门轮次。
+
+---
+
+## 2026-10-27 05:29 Asia/Shanghai · TL · 自主重构 R3 单一创作台与浅色治理
+
+- **范围**：本地工作区；未 commit / push / deploy；路由与技术栈不变。
+- **布局**：1280px 主舞台 448→568px；中屏左/右栏 200/280px，宽屏保留 280/320px；快捷卡 4 列改 3 列；标题改 20px 左对齐自由创作。
+- **浅色**：三栏、主舞台、Inspector、时间线统一语义浅色；光幕与媒体遮罩保持独立语义；移动端不再出现深色孤岛。
+- **内容**：Inspector 去重复卡片壳；旧「双闸」文案改「显示规则」，明确前端灰锁/过滤与在途任务快照。
+- **验证**：Canvas 8 pass / 0 fail（50 assertions）；Web 96 pass / 0 fail；双端 typecheck 与正式 build 全通过；真实 1600/1280/375 截图，pageerror=0。
+- **证据**：`apps/canvas/web/test-results/freezone-r3/`；新增浅色三栏/时间线 browser 门禁。
+- **遗留**：移动端 Inspector 与时间线的空间互斥待 R8；模型生成 A/B 未执行；Web 全量 test 旧 `docs/DESIGN.md` 引用待清理。
+- **下一轮**：R4 剧本与分镜管理 UI。
+
+---
+
+## 2026-10-27 05:16 Asia/Shanghai · TL · 自主重构 R2 顶栏与光幕
+
+- **范围**：本地 tip `0a426713` 工作区；未 commit / push / deploy；未写账号模式、未新增后端硬闸。
+- **光幕**：28→32px；普通/成人文字与焦点对比度过门禁；2px 内焦点环；≤560px 收为 56px 图标态；真实浅色映射。
+- **确认层**：打开自动聚焦、Escape/外点关闭、焦点归还、`aria-describedby`；CTA 收敛 `#4f8cff`；未成年 disabled + 提示。
+- **测试**：Canvas 21 pass / 0 fail（251 assertions）；Web 96 pass / 0 fail；双端 typecheck 通过。
+- **正式构建**：`apps/canvas/web bun run build` 通过；`apps/web npm run build` 通过。
+- **真实页面**：`/create` 深色/浅色/375px 实测，pageerror=0；确认弹层只取消未确认；截图 `apps/canvas/web/test-results/freezone-r2/`。
+- **基线清理**：修复 5 个既有 TypeScript 错误（readiness tone、LoRA strength 类型、assistant lab、drama 空调用/空 id）。
+- **模型调研**：RunningHub 公开详情可读，执行/导出 401 未绕过；MCNL 一手许可纠正二手 Any service；WAN General NSFW 两个 NAS 文件 SHA256 与 Civitai.red API 一致，版本/许可/哈希已回写 `docs/MODEL_SOURCES.json`。
+- **遗留**：生成质量 A/B 尚未执行；浅色创作左右栏/时间线与移动端整体布局待 R3+；Web 全量 test 仍有旧 `docs/DESIGN.md` 引用。
+- **下一轮**：R3 单一创作台布局与浅色混合面板治理。
+
+---
+
+## 2026-10-27 04:47 Asia/Shanghai · TL · 自主重构 R1 Freezone 视觉系统
+
+- **范围**：本地工作区 `work/p0-fusion-20261016`，基线 tip `0a426713`；未 commit / push / deploy；STATE/TEST_LOG 原有脏改保留。
+- **实证**：13 个指定仓库完成源码级拆解；模型来源覆盖 HF/Civitai 及本地台账，RunningHub 站内深调与模型实测仍挂账。
+- **实际改动**：全局侧栏 334→216px、顶栏 89→56px；1600px 创作主舞台 650→768px；Inter 生效；muted `#6f7079`→`#9298a6`；主操作接 `#5ba0ff`；修复 Freezone token 污染浅色壳。
+- **测试**：Canvas 专项 8 pass / 0 fail（36 assertions）；Web Freezone + 对比度 95 pass / 0 fail；Web `npm run typecheck` 通过；`git diff --check` 通过。
+- **浏览器**：本地 Vite `:3001` 实测 `/create` `/` `/library` `/settings?section=models`；pageerror=0；截图 `apps/canvas/web/test-results/freezone-r1/`。浅色外壳恢复，但创作左右栏/时间线仍深色，混合主题待后续修复，未记为浅色全页面通过。
+- **新增门禁**：`apps/canvas/web/test/freezone-shell.browser.test.ts`、`apps/web/tests/freezoneTokens.test.ts`；双端 token 文件逐字一致、WCAG AA 与壳几何受控。
+- **基线阻塞**：Canvas typecheck 原有 5 个错误（control-readiness-lamps/model-compat/assistant-panel-lab/drama-workspace）；Web 全量 test 仍受已归档 `docs/DESIGN.md` 旧引用阻塞。均未假装全绿，转后续构建清理轮。
+- **下一轮**：R2 顶栏与光幕拨片；继续 RunningHub 深调；不新增后端 content_mode/NSFW 硬闸。
+
+---
+
+## 2026-10-27 03:37 Asia/Shanghai · 项目管家 · P0 deploy 关账
+
+- **source**：技术负责人「deploy 关账」
+- **prod tip**：`0a426713`（full `0a426713e0b7025403260db3d59faca3aa14511f`）；**自** `8bd97534…`
+- **BUILD_ID**：`20261026-193533-0a426713`（含热修 `50252fe7`）
+- **核验**：公网 `/studio/create` **200**，不再 302→`/?view=home`
+- **rollback**：`deploy.sh --rollback core`（窗内可回 `8bd97534`）
+- **deploy_authorized** 复位 false；**await_user**=`user_studio_visual_check`
+- **A**：仍暂缓，等用户确认观感后再开
+
+---
+
+## 2026-10-27 03:34 Asia/Shanghai · 项目管家 · 用户确认 deploy tip 0a426713
+
+- **source**：技术负责人转述用户亲口确认
+- **deploy_authorized**=true；目标 tip `0a426713`（含热修 `50252fe7`）
+- **await_user**=`deploy_result`
+- **执行**：已派网络运维
+- **现网**：仍 `8bd97534`（待替换）
+
+---
+
+## 2026-10-27 03:32 Asia/Shanghai · 项目管家 · STATE 纠偏：等确认 deploy tip
+
+- **source**：技术负责人纠偏
+- **原因**：目标 tip 从 `50252fe7` → `0a426713`；运维暂停 deploy
+- **await_user**=`confirm_deploy_tip_0a426713`
+- **deploy_authorized** 暂复位 false（等用户亲口确认 tip `0a426713`，其含热修 `50252fe7`）
+- **deploy**：未开始
+- **push**：已完成 remote `0a426713` ahead0
+
+---
+
+## 2026-10-27 03:31 Asia/Shanghai · 项目管家 · P0 push 完成
+
+- **source**：技术负责人（含半程 ahead0 核验）
+- **remote tip**：`0a426713`（含热修 `50252fe7`）
+- **remotes**：Gitee + GitHub ahead 0（TL）
+- **await_user**=`deploy_result`
+- **执行**：已派运维立刻发版
+- **现网**：仍 `8bd97534`（待替换）
+
+---
+
 ## 2026-10-27 03:30 Asia/Shanghai · 项目管家 · P0 push+deploy 授权
 
 - **source**：技术负责人转述用户口令
@@ -1604,3 +2089,53 @@ Goal: production core `.env` hot-align + spark served-alias purge (canonical onl
 - 语义：无 `X-NSFW` = 纯 SFW fail-closed；保留 tip `5929efdb` R18 闸 UX
 - 测：`cd apps/api && .venv/bin/python -m pytest tests/test_r18_policy_d_u1b.py tests/test_r18.py -q --tb=line` → **36 passed**
 - SFW 证明：无头 probe `allowed=False`；`GET /api/health` 200；`GET /api/models` 非 403（SFW 不依赖红线开关）
+
+## 2026-10-28 08:53 Asia/Shanghai — 全站壳推倒 A6 审结入账（仅文档）
+
+- **来源**：技术负责人【归档 · A6 审结】（用户定 v2 黑白壳 + 交互蓝）
+- **await**：`shell_rebuild_full_site`（维持）
+- **定稿色**：壳 = 黑白；交互蓝 accent **`#4A7FC1`**（覆盖 A5 `#E11D48`）；NSFW 锁灰 `#6B7280`
+- **范围**：跨端已落**本地工作树**；TL 审过 fixture 采样命中 `rgb(74,127,193)`
+- **tip**：仍 **`0a426713`**；**未 commit / 未 push / 未 deploy**
+- **Handback**：`apps/canvas/docs/FULL_SHELL_TEARDOWN_A6_BW_BLUE_HANDBACK.md`
+- **shots（FIXTURE）**：`apps/canvas/docs/shots/a6-home.png` · `a6-create.png`
+- **波次摘要**：A0–A2 本地过；A3v1 打回 → A3v2 门厅过；A5 玫红被 A6 覆盖；A4.1 灵感墙已开
+- **挂账**：cyan 旧名；灵感墙 A4.1；现网硬刷缺会话
+- **REA**：委托链 `verify=paused`；勿 resume
+- **管家动作**：只改 `STATE.json` / `TEST_LOG.md`；未改业务代码；未 commit
+
+## 2026-10-28 08:57 Asia/Shanghai — 全站壳推倒 A4.1 审过入账（仅文档）
+
+- **来源**：技术负责人【归档 · A4.1 审过】
+- **内容**：create 空态 quieter 本地过
+- **Handback**：`apps/canvas/docs/FULL_SHELL_TEARDOWN_A41_QUIET_EMPTY_HANDBACK.md`
+- **tip**：仍 **`0a426713`**；**未 commit / 未 push / 未 deploy**
+- **壳波**：A0–A6+A4.1 **本地完**
+- **挂账**：FeaturedWorks 源码未删；线程 Sparkles；node-glow；现网硬刷（+ cyan 旧名仍挂）
+- **REA**：委托链 `verify=paused`
+- **管家动作**：只改 `STATE.json` / `TEST_LOG.md`；未改业务代码；未 commit
+
+## 2026-10-28 09:03 Asia/Shanghai — P0 材料库+ProjectBible API 骨架本地过（仅文档）
+
+- **来源**：技术负责人【归档 · P0 API 骨架本地过】
+- **范围**：材料库 + ProjectBible **API-only** 骨架
+- **测**：契约测 **20 passed**
+- **关键路径**：
+  - `apps/api/app/routes/materials.py`
+  - `apps/api/app/routes/project_bibles.py`
+  - `apps/api/tests/test_materials_api.py`
+  - `apps/api/tests/test_project_bibles_api.py`
+  - 设计稿 `.local/design-drafts/PROJECT_BIBLE_AND_MATERIAL_API_DRAFT.md`
+- **tip**：仍 **`0a426713`**；**未 commit / 未 push / 未 deploy**
+- **管家动作**：只改 `STATE.json` / `TEST_LOG.md`；未改业务代码；未 commit
+
+## 2026-10-28 10:14 Asia/Shanghai — MOKE 手册覆盖率回写 + 里程碑入账（仅文档）
+
+- **来源**：AI短剧导演交接（非视频任务交项目管家；导演专心黄潜成片）
+- **SSOT**：`/workspace/moke-aigc-handbook/COVERAGE_STATUS.md`
+- **Skills**：185/185 read · 0 blocked
+- **Prompts**：INDEX+body **941/941** · 31 categories
+- **缺口**：网页 tutorial/videos/film-stills/cinematique **登录墙未补**；B 站 EP1–5 **仅硬字幕抽样**
+- **Page**：已更新「MOKE AIGC · AI完整视觉世界手册」
+- **里程碑**：`toiv-milestones/`（ProjectBible 4B.0.0 + P1-3 skill 清单）已交 TL；工程侧等 TL
+- **禁**：commit / push / deploy；未改业务代码

@@ -44,6 +44,8 @@ function stubController(open: boolean, setOpen: (next: boolean) => void, width: 
     return {
         open,
         setOpen,
+        presentation: "dock",
+        setPresentation: noop,
         width,
         setWidth,
         status,

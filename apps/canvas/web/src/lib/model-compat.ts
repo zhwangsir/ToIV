@@ -374,7 +374,7 @@ export function queryCompat(opts: {
         let status: CompatStatus;
         let confidence: CompatConfidence = "D";
         let notes: string | undefined;
-        let strength = { default: row?.strengthDefault ?? 0.6 };
+        let strength: CompatQueryItem["strength"] = { default: row?.strengthDefault ?? 0.6 };
 
         if (degraded) {
             if (!(opts.allowDegraded ?? true)) continue;

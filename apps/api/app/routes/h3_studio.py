@@ -23,8 +23,18 @@ from sqlmodel import Session
 from app.db import engine as db_engine
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
+from app.limits import (
+    DEFAULT_NEGATIVE_MAX_CHARS,
+    DEFAULT_PROMPT_MAX_CHARS,
+    H3_MAX_LORAS,
+    H3_MAX_REF_AUDIOS,
+    H3_MAX_REF_IMAGES,
+    H3_MAX_REF_VIDEOS,
+    H3_NEGATIVE_MAX_CHARS,
+    H3_PROMPT_MAX_CHARS,
+)
 from app.models import User
-from app.redline import job_nsfw_from_intent, nsfw_allowed, adult_at_submit
+from app.redline import adult_at_submit, job_nsfw_from_intent, nsfw_allowed, require_not_underage
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.video_upscale import validate_resolution_target
@@ -55,8 +65,8 @@ router = APIRouter()
 # 请求模型
 # ──────────────────────────────────────────────────────────────
 
-# LoRA 叠加上限(与 ltx_studio 同一约束)
-_MAX_LORAS = 3
+# LoRA 叠加上限(唯一事实源在 app.limits;与 engine_registry 的 H3 limits 声明同源)
+_MAX_LORAS = H3_MAX_LORAS
 
 
 class H3LoraInput(BaseModel):
@@ -76,10 +86,9 @@ class H3LoraInput(BaseModel):
 
 
 def _gate_h3_nsfw_loras(loras: list[H3LoraInput] | None, user: User) -> None:
-    """NSFW LoRA 门槛:引用已知 H3 R18 LoRA(services/h3.H3_NSFW_LORAS)时仅
-    /nsfw 专页(X-NSFW: 1 header)放行,主站调用一律 403(与 _gate_ltx_nsfw 同风格)。"""
-    if loras and any(is_h3_nsfw_lora(lora.name) for lora in loras) and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,须在 R18 上下文(X-NSFW)下使用")
+    """H3 R18 LoRA:P0-5 R3 仅未成年硬关;成人 UX 403 退役(可打标供前端灰化)。"""
+    if loras and any(is_h3_nsfw_lora(lora.name) for lora in loras):
+        require_not_underage(user)
 
 
 def _h3_explicit_nsfw(req, user: User) -> bool:
@@ -124,8 +133,8 @@ class H3T2VRequest(BaseModel):
     时长:优先 duration_sec(秒,任意值;超单段上限自动分段续写并精确裁切);
     length(帧数)为 deprecated 兼容入参,与 duration_sec 同给时忽略。
     """
-    positive: str = Field(min_length=1, max_length=4000)
-    negative: str = Field(default="", max_length=2000)
+    positive: str = Field(min_length=1, max_length=H3_PROMPT_MAX_CHARS)
+    negative: str = Field(default="", max_length=H3_NEGATIVE_MAX_CHARS)
     # None=AI 选配; []=关闭; 非空=钉选(须在策划目录内)
     loras: list[H3LoraInput] | None = Field(default=None, max_length=_MAX_LORAS)
     width: int = Field(default=1344, ge=256, le=1344)
@@ -352,9 +361,9 @@ class H3FL2VRequest(H3I2VRequest):
 
 class H3R2VRequest(H3T2VRequest):
     """H3 Ref2VA 多参考:images[] 最多 9,videos[]/audios[] 最多 3;至少一种参考。"""
-    images: list[str] = Field(default_factory=list, max_length=9)
-    videos: list[str] = Field(default_factory=list, max_length=3)
-    audios: list[str] = Field(default_factory=list, max_length=3)
+    images: list[str] = Field(default_factory=list, max_length=H3_MAX_REF_IMAGES)
+    videos: list[str] = Field(default_factory=list, max_length=H3_MAX_REF_VIDEOS)
+    audios: list[str] = Field(default_factory=list, max_length=H3_MAX_REF_AUDIOS)
     worker: str
     ref_image_size: str = Field(default="match", max_length=8)
 
@@ -486,7 +495,7 @@ class H3ShotInput(BaseModel):
     camera_hint(推/拉/摇/移/跟/固定)与 transition_hint(硬切/淡入淡出/匹配切口)
     可选,白名单由 services/multishot_protocol 校验;transition 挂在被进入的镜头上。
     """
-    prompt: str = Field(min_length=1, max_length=2000)
+    prompt: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)  # 逐镜头 2000,同普通 generate 缺省语义
     duration_sec: float | None = Field(default=None, gt=0, le=multishot.MAX_TOTAL_SEC)
     camera_hint: str | None = Field(default=None, max_length=16)
     transition_hint: str | None = Field(default=None, max_length=16)
@@ -501,7 +510,7 @@ class H3MultiShotRequest(BaseModel):
     shots: list[H3ShotInput] = Field(min_length=multishot.MIN_SHOTS, max_length=multishot.MAX_SHOTS)
     # 均分模式:全部镜头 duration_sec 留空时必填;自定义模式忽略(总长=各镜头之和)
     total_duration: float | None = Field(default=None, gt=0, le=multishot.MAX_TOTAL_SEC)
-    negative: str = Field(default="", max_length=2000)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     loras: list[H3LoraInput] | None = Field(default=None, max_length=_MAX_LORAS)
     width: int = Field(default=1344, ge=256, le=1344)
     height: int = Field(default=768, ge=256, le=1344)

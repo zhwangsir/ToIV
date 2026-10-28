@@ -14,6 +14,7 @@ from pathlib import Path
 import logging
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from app.harness import events as ev
@@ -21,6 +22,7 @@ from app.models import StudioCharacter, StudioProject, StudioShot
 from app.services.studio.renderers.base import RenderError, get_renderer
 from app.services.studio.candidates_json import (
     append_failure as _append_candidate_failures_helper,
+    candidates_digest,
     dumps_candidates,
     loads_candidates,
 )
@@ -251,6 +253,7 @@ async def render_shot(
     parent_chain_job_id: str | None = None,
     accel: str = "off",
     accel_echo: dict | None = None,
+    estimate: dict[str, Any] | None = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。
 
@@ -453,6 +456,35 @@ async def render_shot(
     renderer = get_renderer(shot)
     # 提交渲染前读侧写入(video_model/ref_images)，结束事务后再 await。
     # 否则 SQLAlchemy 隐式事务会在长轮询期间 idle in transaction 锁住镜次行。
+    # C1a:发起时登记 source=render 实际生成输入快照(内容字段+解析后参数),
+    # revision_id 随 render_kw 下传(pipeline_c Job.params 接线;候选条目回显)。
+    # 完成回写记到本修订,用户中途编辑只会经指纹比对出 stale,不杀在途任务。
+    from app.services.studio import revisions as rev_svc
+
+    _render_rev = rev_svc.create_render_revision(
+        session,
+        shot,
+        render_params={
+            "video_model": engine,
+            "pipeline": pipe,
+            "num_candidates": n,
+            "seed": seed,
+            "ref_images": list(resolved_refs),
+            "scene_images": list(scene_images) if isinstance(scene_images, list) else [],
+            "ref_style": sheet_style or "",
+            "accel": render_kw.get("accel", "off"),
+            "width": project.width if project is not None else None,
+            "height": project.height if project is not None else None,
+            "fps": project.fps if project is not None else None,
+            "ckpt_name": project.ckpt_name if project is not None else "",
+            "worker_url": pinned_worker or "",
+            "context_latent_path": ctx or "",
+            "auto_pick": bool(auto_pick),
+            "estimate": estimate,
+        },
+        created_by="system",
+    )
+    render_kw["revision_id"] = _render_rev.id
     session.add(shot)
     session.commit()
 
@@ -573,6 +605,7 @@ async def render_shot(
                         entry["job_id"] = str(meta.get("job_id") or "")
                         entry["db_job_id"] = str(meta.get("db_job_id") or "")
                         entry["worker"] = str(meta.get("worker") or "")
+                        entry["revision_id"] = _render_rev.id
                         if meta.get("context_latent"):
                             entry["context_latent"] = meta["context_latent"]
                         candidates.append(entry)
@@ -880,6 +913,9 @@ async def render_shot(
 
         if candidates:
             # S5:多候选异步——全部 queued 候选(各带 db_job_id)整体落库
+            for c in candidates:
+                if isinstance(c, dict):
+                    c.setdefault("revision_id", _render_rev.id)
             shot.candidates_json = dumps_candidates(candidates)
         else:
             shot.candidates_json = dumps_candidates(
@@ -897,6 +933,7 @@ async def render_shot(
                         "db_job_id": str(_meta_async.get("db_job_id") or ""),
                         "worker": str(_meta_async.get("worker") or ""),
                         "context_latent": str(_meta_async.get("context_latent") or ""),
+                        "revision_id": _render_rev.id,
                     }
                 ]
             )
@@ -959,6 +996,9 @@ async def render_shot(
     else:
         shot.video_url = result.url
         shot.final_clip_url = result.url
+        # C1a M3:final_clip 被新原始渲染覆盖,不再是上次对口型合成 → 来源指针清零
+        # (投影 unknown),待新的 lipsync/skip 重新快照归属
+        shot.final_visual_revision_id = shot.final_voice_revision_id = ""
         # 独立镜：回显实际提交的定妆参考（每镜 4 张 + 场景），而非全量收集列表
         _rm = getattr(result, "pipeline_meta", None) or {}
         if pipe == INDEP_PIPELINE and isinstance(_rm, dict) and isinstance(_rm.get("ref_images"), list):
@@ -986,6 +1026,9 @@ async def render_shot(
             ]
         )
     shot.status = "rendered"
+    # C1a:成片归属发起时的 render 修订(内容已被中途编辑则指纹比对自动 stale,
+    # 不会把结果记到新修订)
+    shot.rendered_revision_id = _render_rev.id
     session.add(shot)
     session.commit()
     session.refresh(shot)
@@ -1006,9 +1049,25 @@ def _fire_video_transcript(url: str) -> None:
         logger.warning("transcript 钩子触发失败 %s", url[:80], exc_info=True)
 
 
-def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> StudioShot:
-    """将指定候选标为采用,回写 video_url/final_clip_url。"""
-    rows = loads_candidates(shot.candidates_json)
+class CandidateConflictError(Exception):
+    """候选快照已被其他请求更新。"""
+
+
+def pick_candidate(
+    session: Session,
+    shot: StudioShot,
+    candidate_id: str,
+    *,
+    expected_candidates_digest: str | None = None,
+) -> StudioShot:
+    """按候选快照 CAS 拍板，候选归属与成片指针在同一条件 UPDATE 内提交。"""
+    original_raw = shot.candidates_json or "[]"
+    if (
+        expected_candidates_digest is not None
+        and candidates_digest(original_raw) != expected_candidates_digest
+    ):
+        raise CandidateConflictError("候选列表已更新，请刷新后重新拍板")
+    rows = loads_candidates(original_raw)
     if not rows:
         raise RenderError("无候选可挑选")
     found = None
@@ -1024,12 +1083,24 @@ def pick_candidate(session: Session, shot: StudioShot, candidate_id: str) -> Stu
         raise RenderError("候选不存在")
     if found.get("status") != "done" or not found.get("url"):
         raise RenderError("候选未完成或无产物")
-    shot.video_url = str(found["url"])
-    shot.final_clip_url = str(found["url"])
-    shot.candidates_json = dumps_candidates(rows)
-    if found.get("video_model"):
-        shot.video_model = str(found["video_model"])
-    session.add(shot)
+    video_url = str(found["url"])
+    result = session.exec(
+        update(StudioShot)
+        .where(StudioShot.id == shot.id, StudioShot.candidates_json == original_raw)
+        .values(
+            candidates_json=dumps_candidates(rows),
+            video_url=video_url,
+            final_clip_url=video_url,
+            video_model=str(found["video_model"]) if found.get("video_model") else shot.video_model,
+            rendered_revision_id=str(found.get("revision_id") or ""),
+            final_visual_revision_id="",
+            final_voice_revision_id="",
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if getattr(result, "rowcount", 0) == 0:
+        session.rollback()
+        raise CandidateConflictError("候选列表已被并发更新，请刷新后重新拍板")
     session.commit()
     session.refresh(shot)
     _fire_video_transcript(shot.video_url or "")

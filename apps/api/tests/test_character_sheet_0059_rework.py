@@ -163,7 +163,7 @@ def test_costume_five_cells_nonempty_and_fg():
 def test_source_has_0059_rules():
     from pathlib import Path
 
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "00:59_head_height_lanczos" in src
     assert "side_three_quarter_accept" in src
     assert "skip_chest_emblem" in src

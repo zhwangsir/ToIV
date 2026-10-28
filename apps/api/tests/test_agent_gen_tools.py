@@ -4,7 +4,7 @@
 - 4 个新工具经 tool_seam 注册(schema 与 TOOL_SCHEMAS_GEN 同源);
 - submit_generation 替身链路(stub 引擎可用性 + stub tracker + fake pool/client,
   走真实 routes/generate 提交函数):Job 落库、job 事件、立即返回不阻塞;
-- R18 逐引擎门控:无 X-NSFW 上下文被拦(403 语义,executor 不到提交);
+- R18 逐引擎门控:P0-5 R5 后端不再硬关(含未成年);限制只前端;
 - check_jobs:状态/held 原因/done 产物签名 URL;跨用户不可见;
 - optimize_prompt 工具复用 routes/optimize 同一链路(LLM 替身);
 - propose_plan 持久化 + /api/agent/chat/resume 三态(approve/modify/reject)
@@ -306,17 +306,58 @@ async def test_submit_engine_unavailable(db_env, monkeypatch):
     assert events[0]["data"]["status"] == "error"
 
 
-async def test_submit_r18_engine_blocked_without_nsfw(db_env):
-    """R18 引擎无 X-NSFW 上下文 → 403 语义文本,不到提交(逐引擎门控)。"""
+async def test_submit_r18_engine_ordinary_not_ux_blocked(db_env, monkeypatch):
+    """P0-5 R3:普通态不再被 R18 引擎 UX 门拦;可走到提交(stub)。"""
     s, user = db_env
+    _stub_engines_available(monkeypatch, "h3-nsfw-t2v")
+
+    async def fake_h3_t2v(req, user, session):
+        job = Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id="h3pid-ord",
+                  worker="http://h3:8195", kind="h3_t2v", status="queued",
+                  prompt=req.positive, seed=1, nsfw=True)
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        return {"prompt_id": "h3pid-ord", "client_id": "", "worker": "http://h3:8195", "seed": 1}
+
+    monkeypatch.setattr("app.routes.h3_studio.generate_h3_t2v", fake_h3_t2v)
     reg = get_ctx().service("tools")
     text, events = await reg.execute(
         "submit_generation", {"engine_id": "h3-nsfw-t2v", "positive": "nsfw clip"},
         _ctx(_FakePool(_FakeClient()), user, s),
     )
-    assert "403" in text and "R18" in text
-    assert events[0]["data"]["status"] == "error"
-    assert s.exec(select(Job)).all() == [], "被拦时不落 Job"
+    assert "未成年" not in text
+    assert "仅 R18 模式可用" not in text
+    assert "h3pid-ord" in text or (events and events[0]["data"].get("status") != "error")
+
+
+async def test_submit_r18_engine_allowed_for_underage(db_env, monkeypatch):
+    """P0-5 R5:未成年不再后端硬拦 R18 引擎(限制只前端)。"""
+    from datetime import date, timedelta
+    s, user = db_env
+    user.birthdate = date.today() - timedelta(days=365 * 12)
+    s.add(user)
+    s.commit()
+    _stub_engines_available(monkeypatch, "h3-nsfw-t2v")
+
+    async def fake_h3_t2v(req, user, session):
+        job = Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id="h3pid-minor",
+                  worker="http://h3:8195", kind="h3_t2v", status="queued",
+                  prompt=req.positive, seed=1, nsfw=True)
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        return {"prompt_id": "h3pid-minor", "client_id": "", "worker": "http://h3:8195", "seed": 1}
+
+    monkeypatch.setattr("app.routes.h3_studio.generate_h3_t2v", fake_h3_t2v)
+    reg = get_ctx().service("tools")
+    text, events = await reg.execute(
+        "submit_generation", {"engine_id": "h3-nsfw-t2v", "positive": "nsfw clip"},
+        _ctx(_FakePool(_FakeClient()), user, s),
+    )
+    assert "未成年" not in text
+    assert "仅 R18 模式可用" not in text
+    assert "h3pid-minor" in text or (events and events[0]["data"].get("status") != "error")
 
 
 async def test_submit_r18_engine_allowed_with_nsfw(db_env, monkeypatch):
@@ -423,7 +464,7 @@ async def test_optimize_tool_reuses_route(db_env, monkeypatch):
     s, user = db_env
     seen: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None, user=None):
         seen["system"] = messages[0]["content"]
         seen["layer"] = layer
         return {"content": '{"positive": "a fluffy cat, masterpiece", "negative": "blurry"}'}
@@ -450,7 +491,7 @@ async def test_optimize_tool_video_engine_dialect(db_env, monkeypatch):
     s, user = db_env
     seen: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None, user=None):
         seen["system"] = messages[0]["content"]
         return {"content": '{"positive": "a cat runs", "negative": "blurry"}'}
 
@@ -508,7 +549,7 @@ def route_ctx(monkeypatch):
 def _mock_llm(monkeypatch, script: list[dict]):
     calls: list[list[dict]] = []
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None, user=None):
         calls.append(messages)
         return script[min(len(calls) - 1, len(script) - 1)]
 
@@ -776,7 +817,8 @@ async def test_get_app_includes_availability(db_env):
     assert "可用性:实测可用" in text
 
 
-async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
+async def test_list_apps_exposes_nsfw_flag_for_frontend(db_env):
+    """P0-5 R4/R5:后端 list 不过滤 NSFW;透出标注供前端红线灰化。"""
     s, user = db_env
     _seed_market_apps(s, user)
     reg = get_ctx().service("tools")
@@ -784,8 +826,7 @@ async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
     from app.services.app_seed import _build_specs as _specs
     _name = next(sp for sp in _specs() if sp["id"] == "h3-t2v")["name"]
     assert "h3-t2v" in text and _name in text
-    assert "h3-nsfw-t2v" not in text
-    # 账号成人态可见 NSFW
+    assert "h3-nsfw-t2v" in text  # 后端可见;前端自行藏
     user.content_mode = "adult"
     s.add(user)
     s.commit()
@@ -800,12 +841,15 @@ async def test_get_app_returns_params_schema(db_env):
     text, _ = await reg.execute("get_app", {"id": "h3-t2v"}, _ctx(_FakePool(_FakeClient()), user, s))
     assert "id=h3-t2v" in text
     assert "positive" in text and "必填" in text
-    # NSFW 应用无 R18 标记时 404 不泄露
-    text404, events = await reg.execute(
+    # P0-5 R4/R5:ordinary 也可 get NSFW 应用(透出 NSFW 标注;不 404 伪装)
+    text_nsfw, events = await reg.execute(
         "get_app", {"id": "h3-nsfw-t2v"}, _ctx(_FakePool(_FakeClient()), user, s)
     )
-    assert "不存在" in text404
-    assert events[0]["data"]["status"] == "error"
+    assert "不存在" not in text_nsfw
+    assert "id=h3-nsfw-t2v" in text_nsfw
+    assert "NSFW" in text_nsfw or "R18" in text_nsfw
+    if events:
+        assert events[0]["data"].get("status") != "error"
 
 
 async def test_run_app_h3_t2v_mocked_submit_returns_job(db_env, monkeypatch):

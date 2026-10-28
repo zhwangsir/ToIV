@@ -8,6 +8,7 @@ import { HomeDashboard } from "@/pages/home/home-dashboard";
 import { CanvasShortDramaEmptyState } from "@/components/canvas/canvas-short-drama-entry";
 import { CreationModeTabs } from "@/pages/create/creation-workspace";
 import { selectionToolbarTools } from "@/lib/canvas/tool-registry/definitions/selection-toolbar-tools";
+import { CANVAS_EMPTY_TEMPLATES } from "@/lib/canvas/canvas-empty-templates";
 
 const root = resolve(import.meta.dir, "..");
 
@@ -93,7 +94,7 @@ function collectSourceFiles(directory: string): string[] {
 }
 
 describe("旧内置 Agent 页面入口退场", () => {
-    test("首页主 CTA 为新建短剧，画布能力收入更多能力折叠，不再嵌 Agent 入口", () => {
+    test("首页主 CTA 为新建画布创作（BF0 BeefTV），短剧降为次入口，不再嵌 Agent 入口", () => {
         const markup = renderToStaticMarkup(
             <MemoryRouter>
                 <HomeDashboard projects={[]} loading={false} error={false} onRetry={() => {}} />
@@ -101,14 +102,14 @@ describe("旧内置 Agent 页面入口退场", () => {
         );
         expect(markup).not.toContain("BeefTV Agent");
         expect(markup).not.toContain('data-mode="agent"');
+        expect(markup).toContain("新建画布创作");
         expect(markup).toContain("新建短剧");
-        expect(markup).not.toContain("新建画布创作");
         expect(markup).toContain("打开雨夜示例");
-        expect(markup).toContain("最近短剧");
-        expect(markup).toContain("更多能力");
-        // 能力瓷砖仍存在于折叠区内（同源数据），但不作为主同权入口
+        expect(markup).toContain("最近项目");
+        expect(markup).not.toContain(">快捷<");
         expect(markup).toContain("自由画布");
         expect(markup).toContain("/canvas?mode=new");
+        expect(markup).toContain("beeftv-home");
     });
 
     test("创作页模式切换只剩图片/视频/文本，不再渲染 Agent 模式", () => {
@@ -139,11 +140,13 @@ describe("旧内置 Agent 页面入口退场", () => {
         const markup = renderToStaticMarkup(
             <CanvasShortDramaEmptyState onCreatePipeline={() => {}} onStartFreeform={() => {}} onUpload={() => {}} onAddText={() => {}} onAddScript={() => {}} />,
         );
-        expect(markup).toContain("自己创作");
-        expect(markup).toContain("自由空白画布");
+        // P3.5 起起步引导改为三模板（短剧分镜条/图生视频/空白画布，来自 CANVAS_EMPTY_TEMPLATES）。
+        for (const template of CANVAS_EMPTY_TEMPLATES) {
+            expect(markup).toContain(template.label);
+        }
         expect(markup).not.toContain("交给 Agent");
         expect(markup).not.toContain("一句话生成影视项目");
-        expect(markup).toContain("md:grid-cols-2");
+        expect(markup).toContain("md:grid-cols-3");
     });
 
     test("选区工具栏不再暴露发送到 Agent 的工具", () => {

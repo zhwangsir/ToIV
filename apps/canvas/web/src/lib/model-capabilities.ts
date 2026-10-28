@@ -325,6 +325,93 @@ export function sanitizeServerVideoCapability(value: unknown): VideoCapabilityCo
     return video;
 }
 
+export function sanitizeServerTextCapability(value: unknown): TextCapabilityConfig | null {
+    const object = catalogObject(value);
+    if (!object || !catalogNumbersFinite(object)) return null;
+    const references = catalogObject(object.references);
+    if (!references) return null;
+    const promptMaxChars = catalogWholeNumber(references.promptMaxChars);
+    const maxImages = catalogWholeNumber(references.maxImages);
+    const maxVideos = catalogWholeNumber(references.maxVideos);
+    const maxImageBytes = catalogWholeNumber(references.maxImageBytes);
+    const maxVideoBytes = catalogWholeNumber(references.maxVideoBytes);
+    if (promptMaxChars === null || promptMaxChars < 1 || promptMaxChars > 1_000_000) return null;
+    if (maxImages === null || maxImages < 0 || maxImages > 100) return null;
+    if (maxVideos === null || maxVideos < 0 || maxVideos > 100) return null;
+    if (maxImageBytes === null || maxImageBytes < 0) return null;
+    if (maxVideoBytes === null || maxVideoBytes < 0) return null;
+    const streaming = typeof object.streaming === "boolean" ? object.streaming : undefined;
+    return {
+        ...(streaming !== undefined ? { streaming } : {}),
+        references: { promptMaxChars, maxImages, maxImageBytes, maxVideos, maxVideoBytes },
+    };
+}
+
+function sanitizeCatalogImageSizePresets(value: unknown): ImageCapabilityConfig["size"]["presets"] | null {
+    if (value === undefined || value === null) return undefined;
+    if (!Array.isArray(value)) return null;
+    const presets: NonNullable<ImageCapabilityConfig["size"]["presets"]> = [];
+    for (const raw of value) {
+        const preset = catalogObject(raw);
+        if (!preset) return null;
+        const size = catalogStringValue(preset.size);
+        const ratio = catalogStringValue(preset.ratio);
+        const width = catalogWholeNumber(preset.width);
+        const height = catalogWholeNumber(preset.height);
+        const tier = catalogStringValue(preset.tier);
+        if (!size || !ratio || !width || !height || width <= 0 || height <= 0) return null;
+        if (tier !== "1k" && tier !== "2k" && tier !== "4k") return null;
+        presets.push({ size, tier, ratio, width, height });
+    }
+    return presets;
+}
+
+export function sanitizeServerImageCapability(value: unknown): ImageCapabilityConfig | null {
+    const object = catalogObject(value);
+    if (!object || !catalogNumbersFinite(object)) return null;
+    const references = catalogObject(object.references);
+    const size = catalogObject(object.size);
+    const quality = catalogObject(object.quality);
+    const transparentBackground = catalogBooleanConfig(object.transparentBackground);
+    const responseFormat = catalogParameterSupport(object.responseFormat);
+    const outputFormat = catalogParameterSupport(object.outputFormat);
+    const maxOutputs = catalogWholeNumber(object.maxOutputs);
+    if (!references || !size || !quality || !transparentBackground || !responseFormat || !outputFormat || maxOutputs === null || maxOutputs < 1 || maxOutputs > 100) return null;
+    const promptMaxChars = catalogWholeNumber(references.promptMaxChars);
+    const maxImages = catalogWholeNumber(references.maxImages);
+    const maxImageBytes = catalogWholeNumber(references.maxImageBytes);
+    if (promptMaxChars === null || promptMaxChars < 1 || promptMaxChars > 1_000_000) return null;
+    if (maxImages === null || maxImages < 0 || maxImages > 100) return null;
+    if (maxImageBytes === null || maxImageBytes < 0) return null;
+    if (typeof references.maskSupported !== "boolean") return null;
+    const parameter = catalogStringValue(size.parameter);
+    if (parameter !== "none" && parameter !== "size" && parameter !== "aspect_ratio") return null;
+    const values = catalogStringList(size.values, true);
+    const defaultValue = catalogStringValue(size.default);
+    if (values === null || defaultValue === null || typeof size.allowCustom !== "boolean") return null;
+    const presets = sanitizeCatalogImageSizePresets(size.presets);
+    if (presets === null) return null;
+    if (typeof quality.supported !== "boolean") return null;
+    const qualityValues = catalogStringList(quality.values, true);
+    const qualityDefault = catalogStringValue(quality.default);
+    if (qualityValues === null || qualityDefault === null) return null;
+    return {
+        references: { promptMaxChars, maxImages, maxImageBytes, maskSupported: references.maskSupported },
+        size: { parameter, values, default: defaultValue, allowCustom: size.allowCustom, ...(presets ? { presets } : {}) },
+        quality: { supported: quality.supported, values: qualityValues, default: qualityDefault },
+        transparentBackground,
+        responseFormat,
+        outputFormat,
+        maxOutputs,
+    };
+}
+
+function catalogParameterSupport(value: unknown): { supported: boolean } | null {
+    const child = catalogObject(value);
+    if (!child || typeof child.supported !== "boolean") return null;
+    return { supported: child.supported };
+}
+
 // Keep explicit pixel presets for each resolution tier so the settings panel can
 // switch between 1K, 2K and 4K without silently converting the requested ratio.
 const defaultImageSizes = [

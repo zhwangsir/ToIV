@@ -2,8 +2,11 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { chromium, type Browser, type Page } from "playwright";
 
+const freezoneCss = await Bun.file(new URL("../src/styles/toiv-freezone-tokens.css", import.meta.url)).text();
 const globalsCss = await Bun.file(new URL("../src/styles/globals.css", import.meta.url)).text();
+const localOverridesCss = await Bun.file(new URL("../src/styles/toiv-local-overrides.css", import.meta.url)).text();
 const workspaceCss = await Bun.file(new URL("../src/styles/workspace-product.css", import.meta.url)).text();
+const deskCss = await Bun.file(new URL("../src/styles/toiv-freezone-desk.css", import.meta.url)).text();
 const homeCss = await Bun.file(new URL("../src/pages/home/home-dashboard.css", import.meta.url)).text();
 
 let browser: Browser;
@@ -22,12 +25,12 @@ afterAll(async () => {
 async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: boolean; width?: number }) {
     await page.setViewportSize({ width, height: 900 });
     await page.setContent(`
-        <html class="${dark ? "dark" : ""}"><head><style>${globalsCss}\n${workspaceCss}\n${homeCss}</style></head>
+        <html class="${dark ? "dark" : ""}"><head><style>${freezoneCss}\n${globalsCss}\n${localOverridesCss}\n${workspaceCss}\n${deskCss}\n${homeCss}</style></head>
         <body><div class="app-user-workspace app-product-workspace ${home ? "app-home-route" : ""}">
             <div class="app-workspace-shell">
                 <aside class="app-workspace-sidebar"><div class="app-workspace-sidebar-nav"></div><div class="app-workspace-sidebar-footer"></div></aside>
-                <div class="app-workspace-stage"><main class="toiv-home">
-                    <div class="toiv-home-hero"></div><div class="toiv-capability-icon"></div><div class="toiv-recent-card"></div>
+                <div class="app-workspace-stage"><main class="beeftv-home toiv-home">
+                    <div class="beeftv-home-hero"></div><div class="beeftv-capability-icon"></div><div class="beeftv-recent-card"></div>
                     <div class="project-library-card"></div><div class="libtv-create-project-card"></div><div class="libtv-folder-card-cover"></div>
                     <div class="assets-library-page"><div class="canvas-library-frame"></div><div class="assets-inline-search"></div></div>
                     <div class="settings-page"><div class="settings-library-frame"><div class="settings-channel"></div></div></div>
@@ -42,9 +45,9 @@ async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: 
             sidebar: background(".app-workspace-sidebar"),
             sidebarNav: background(".app-workspace-sidebar-nav"),
             sidebarFooter: background(".app-workspace-sidebar-footer"),
-            hero: background(".toiv-home-hero"),
-            capability: background(".toiv-capability-icon"),
-            recent: background(".toiv-recent-card"),
+            hero: background(".beeftv-home-hero"),
+            capability: background(".beeftv-capability-icon"),
+            recent: background(".beeftv-recent-card"),
             projectCard: background(".project-library-card"),
             projectCreateCard: background(".libtv-create-project-card"),
             assetFrame: background(".assets-library-page .canvas-library-frame"),
@@ -56,18 +59,18 @@ async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: 
 
 test("dark workspace keeps home, projects, assets and model settings on one near-black palette", async () => {
     const expected = {
-        stage: "rgb(16, 16, 16)",
-        sidebar: "rgb(22, 22, 22)",
-        sidebarNav: "rgb(22, 22, 22)",
-        sidebarFooter: "rgb(22, 22, 22)",
-        hero: "rgb(32, 32, 32)",
-        capability: "rgb(32, 32, 32)",
-        recent: "rgb(22, 22, 22)",
-        projectCard: "rgb(23, 23, 23)",
-        projectCreateCard: "rgb(32, 32, 32)",
-        assetFrame: "rgb(22, 22, 22)",
-        modelFrame: "rgb(22, 22, 22)",
-        modelChannel: "rgb(22, 22, 22)",
+        stage: "rgb(10, 12, 18)",
+        sidebar: "rgb(19, 20, 27)",
+        sidebarNav: "rgb(19, 20, 27)",
+        sidebarFooter: "rgb(19, 20, 27)",
+        hero: "rgb(26, 27, 33)",
+        capability: "rgb(26, 27, 33)",
+        recent: "rgb(20, 21, 26)",
+        projectCard: "rgb(21, 22, 29)",
+        projectCreateCard: "rgb(27, 28, 35)",
+        assetFrame: "rgb(21, 22, 29)",
+        modelFrame: "rgb(21, 22, 29)",
+        modelChannel: "rgb(21, 22, 29)",
     };
     for (const width of [1440, 840]) {
         expect(await readPalette({ dark: true, home: true, width })).toEqual(expected);
@@ -86,5 +89,5 @@ test("dark project folder and asset search do not keep the brighter gray fills",
     const folderTop = colors.folder.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     expect(folderTop).not.toBeNull();
     expect(Number(folderTop![1])).toBeLessThanOrEqual(48);
-    expect(colors.search).toBe("rgb(32, 32, 32)");
+    expect(colors.search).toBe("rgb(27, 28, 35)");
 });

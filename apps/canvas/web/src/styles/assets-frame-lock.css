@@ -24,14 +24,14 @@
 .assets-generation-preview-drawer .ant-drawer-content-wrapper { width: 440px !important; }
 .assets-header-compact-button[aria-label="筛选资产"] { width: 38px; margin-left: -2px; }
 .assets-new-button, .assets-new-button.ant-btn {
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 16%, var(--toiv-surface, #15161d)) !important;
-  background-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 16%, var(--toiv-surface, #15161d)) !important;
-  color: var(--toiv-text, #e8eaf0) !important;
-  border-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 42%, var(--toiv-border, #22232c)) !important;
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 16%, var(--toiv-surface, #14151a)) !important;
+  background-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 16%, var(--toiv-surface, #14151a)) !important;
+  color: var(--toiv-text, #f4f6f7) !important;
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 42%, var(--toiv-border, rgba(255, 255, 255, 0.10))) !important;
 }
 .assets-new-button:hover {
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 28%, var(--toiv-surface, #15161d)) !important;
-  color: var(--toiv-text, #e8eaf0) !important;
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 28%, var(--toiv-surface, #14151a)) !important;
+  color: var(--toiv-text, #f4f6f7) !important;
 }
 @media (max-width: 720px) {
     .assets-library-source-rail { display: none; }

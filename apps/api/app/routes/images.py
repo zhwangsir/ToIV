@@ -108,7 +108,7 @@ async def get_image(
         if not owns:
             raise HTTPException(status_code=404, detail="产物不存在")
 
-    # 双闸:NSFW Job 产物仅成人态可取(账号 content_mode;失败 404)
+    # P0-5 R1:媒体 UX 闸已退役(assert 为 no-op);鉴权仍靠 sig/归属
     assert_image_content_mode_allows(db, user, filename)
 
     primary = resolve_worker(worker)  # SSRF 白名单校验

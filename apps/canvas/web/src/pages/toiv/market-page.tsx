@@ -11,7 +11,8 @@ import { AudioLines, Clapperboard, ImagePlus, Languages } from "lucide-react";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { Callout } from "@/components/ui/product/callout";
-import { EmptyState } from "@/components/ui/product/empty-state";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
+import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
 import {
     LOCAL_AUDIO_HAS_SENSEVOICE,
     LOCAL_AUDIO_UNAVAILABLE_LABEL,
@@ -20,14 +21,17 @@ import {
 } from "@/lib/local-model-defaults";
 import { marketAppToLoraSlot, resolvePinnedLorasForGenerate } from "@/lib/slot-lora";
 import {
-    appShowsR18Badge,
-    appVisibleForContentMode,
+    formatMarketByteLimit,
+    marketTextLimitState,
+    resolveLoraItemCap,
+    resolveMarketMediaByteLimit,
+} from "@/services/toiv/market-run";
+import {
     appUploadKind,
     applyMarketConvenienceChange,
     asMarketMediaList,
     buildDefaultRunValues,
     buildToivRunValues,
-    canShowContentModeToggle,
     enrichMarketSchemaWithDeepParams,
     fetchToivApp,
     fetchToivAppVariants,
@@ -35,19 +39,26 @@ import {
     firstPinWorker,
     isMarketConvenienceKey,
     mergeMarketModeChips,
-    requiredToivParamLabel,
-    resolveSubmitContentMode,
+    marketRunValidation,
     runToivApp,
     splitMarketRunParamsWithConvenience,
     toivCoverImageUrl,
     uploadToivMedia,
-    type ContentMode,
     type MarketMediaHandle,
     type ToivApp,
     type ToivAppModeItem,
     type ToivAppParam,
 } from "@/services/toiv/client";
-import { COPY_MODE_ADULT, COPY_MODE_NORMAL, shouldApplyContentSoftening } from "@/redline";
+import {
+    COPY_MODE_ADULT,
+    COPY_MODE_NORMAL,
+    appShowsR18Badge,
+    appVisibleForContentMode,
+    canShowContentModeToggle,
+    resolveSubmitContentMode,
+    shouldApplyContentSoftening,
+    type ContentMode,
+} from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
 import {
     LOCAL_MARKET_FEATURED,
@@ -66,6 +77,7 @@ import {
     unregisterMarketCanvasProvider,
 } from "@/services/toiv/market-providers";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { ToolsIntentGrid } from "@/components/toiv/tools-intent-grid";
 import "@/styles/toiv-freezone-desk.css";
 
 const CATEGORY_META: Record<string, string> = {
@@ -135,16 +147,13 @@ const MARKET_PAGE_SIZE = 200;
 const IMAGE_EXT = ["jpg", "jpeg", "png", "webp"];
 const AUDIO_EXT = ["wav", "mp3", "m4a", "ogg", "flac"];
 const VIDEO_EXT = ["mp4", "mov", "webm", "mkv"];
-const IMAGE_MAX = 20 * 1024 * 1024;
-const AUDIO_MAX = 20 * 1024 * 1024;
-const VIDEO_MAX = 200 * 1024 * 1024;
 
 function fileExt(name: string): string {
     const i = name.lastIndexOf(".");
     return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
-function MarketMediaField({
+export function MarketMediaField({
     param,
     value,
     onChange,
@@ -198,9 +207,10 @@ function MarketMediaField({
             setError("仅支持 mp4 / mov / webm / mkv 视频");
             return;
         }
-        const limit = param.type === "video" ? VIDEO_MAX : param.type === "audio" ? AUDIO_MAX : IMAGE_MAX;
+        // B1c：param.max_bytes 声明优先；未声明走 MARKET_MEDIA_FALLBACK_BYTES 兼容回退
+        const limit = resolveMarketMediaByteLimit(param);
         if (file.size > limit) {
-            setError(`${kindLabel}超过 ${Math.round(limit / (1024 * 1024))}MB 上限`);
+            setError(`${kindLabel}超过 ${formatMarketByteLimit(limit)} 上限`);
             return;
         }
         setUploading(true);
@@ -298,7 +308,7 @@ function MarketMediaField({
 
 type LoraPick = { name: string; strength: number };
 
-function LorasField({
+export function LorasField({
     param,
     value,
     onChange,
@@ -309,7 +319,9 @@ function LorasField({
     onChange: (key: string, next: unknown) => void;
     disabled?: boolean;
 }) {
-    const LORA_CAP = 3;
+    // B1c：数量上限按 param.max_items 声明；未声明回退 3（B1c 前硬编码，兼容回退）。
+    // param.min/max/step 仍只管强度滑杆，不被 max_items 复用。
+    const LORA_CAP = resolveLoraItemCap(param);
     const modeAuto = value == null;
     const modeOff = Array.isArray(value) && value.length === 0;
     const selected: LoraPick[] =
@@ -407,7 +419,7 @@ function LorasField({
     );
 }
 
-function ParamField({
+export function ParamField({
     param,
     value,
     onChange,
@@ -425,6 +437,25 @@ function ParamField({
     const id = `mkt-param-${param.key}`;
     const common =
         "w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs outline-none focus:border-[var(--workspace-accent)]";
+    // B1c：仅当 param 声明 max_chars 时给字数反馈；未声明保持原样，不伪称限制。
+    const textLimit = marketTextLimitState(value, param.max_chars);
+    const labelRow = (
+        <div className="flex items-center justify-between gap-2">
+            <span className="text-[var(--muted-foreground)]">{param.label}</span>
+            {textLimit.declared && (
+                <span
+                    data-testid={`mkt-char-count-${param.key}`}
+                    className={
+                        textLimit.over
+                            ? "text-[11px] text-[var(--destructive)]"
+                            : "text-[11px] text-[var(--muted-foreground)]"
+                    }
+                >
+                    {textLimit.count}/{textLimit.max}
+                </span>
+            )}
+        </div>
+    );
 
     if (param.type === "loras") {
         return (
@@ -470,7 +501,7 @@ function ParamField({
     if (param.type === "textarea") {
         return (
             <label className="flex flex-col gap-1 text-xs">
-                <span className="text-[var(--muted-foreground)]">{param.label}</span>
+                {labelRow}
                 <textarea
                     id={id}
                     rows={3}
@@ -498,7 +529,7 @@ function ParamField({
 
     return (
         <label className="flex flex-col gap-1 text-xs">
-            <span className="text-[var(--muted-foreground)]">{param.label}</span>
+            {labelRow}
             <input
                 id={id}
                 type={param.type === "number" ? "number" : "text"}
@@ -742,7 +773,8 @@ export default function MarketPage() {
         () => mergeMarketModeChips(detail?.id, modes),
         [detail?.id, modes],
     );
-    const missing = detail ? requiredToivParamLabel(schema, values) : null;
+    // B1c：提交前唯一校验入口（必填缺口 + 声明式 max_chars 超限），不再单独跑一套必填检查
+    const validation = detail ? marketRunValidation(schema, values) : null;
     const registered = useMemo(
         () => (detail ? isMarketCanvasProvider(detail.id) : false),
         [detail, providerTick],
@@ -759,7 +791,7 @@ export default function MarketPage() {
     };
 
     const onRun = async () => {
-        if (!detail?.id || missing || audioBlocked) return;
+        if (!detail?.id || validation || audioBlocked) return;
         setRunning(true);
         setRunMsg(null);
         setRunFailed(false);
@@ -856,32 +888,29 @@ export default function MarketPage() {
         <WorkspacePage fluid className="toiv-market-page fz-desk">
             <div className="fz-desk-page mx-auto flex w-full max-w-7xl flex-col gap-3">
                         <header className="fz-desk-toolbar">
-                <h1>工具箱</h1>
-                <p>应用市场 · 生成能力即取即用；作业进任务中心。</p>
+                <h1>工具台</h1>
+                <p>BeefTV 密台能力入口 · 市场应用即取即用；作业进任务中心。意图不在首页。</p>
                 <div className="fz-desk-actions">
-<Link to="/create"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频工具" /></Link>
-                    <Link to="/create"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图片工具" /></Link>
-                    <Link to="/create"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频剪辑" /></Link>
-                    <Link to="/create"><ToolButton variant="default" icon={<Languages className="size-4" />} label="视频译制" /></Link>
+                    <a href="#tools-intent-image"><ToolButton variant="default" icon={<ImagePlus className="size-4" />} label="图像" /></a>
+                    <a href="#tools-intent-video"><ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="视频" /></a>
+                    <a href="#tools-intent-audio"><ToolButton variant="default" icon={<AudioLines className="size-4" />} label="音频" /></a>
+                    <a href="#tools-intent-drama"><ToolButton variant="default" icon={<Languages className="size-4" />} label="短剧" /></a>
                     <ToolButton variant="default" icon={<RefreshCw />} label="刷新" onClick={() => void load()} loading={loading} />
                     <Link to="/">
                         <ToolButton variant="default" icon={<ArrowLeft />} label="返回首页" />
                     </Link>
-                
                 </div>
             </header>
 
-            <div className="toiv-market-filters fz-panel flex flex-wrap items-center gap-2 px-2.5 py-2">
+            <ToolsIntentGrid />
+
+            <div className="toiv-market-filters fz-panel fz-pill-row px-2.5 py-2">
                 {categories.map(([key, n]) => (
                     <button
                         key={key}
                         type="button"
                         onClick={() => setCategory(key)}
-                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                            category === key
-                                ? "border-[var(--workspace-accent)] bg-[var(--surface-active)]"
-                                : "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--workspace-accent)]"
-                        }`}
+                        className={"fz-pill" + (category === key ? " is-active" : "")}
                     >
                         {key === "all"
                             ? `全部 ${n}`
@@ -903,13 +932,22 @@ export default function MarketPage() {
             </div>
 
             {loading ? (
-                <div className="flex min-h-64 items-center justify-center">
-                    <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" />
-                </div>
+                <ToivSkeletonGrid count={12} />
             ) : error ? (
-                <EmptyState description="读取失败，请刷新重试" />
+                <ToivEmptyState
+                    className="fz-panel fz-auth-gap"
+                    icon={RefreshCw}
+                    title="工具箱暂不可用"
+                    description="可能是会话失效或接口未就绪（含 401）。请刷新重试。"
+                    action={<button type="button" className="toiv-empty-cta" onClick={() => void load()}>重试加载</button>}
+                />
             ) : filtered.length === 0 ? (
-                <EmptyState description="没有匹配的应用" />
+                <ToivEmptyState
+                    className="fz-panel"
+                    icon={Search}
+                    title="没有匹配的应用"
+                    description="换个分类或关键词再试。"
+                />
             ) : (
                 <>
                     {category === "audio" && !LOCAL_AUDIO_HAS_SENSEVOICE && (
@@ -1015,7 +1053,7 @@ export default function MarketPage() {
                                 <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="加载详情" />
                             </div>
                         ) : detailError ? (
-                            <EmptyState description={detailError} />
+                            <ToivEmptyState compact title="详情不可用" description={detailError} />
                         ) : (
                             <>
                                 <div className="flex flex-wrap gap-2">
@@ -1231,8 +1269,8 @@ export default function MarketPage() {
                                         )}
                                     </p>
                                 )}
-                                {missing && (
-                                    <p className="text-xs text-[var(--destructive)]">还差必填项：{missing}</p>
+                                {validation && (
+                                    <p className="text-xs text-[var(--destructive)]">{validation.message}</p>
                                 )}
 
                                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
@@ -1253,7 +1291,7 @@ export default function MarketPage() {
                                             icon={<Play />}
                                             label={audioBlocked ? "音频未接" : "运行此应用"}
                                             loading={running}
-                                            disabled={!!missing || detailLoading || audioBlocked}
+                                            disabled={!!validation || detailLoading || audioBlocked}
                                             onClick={() => void onRun()}
                                         />
                                     </div>

@@ -32,4 +32,13 @@ describe("jianying-draft F4", () => {
             parseContentDispositionFilename("attachment; filename*=UTF-8''%E9%9B%A8%E5%A4%9C.zip", "x.zip"),
         ).toBe("雨夜.zip");
     });
+
+    test("filename fallback when header missing or empty", () => {
+        expect(parseContentDispositionFilename("", "timeline.edl")).toBe("timeline.edl");
+        expect(parseContentDispositionFilename("attachment", "timeline.fcpxml")).toBe("timeline.fcpxml");
+    });
+
+    test("empty title falls back to toiv-draft basename", () => {
+        expect(jianyingExportFilename("", "")).toBe("toiv-draft_draft.zip");
+    });
 });

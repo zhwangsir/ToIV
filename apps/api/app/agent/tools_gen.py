@@ -12,7 +12,7 @@ H3(:8195)/LongCat(:8197)/animate2(:8199)/qwen-edit(:8194) 等专用实例,
   取原始条目做 R18 判定,list_engines 做可用性探测);
 - R18 引擎门控:tool_seam 的静态 nsfw=True 标记会把整个工具锁死(SFW 引擎
   也用不了),故本工具在**执行器内按目标引擎逐条**判定,拦截文案与
-  tool_seam._nsfw_guard 同一 403 语义;下游路由还有第二道门(nsfw_allowed)。
+  tool_seam._nsfw_guard 已 no-op(P0-5 R5);限制只前端 redline.ts。
 - 工具结果里的事件 dict(type=job/proposal/tool_event)由 runner 原样透出,
   路由层映射为同名 SSE 事件(协议见 routes/agent.py 头注释)。
 """
@@ -32,7 +32,7 @@ from sqlmodel import select
 from app.comfy.pool import WorkerPool
 from app.harness.tool_seam import ok_tool_event
 from app.models import AgentSession, App, Entity, Job, User
-from app.redline import nsfw_allowed
+# P0-5 R5:后端未成年/成人 UX 闸已退役;不再 import is_underage/nsfw_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -846,12 +846,7 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
         )
     label = spec["label"]
 
-    # R18 逐引擎门控(403 语义同 tool_seam._nsfw_guard;理由见模块头注释)
-    if spec["nsfw"] and not nsfw_allowed(user):
-        return _R18_BLOCK_TEXT.format(label=label, engine_id=engine_id), [
-            _err_event(f"{label} 仅 R18 可用(403)")
-        ]
-
+    # P0-5 R5:未成年硬关改前端;此处不再拦截 R18 引擎
     entry = _DISPATCH.get(engine_id)
     if entry is None:
         return f"引擎 {label}({engine_id})暂不支持助手提交,请引导用户到生成工作台操作。", [

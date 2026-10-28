@@ -49,7 +49,7 @@ def _fast_vram_settle(monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def _seed_user(session: Session, email: str) -> str:
+def _seed_user(session: Session, email: str, content_mode: str = "ordinary") -> str:
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
@@ -58,6 +58,7 @@ def _seed_user(session: Session, email: str) -> str:
         email=email,
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
+        content_mode=content_mode,
     )
     session.add(user)
     session.commit()
@@ -831,7 +832,7 @@ def test_t2v_nsfw_swaps_unet_to_10eros_max(client, monkeypatch):
     (TOIV_H3_NSFW_UNET 默认值),Job 打 nsfw 标。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "h3nsfw-unet")
+        uid = _seed_user(s, "h3nsfw-unet", content_mode="adult")
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     r = c.post(
@@ -888,7 +889,7 @@ def test_i2v_nsfw_swaps_unet_to_10eros_max(client, monkeypatch):
     """i2v 同款:显式 nsfw=true 换 10Eros-Max UNET,首帧转运逻辑不受影响。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "h3i2vnsfw-unet")
+        uid = _seed_user(s, "h3i2vnsfw-unet", content_mode="adult")
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
@@ -1065,8 +1066,8 @@ def test_t2v_sfw_lora_allowed_without_nsfw_header(client, monkeypatch):
         assert job is not None and job.nsfw is False
 
 
-def test_t2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
-    """NSFW LoRA 主站直传:403(与 _gate_ltx_nsfw 同风格),不触碰 H3 实例。"""
+def test_t2v_nsfw_lora_allowed_without_adult_mode(client, monkeypatch):
+    """P0-5 R3:NSFW LoRA 普通态放行并打 R18 标(成人 UX 403 退役)。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "h3lora-nsfw403")
@@ -1077,16 +1078,18 @@ def test_t2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}"},
         json={"positive": "x", "loras": [{"name": _LORA_NSFW}]},
     )
-    assert r.status_code == 403
-    assert "NSFW" in r.json()["detail"]
-    assert fake.graphs == []
+    assert r.status_code == 200, r.text
+    assert fake.graphs  # 已提交
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True
 
 
 def test_t2v_nsfw_lora_allowed_with_nsfw_header(client, monkeypatch):
     """/nsfw 专区(X-NSFW: 1)引用 NSFW LoRA:放行,Job 打 R18 标,图含 LoRA 链。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "h3lora-nsfw-ok")
+        uid = _seed_user(s, "h3lora-nsfw-ok", content_mode="adult")
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     r = c.post(
@@ -1103,8 +1106,8 @@ def test_t2v_nsfw_lora_allowed_with_nsfw_header(client, monkeypatch):
         assert job is not None and job.nsfw is True
 
 
-def test_i2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
-    """i2v 同款门控:NSFW LoRA 主站直传 403,且不触发参考图转运。"""
+def test_i2v_nsfw_lora_allowed_without_adult_mode(client, monkeypatch):
+    """P0-5 R3:i2v NSFW LoRA 普通态放行。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "h3i2v-nsfw403")
@@ -1119,8 +1122,8 @@ def test_i2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
             "loras": [{"name": _LORA_B}],
         },
     )
-    assert r.status_code == 403
-    assert fake.uploads == [] and fake.graphs == []
+    assert r.status_code == 200, r.text
+    assert fake.graphs
 
 
 
@@ -1128,7 +1131,7 @@ def test_t2v_auto_picks_aio_on_r18_empty_prompt(client, monkeypatch):
     """R18 省略 loras + 短提示:自动挂 HMNSFW_AIO_V2,lora_mode=auto。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "h3-auto-aio")
+        uid = _seed_user(s, "h3-auto-aio", content_mode="adult")
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     r = c.post(
@@ -1324,7 +1327,7 @@ def test_r2v_missing_all_refs_422(client):
 def test_r2v_nsfw_swaps_unet_to_10eros(client, monkeypatch):
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "h3r2v-nsfw")
+        uid = _seed_user(s, "h3r2v-nsfw", content_mode="adult")
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())

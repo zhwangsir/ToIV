@@ -3,7 +3,7 @@
  * ① 启动序列:首开呼吸小核+状态文字,prefers-reduced-motion 直开;
  * ② 初始建议:空会话渲染快捷起手,点击填入输入框(等价 web 场景卡/快捷动作);
  * ③ 会话分叉/在对话页打开:forkAgentSession + stashPendingAgentSession 通道;
- * ④ 任务中心抽屉:在跑判集与 /toiv/tasks 页 CANCELABLE 同源,5s 轮询 + 中止 + 跳转;
+ * ④ 任务中心抽屉:在跑判集与 /toiv/tasks 页共享投影同源,5s 轮询 + 中止 + 跳转;
  * ⑤ pending-session stash 行为(take 即删)。
  */
 import { describe, expect, test, afterEach } from "bun:test";
@@ -13,6 +13,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
+import { generationSourceProjection } from "@/lib/generation-task-display";
 import {
     FLOAT_ACTIVE_JOB_STATUSES,
     FLOAT_BOOT_MS,
@@ -78,19 +79,20 @@ describe("F9 toiv agent float", () => {
         const src = read("src/pages/canvas/toiv-agent-float.tsx");
         expect(src).toContain("forkAgentSession");
         expect(src).toContain("stashPendingAgentSession");
-        expect(src).toContain('navigate("/toiv/agent")');
+        // R15：整页形态为单一工作台内的旧 Agent 会话视图，pending session 由实际页面消费。
+        expect(src).toContain('navigate("/create?view=agent")');
+        expect(src).not.toContain('navigate("/toiv/agent")');
         expect(src).toContain("已分叉为新会话");
         const agent = read("src/pages/toiv/agent-page.tsx");
         expect(agent).toContain("takePendingAgentSession()");
     });
 
-    test("任务中心抽屉:在跑判集与 /toiv/tasks 页 CANCELABLE 同源", () => {
-        const tasks = read("src/pages/toiv/tasks-page.tsx");
-        const at = tasks.indexOf("const CANCELABLE = new Set([");
-        expect(at).toBeGreaterThan(-1);
-        const setBody = tasks.slice(at, tasks.indexOf("]", at));
+    test("任务中心抽屉:在跑判集与 /toiv/tasks 页共享投影同源", () => {
         for (const status of FLOAT_ACTIVE_JOB_STATUSES) {
-            expect(setBody).toContain(`"${status}"`);
+            const projection = generationSourceProjection({ source: "toiv-job", task: { id: `job-${status}`, status, created_at: "2026-10-28T00:00:00Z" } });
+            expect(projection.isActive).toBe(true);
+            expect(projection.canCancel).toBe(true);
+            expect(projection.statusLabel).toBe(floatJobStatusLabel(status));
         }
         expect(FLOAT_ACTIVE_JOB_STATUSES).toContain("running");
         expect(floatJobStatusLabel("queued")).toBe("排队中");

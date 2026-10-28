@@ -128,10 +128,10 @@ def test_anime_cel_smooth_not_false_gray():
 
 
 def test_expr_prompts_match_parent_semantics():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "真局部 inpaint" in src or "true-inpaint" in src or "VAEEncodeForInpaint" in src
     assert "_EXPR_INPAINT_PROMPTS" in src
-    assert "ref_mode=\"inpaint\"" in src or "ref_mode == \"inpaint\"" in src or 'mode == "inpaint"' in src
+    assert "ref_mode=\"inpaint\"" in src or "ref_mode == \"inpaint\"" in src or "ref_mode='inpaint'" in src or 'mode == "inpaint"' in src
     # 冷酷闭嘴眼神冷；威严眉压低嘴紧；温柔微笑；果断抿嘴；沉思视线偏下
     cold = sheet_svc._EXPR_EDIT_INSTRUCTIONS[1]
     assert "闭嘴" in cold and ("冷" in cold or "斜视" in cold)
@@ -168,7 +168,7 @@ def test_collar_box_chin_to_collarbone():
     mid = (gx0 + gx1) / 2.0
     assert abs(cx - mid) < (gx1 - gx0) * 0.35, (box, mid)
     # 源码声明
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "下巴到锁骨" in src
 
 

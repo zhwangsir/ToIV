@@ -22,6 +22,19 @@ from app.capabilities import required_models, required_nodes
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
+from app.limits import (
+    AUDIO_MAX_BYTES,
+    DEFAULT_NEGATIVE_MAX_CHARS,
+    DEFAULT_PROMPT_MAX_CHARS,
+    H3_MAX_LORAS,
+    H3_MAX_REF_AUDIOS,
+    H3_MAX_REF_IMAGES,
+    H3_MAX_REF_VIDEOS,
+    H3_NEGATIVE_MAX_CHARS,
+    H3_PROMPT_MAX_CHARS,
+    IMAGE_MAX_BYTES,
+    VIDEO_MAX_BYTES,
+)
 from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
 from app.redline import nsfw_allowed
@@ -37,6 +50,7 @@ from app.workflows.model_wiki import card_for
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
 from app.services.lora_catalog import catalog_options
+from app.services.multishot_protocol import MAX_SHOTS
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
@@ -667,6 +681,48 @@ _H3_NATIVE_DURATIONS = [
 ]
 
 
+def engine_limits(*, prompt_max_chars: int = DEFAULT_PROMPT_MAX_CHARS,
+                  negative_max_chars: int = DEFAULT_NEGATIVE_MAX_CHARS,
+                  lora_max_items: int | None = None) -> dict[str, Any]:
+    """构建引擎级 limits 声明(list_engines 原样透传)。
+
+    只承载 params 未覆盖的提交上限,不重复 refs/duration/resolution(那些已在
+    params 的 max/min/options 声明):
+      · prompt_max_chars/negative_max_chars:提示词长度上限(字符);
+        缺省 2000 = 普通 generate 链路既有语义(routes/generate.py)。
+      · image/audio/video_max_bytes:媒体字节上限,为 /api/upload 按文件类型的
+        真实约束(app.limits 同源),与具体引擎无关。
+      · lora_max_items:LoRA 叠加数量上限;None=该引擎未在 spec 声明,
+        消费方不得据此猜测(H3 系显式声明 3,与 routes/h3_studio._MAX_LORAS 同源)。
+    """
+    return {
+        "prompt_max_chars": prompt_max_chars,
+        "negative_max_chars": negative_max_chars,
+        "image_max_bytes": IMAGE_MAX_BYTES,
+        "audio_max_bytes": AUDIO_MAX_BYTES,
+        "video_max_bytes": VIDEO_MAX_BYTES,
+        "lora_max_items": lora_max_items,
+    }
+
+
+def _h3_limits() -> dict[str, Any]:
+    """H3 系 limits:与 routes/h3_studio 请求模型同一常量源(app.limits)。"""
+    return engine_limits(
+        prompt_max_chars=H3_PROMPT_MAX_CHARS,
+        negative_max_chars=H3_NEGATIVE_MAX_CHARS,
+        lora_max_items=H3_MAX_LORAS,
+    )
+
+
+def _multishot_limits() -> dict[str, Any]:
+    """多镜头 limits:逐镜头 prompt 2000(H3ShotInput)× 最多 MAX_SHOTS 镜 = 整段真实上限;
+    LoRA 与 H3 主路同为 3(H3MultiShotRequest.loras 同一 _MAX_LORAS)。"""
+    return engine_limits(
+        prompt_max_chars=MAX_SHOTS * DEFAULT_PROMPT_MAX_CHARS,
+        lora_max_items=H3_MAX_LORAS,
+    )
+
+
 def _h3_video_params() -> list[dict]:
     return [
         _negative(),
@@ -749,16 +805,19 @@ def _h3_fl2v_image_param() -> dict:
 
 
 def _h3_r2v_media_params() -> list[dict]:
-    """Ref2VA 媒体槽:1-9 图 + 可选 0-3 视频 + 可选 0-3 音频;提示词用 1-based 标签。"""
+    """Ref2VA 媒体槽:1-9 图 + 可选 0-3 视频 + 可选 0-3 音频;提示词用 1-based 标签。
+
+    数量上限与 routes/h3_studio.H3R2VRequest 的 max_length 同源(app.limits)。
+    """
     return [
         _images(
             label="参考图(1-9 张)",
             hint="jpg / png / webp,单张 ≤ 20MB;提示词用 1-based 标签(<Picture 1>…)。可与视频/音频组合,至少一种参考。",
-            max_=9,
+            max_=H3_MAX_REF_IMAGES,
         ),
-        {"key": "video", "label": "参考视频(最多 3 段)", "type": "video", "max": 3, "default": None,
+        {"key": "video", "label": "参考视频(最多 3 段)", "type": "video", "max": H3_MAX_REF_VIDEOS, "default": None,
          "hint": "可选;mp4 / webm / mov,≤200MB,须 ≥5 帧;提示词 <Video 1>…。不是源视频时间线编辑。"},
-        {"key": "audio", "label": "参考音频(最多 3 段)", "type": "audio", "max": 3, "default": None,
+        {"key": "audio", "label": "参考音频(最多 3 段)", "type": "audio", "max": H3_MAX_REF_AUDIOS, "default": None,
          "hint": "可选;wav / mp3 / m4a,单个 ≤ 20MB;提示词 <Audio 1>…。音色克隆走此槽,不是独立引擎。"},
     ]
 
@@ -828,6 +887,7 @@ _WAN_NSFW_DURATIONS = [
 # LoRA 选项标签:文件名 → (中文标签,含触发词);值集合须与 WAN_I2V_NSFW_LORAS 一致
 _WAN_NSFW_LORA_LABELS: dict[str, str] = {
     "NSFW-22-H-e8.safetensors": "通用 NSFW 概念·HIGH(触发词 nsfwsks)",
+    "NSFW-22-L-e8.safetensors": "通用 NSFW 概念·LOW(触发词 nsfwsks)",
     "wan22-m4crom4sti4-i2v-20epoc-high-k3nk.safetensors": "胸部物理·HIGH(m4crom4sti4)",
     "WAN-2.2-I2V-POV-Body-Cumshot-Pullout-HIGH-v1.safetensors": "POV 体精/拔出·HIGH(b0dyshot)",
     "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors": "加速 v1030·HIGH(替代默认加速,4 步档)",
@@ -837,7 +897,7 @@ _WAN_NSFW_LORA_LABELS: dict[str, str] = {
 
 
 def _wan_nsfw_loras_select() -> dict:
-    """Wan2.2 NSFW LoRA 叠加(多选 + 单项强度):静态策划清单(只露配方内 6 个,不暴露整目录)。
+    """Wan2.2 NSFW LoRA 叠加(多选 + 单项强度):静态策划清单(只露配方内 7 个,不暴露整目录)。
 
     与 H3 不同:Wan 配方是固定逆向结果,文件名/侧别/默认强度由后端注册表
     WAN_I2V_NSFW_LORAS 判定;前端只传 name+strength,侧别用户无感。
@@ -1503,6 +1563,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "nsfw": False,
         "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
+        "limits": _h3_limits(),
         "description": "【默认视频引擎】MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8264",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
@@ -1519,6 +1580,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
@@ -1535,6 +1597,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/fl2v", "kind": "h3-fl2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3 首尾帧(FL2VA):必填首帧+尾帧,同一 ImageToVideo 节点插值过渡,音画同发。不是 9 参考 Ref2VA。",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
@@ -1551,6 +1614,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/r2v", "kind": "h3-r2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3 Ref2VA:1-9 张参考图、0-3 段参考视频、0-3 段参考音频;提示词用 1-based 标签。不是首尾帧,不是 Director 时间线。",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
@@ -1571,6 +1635,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/multishot", "kind": "h3-multishot"},
+        "limits": _multishot_limits(),
         "description": "MiniMax H3 多镜头单次生成:2-4 个镜头单 prompt 一次成片,单段内按序自动切镜(总长 ≤15s),音画同发,专用实例 :8264",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
@@ -1591,6 +1656,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "nsfw": True,
         "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
+        "limits": _h3_limits(),
         "description": "【R18 默认视频引擎】MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8264",
         "source": {
             "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
@@ -1607,6 +1673,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": True,
         "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3 成人向图生视频:参考图首帧 → 音画同发,可叠 R18 LoRA",
         "source": {
             "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
@@ -1623,6 +1690,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": True,
         "submit": {"route": "/api/h3/fl2v", "kind": "h3-fl2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3 成人向首尾帧:必填首帧+尾帧,同一 ImageToVideo 节点,可叠 R18 LoRA。不是 9 参考。",
         "source": {
             "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
@@ -1639,6 +1707,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": True,
         "submit": {"route": "/api/h3/r2v", "kind": "h3-r2v"},
+        "limits": _h3_limits(),
         "description": "MiniMax H3 成人向 Ref2VA:1-9 图、0-3 视频、0-3 音频;提示词用 1-based 标签。不是首尾帧,不是 Director 时间线。",
         "source": {
             "name": "10Eros-Max H3 TURBO Ref2VA (int8)",
@@ -2158,8 +2227,14 @@ async def _timed_or_none(coro: Awaitable[Any]) -> Any:
 async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[str, Any]]:
     """返回引擎数组(按请求的 R18 上下文过滤 nsfw 引擎与 nsfw 选项)。
 
-    每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params, submit? }
-    params 元素:{ key, label, type, options?, min?, max?, step?, default, hint? }
+    每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params, submit?, limits }
+    params 元素:{ key, label, type, options?, min?, max?, step?, default, hint?, max_chars?, max_bytes?, max_items? }
+      · max_chars/max_bytes/max_items 不在本模块注入,由 app_deep_knobs.apply_engine_limits
+        在 enrich 之后按 spec["limits"] 映射到市场 params_schema(详情与 run 校验同源);
+    limits:{ prompt_max_chars, negative_max_chars, image_max_bytes, audio_max_bytes,
+      video_max_bytes, lora_max_items }——spec 显式声明原样透传,未声明按 engine_limits()
+      缺省(prompt 2000=普通 generate 语义;lora_max_items None=未声明,消费方不得猜测);
+      数值唯一事实源在 app.limits(与 routes/h3_studio、routes/upload 同源)。
     profile 停用的引擎:available=False, unavailable_reason="disabled by profile"。
 
     性能(2026-08-30 P0 根治):动态选项拉取、H3 LoRA 枚举、可用性探测三路并发发起,
@@ -2244,6 +2319,8 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
             )
         if "submit" in spec:
             entry["submit"] = spec["submit"]
+        # limits 原样透传;未声明的引擎给明确缺省(2000/null,见 engine_limits docstring)
+        entry["limits"] = dict(spec["limits"]) if spec.get("limits") else engine_limits()
 
         # profile 停用:跳过探测,直接标不可用
         if spec["id"] in _disabled_engines:

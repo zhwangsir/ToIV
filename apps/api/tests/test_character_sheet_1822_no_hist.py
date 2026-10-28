@@ -52,11 +52,11 @@ def test_hist_match_env_on_can_change(monkeypatch, val):
 
 
 def test_source_has_1822_no_hist_default_off():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "TOIV_SHEET_SIDE_HIST_MATCH" in src
     assert "def side_hist_match_enabled()" in src
     assert "1822_no_hist" in src or "default 18:02" in src
-    assert 'os.environ.get("TOIV_SHEET_SIDE_HIST_MATCH"' in src
+    assert 'os.environ.get("TOIV_SHEET_SIDE_HIST_MATCH"' in src or "os.environ.get('TOIV_SHEET_SIDE_HIST_MATCH'" in src
     # 默认关：空字符串不在 (1,true,yes)
     assert "if not side_hist_match_enabled():" in src
     # face_frac 收紧仍在

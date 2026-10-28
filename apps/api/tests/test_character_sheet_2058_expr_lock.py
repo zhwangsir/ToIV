@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -118,7 +119,7 @@ def test_locked_expr_skip_writes_approved_by_parent(tmp_path, monkeypatch):
     assert data["source"] == "1915/1930"
 
     # 源码契约：generate 含 expr_lock_meta 与 locked skip
-    src = open(sheet_svc.__file__, encoding="utf-8").read()
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "expr_lock_meta" in src
     assert "approved_by_parent" in src
     assert "skipped_inpaint" in src

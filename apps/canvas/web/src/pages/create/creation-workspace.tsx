@@ -41,7 +41,6 @@ import { submitVideoUpscaleViaToiv, upscaleImageViaToiv } from "@/services/toiv/
 import { isClientTimeoutError, userFacingCaughtError } from "@/services/toiv/client-timeout";
 import { toivMediaUrl } from "@/services/toiv/agent-runs";
 import { useCreationViewPresetsStore, CREATION_VIEW_PRESET_NAME_LIMIT, type CreationViewPreset, type CreationViewPresetDraft } from "@/stores/use-creation-view-presets-store";
-import { creationCanonSkills } from "./creation-canon-skills";
 import { modelOptionName, resolveModelChannel, type AiConfig } from "@/stores/use-config-store";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -51,13 +50,13 @@ import { creationAttachmentKind, creationMediaAspectRatio, removeCreationAttachm
 import { conversationTimestamp, isImageAttachment, isVideoAttachment } from "./creation-conversations";
 import { conversationTimeFormatter, countOptions, historyDayFormatter, messageTimeFormatter, modeLabels, qualityOptions, ratioOptions, resolutionOptions, shotScriptLabels, type CreationConversation, type CreationMessage, type CreationShotRailEntry, type CreationStatus } from "./creation-types";
 import "./creation-product.css";
+import { creationCanonSkills } from "./creation-canon-skills";
 import { creationFeaturedWorks, inspirationSource } from "./creation-inspirations";
 import { publicAsset } from "@/lib/app-base";
 
 const CanvasPromptOptimizerDrawer = lazy(() => import("@/components/canvas/canvas-prompt-optimizer-drawer").then((module) => ({ default: module.CanvasPromptOptimizerDrawer })));
 
 export const creationAssetCategoryLabels: Record<string, string> = { all: "全部素材", ...ASSET_CATEGORY_LABELS };
-
 
 function creationConversationBucket(updatedAt: string): "today" | "yesterday" | "week" | "earlier" {
     const at = new Date(updatedAt).getTime();
@@ -129,7 +128,6 @@ export function CreationHistoryDrawer({ open, conversations, activeId, onNew, on
             return searchable.includes(query);
         });
     }, [conversations, keyword]);
-
 
     return <AppDrawer flush open={open} onClose={onClose} placement="right" size="min(440px, 100vw)" closeIcon={<X className="size-4" />} className="creation-history-drawer" rootClassName="creation-history-drawer-root" title={<div className="creation-history-title"><span>历史对话</span><small>{conversations.length} 个对话</small></div>}>
         <div className="creation-history-content">
@@ -655,7 +653,7 @@ export function CreationComposer(props: ComposerProps) {
                     disabled={interactionBusy}
                     onTranscribed={(text) => props.setPrompt(props.prompt.trim() ? `${props.prompt} ${text}` : text)}
                 />
-                {canOptimizePrompt ? <Tooltip title="用 AI 优化提示词">
+                {canOptimizePrompt ? <Tooltip title="优化提示词">
                     <button
                         type="button"
                         className="creation-chat-control"
@@ -731,7 +729,7 @@ export function CreationModeTabs({ mode, onModeChange, orientation = "horizontal
             layoutId={`creation-mode-indicator-${orientation}`}
             className="creation-mode-indicator"
             aria-hidden
-            transition={reducedMotion ? { duration: 0 } : aceternityMotion.spring.dock}
+            transition={reducedMotion ? { duration: 0 } : aceternityMotion.tween.panel}
         />
     ) : null;
     return <LayoutGroup id={`creation-mode-tabs-${orientation}`}>
@@ -881,57 +879,49 @@ export function CreationEmptyBanner() {
             <img src={frame.src} alt="" />
             <span>{frame.caption}</span>
         </figure>)}
-        <span className="creation-empty-art-caption"><span>{brandName}</span>把每一帧，交给镜头导演</span>
+        <span className="creation-empty-art-caption"><span>{brandName}</span>创作台</span>
     </div>;
 }
 
-const creationEmptySuggestions: Array<{ mode: CreationMode; icon: typeof Clapperboard; title: string; hint: string; prompt: string; openLibrary?: boolean; openThreeDTools?: boolean }> = [
-    { mode: "video", icon: Clapperboard, title: "生成第一个镜头", hint: "描述画面、镜头运动与光线", prompt: "雨夜天台，镜头缓缓推近霓虹灯牌下的主角，她回眸看向镜头，强对比电影感布光" },
-    { mode: "image", icon: ImageIcon, title: "从参考图开始", hint: "上传风格图，生成同风格画面", prompt: "", openLibrary: true },
-    { mode: "image", icon: Box, title: "3D 工具位", hint: "图生 3D / 3D 相机 / img2threejs", prompt: "", openThreeDTools: true },
-    { mode: "text", icon: FileText, title: "续写故事", hint: "和 AI 讨论剧情、角色与对白", prompt: "帮我续写一个短剧故事，先聊聊剧情走向：" },
-    { mode: "video", icon: Sparkles, title: "引用技能增强", hint: "@技能 调用分镜、配音等专业能力", prompt: "调用分镜技能，帮我规划这个镜头的拍摄方案：" },
+/* A4.1 quieter empty desk — grayscale copy + single-line CTAs; no icon grid / Sparkles / neon */
+const creationEmptyQuietActions: Array<{
+    id: string;
+    label: string;
+    hint: string;
+    mode?: CreationMode;
+    prompt?: string;
+    openLibrary?: boolean;
+    openThreeDTools?: boolean;
+}> = [
+    { id: "shot", label: "生成镜头", hint: "描述画面与运镜", mode: "video", prompt: "" },
+    { id: "ref", label: "参考图", hint: "从素材库选图", mode: "image", prompt: "", openLibrary: true },
+    { id: "story", label: "续写故事", hint: "剧情与对白", mode: "text", prompt: "" },
+    { id: "3d", label: "3D 工具", hint: "图生 3D / 相机", openThreeDTools: true },
 ];
 
 export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary, onOpenThreeDTools }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void; onOpenThreeDTools: () => void }) {
-    const reducedMotion = useReducedMotion();
-    const [hovered, setHovered] = useState<string | null>(null);
-    return <LayoutGroup id="creation-empty-suggest">
-        <div className="creation-empty-suggest" aria-label="快捷创作入口">
-        {creationEmptySuggestions.map((item) => {
-            const Icon = item.icon;
-            const start = () => {
-                if (item.openThreeDTools) onOpenThreeDTools();
-                else if (item.openLibrary) onOpenLibrary();
-                else onStartPrompt(item.mode, item.prompt);
-            };
-            return <motion.button
-                key={item.title}
-                type="button"
-                className="suggest-card"
-                onClick={start}
-                onHoverStart={() => setHovered(item.title)}
-                onHoverEnd={() => setHovered(null)}
-                whileHover={reducedMotion ? undefined : { y: -2 }}
-                transition={aceternityMotion.spring.surface}
-            >
-                {hovered === item.title ? (
-                    <motion.span
-                        layoutId="creation-suggest-hover"
-                        className="suggest-card-hover"
-                        aria-hidden
-                        transition={reducedMotion ? { duration: 0 } : aceternityMotion.spring.surface}
-                    />
-                ) : null}
-                <span className="library-icon-tile suggest-icon"><Icon size={18} strokeWidth={2} /></span>
-                <span className="suggest-copy">
-                    <strong>{item.title}</strong>
-                    <span>{item.hint}</span>
-                </span>
-            </motion.button>;
-        })}
+    return (
+        <div className="creation-empty-quiet" aria-label="快捷入口">
+            <p className="creation-empty-quiet-copy">在上方输入提示词开始，或选用一条入口。</p>
+            <div className="creation-empty-quiet-row" role="group" aria-label="安静快捷入口">
+                {creationEmptyQuietActions.map((item) => (
+                    <button
+                        key={item.id}
+                        type="button"
+                        className="creation-empty-quiet-cta"
+                        onClick={() => {
+                            if (item.openThreeDTools) onOpenThreeDTools();
+                            else if (item.openLibrary) onOpenLibrary();
+                            else onStartPrompt(item.mode ?? "video", item.prompt ?? "");
+                        }}
+                    >
+                        <strong>{item.label}</strong>
+                        <span>{item.hint}</span>
+                    </button>
+                ))}
+            </div>
         </div>
-    </LayoutGroup>;
+    );
 }
 
 

@@ -22,7 +22,7 @@ from app.services.provenance import (
     redact_nsfw_recommendation,
     redact_wiki_card,
 )
-from app.redline import nsfw_allowed
+from app.redline import nsfw_allowed, require_not_underage
 from app.services.nsfw_inventory import filter_names_for_account
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
@@ -580,12 +580,9 @@ async def nsfw_recommendations(
 ) -> dict:
     """返回静态 NSFW 模型推荐清单(基于 civitai 调研,不从 API 实时拉取)。
 
-    2026-09-07:资源区对普通用户隐藏 R18 推荐;本端点须 X-NSFW 上下文
-    (nsfw_allowed)才返回清单,主站无头请求 403(与 jobs/recipes 同门控)。
-    前端仅 admin + R18 模式挂载 NsfwRecsPanel。
+    P0-5 R3:成人 UX 403 退役;仅未成年硬关。前端自行灰化/隐藏面板。
     """
-    if not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 推荐仅限 NSFW 上下文")
+    require_not_underage(user)
     admin = is_admin_user(user)
     items = [redact_nsfw_recommendation(it, is_admin=admin) for it in NSFW_RECOMMENDATIONS]
     return {"items": items, "count": len(items)}

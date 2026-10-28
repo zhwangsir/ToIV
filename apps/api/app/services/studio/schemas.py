@@ -241,6 +241,9 @@ class ShotInput(BaseModel):
     ref_epoch_note: str | None = Field(default=None, max_length=200)
     # FU1 词锚定时间轴:None=不改；空文本仍保留一拍及其锚
     beats: list[WordAnchorBeat] | None = Field(default=None, max_length=200)
+    # C1a 乐观并发:与 shot.current_revision_id 不符 → 409(手工编辑防覆盖);
+    # 不传=不校验(兼容旧客户端/导入重写)。新分镜(无 id)忽略。
+    expected_revision: str | None = Field(default=None, max_length=64)
 
 
 class ShotsSaveRequest(BaseModel):

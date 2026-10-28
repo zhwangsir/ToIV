@@ -45,6 +45,7 @@ export function useContentModeControl() {
 
     return {
         adultOn,
+        underage: isUnderage(),
         label,
         confirming,
         requestAdult,

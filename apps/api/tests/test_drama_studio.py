@@ -81,6 +81,16 @@ def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _set_adult(email: str = "d@toiv.ai") -> None:
+    """D-U1=B:R18 放行按账号成人态,测试里显式切 adult。"""
+    from app.db import engine
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.email == email)).first()
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
+
+
 def test_project_crud(ctx):
     client, token, _ = ctx
     H = _h(token)
@@ -1301,8 +1311,9 @@ def test_generate_video_v2_single_candidate_writeback(ctx):
 
 
 def test_generate_video_sfw_nsfw_ckpt_split(ctx):
-    """SFW/NSFW 底模分流:默认(无 nsfw)用 SFW 底模,nsfw=True(须 X-NSFW 头)才用 10Eros。"""
+    """SFW/NSFW 底模分流:默认(无 nsfw)用 SFW 底模,nsfw=True(须账号成人态)才用 10Eros。"""
     client, token, _ = ctx
+    _set_adult()
     H = _h(token)
     _, sid_sfw = _make_shot(ctx, token)
     _, sid_nsfw = _make_shot(ctx, token)
@@ -1315,7 +1326,7 @@ def test_generate_video_sfw_nsfw_ckpt_split(ctx):
             r_sfw = client.post(
                 f"/api/drama/shots/{sid_sfw}/generate-video", headers=H, json={}
             )
-            # nsfw=True 走 10Eros 成人底模,属 R18 门控:须带 X-NSFW 头(模拟 /nsfw 专区)
+            # nsfw=True 走 10Eros 成人底模,属 R18 门控:须账号成人态(X-NSFW 仅审计)
             r_nsfw = client.post(
                 f"/api/drama/shots/{sid_nsfw}/generate-video",
                 headers={**H, "X-NSFW": "1"},
@@ -2497,10 +2508,11 @@ def test_generate_video_v2_nsfw_blocked_without_x_nsfw(ctx):
 
 
 def test_generate_video_nsfw_allowed_with_x_nsfw(ctx):
-    """generate-video:带 X-NSFW: 1 头时门控放行(生成提交 mock,验证全链路 200)。"""
+    """generate-video:账号成人态时门控放行(D-U1=B,生成提交 mock,验证全链路 200)。"""
     import app.routes.drama_studio as ds
 
     client, token, _ = ctx
+    _set_adult()
     sid = _mk_shot_for_token_user(ctx)
     submit = AsyncMock(return_value=("pid-nsfw", "cid-1", "http://w:8188", 7))
     with patch.object(ds, "_submit_shot_video", submit), patch.object(
@@ -2527,8 +2539,9 @@ def _dead_pool():
 
 
 def test_generate_video_v2_nsfw_passes_gate_with_x_nsfw(ctx):
-    """generate-video-v2:带 X-NSFW 头不再 403(死 pool 下落到 5xx,证明已过门控)。"""
+    """generate-video-v2:账号成人态时不再 403(死 pool 下落到 5xx,证明已过门控)。"""
     client, token, _ = ctx
+    _set_adult()
     sid = _mk_shot_for_token_user(ctx)
     app.dependency_overrides[get_pool] = _dead_pool
     try:

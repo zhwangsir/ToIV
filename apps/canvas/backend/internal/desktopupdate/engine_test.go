@@ -94,6 +94,10 @@ func TestCheckDownloadInstallHappyPath(t *testing.T) {
 	}
 
 	var quit bool
+	// InstallUpdate returns once the helper is prepared; the replacement itself
+	// runs in this goroutine after the parent quits. Capture its completion and
+	// error so the assertions below wait for the real swap instead of guessing.
+	helperDone := make(chan error, 1)
 	engine := NewWithOptions(Options{
 		CurrentVersion: "v1.5.1",
 		FeedURL:        server.URL + "/latest",
@@ -105,7 +109,11 @@ func TestCheckDownloadInstallHappyPath(t *testing.T) {
 		Locate: func() (Target, error) {
 			return Target{Platform: "darwin-arm64", Kind: "app", Path: filepath.Join(oldRoot, appBundleName)}, nil
 		},
-		Helper: RunHelperRequest,
+		Helper: func(req HelperRequest) error {
+			err := RunHelperRequest(req)
+			helperDone <- err
+			return err
+		},
 		Quit: func() error {
 			quit = true
 			return nil
@@ -134,7 +142,14 @@ func TestCheckDownloadInstallHappyPath(t *testing.T) {
 	if !quit {
 		t.Fatal("expected orderly quit after helper prepared")
 	}
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case helperErr := <-helperDone:
+		if helperErr != nil {
+			t.Fatalf("helper install failed: %v", helperErr)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("helper did not complete the install")
+	}
 	got, err := os.ReadFile(filepath.Join(oldRoot, appBundleName, "Contents", "MacOS", darwinBinaryName))
 	if err != nil {
 		t.Fatal(err)

@@ -6,6 +6,7 @@ import { createModelChannel, useConfigStore } from "@/stores/use-config-store";
 import { navigateToSettings } from "@/lib/settings-navigation";
 import { initializeClientDiagnostics, setDiagnosticUserScope } from "@/services/diagnostics/client-diagnostics";
 import { fetchPluginRuntimeState, setUserPluginEnabled } from "@/services/api/plugins";
+import { hydrateSystemModelCatalogForUser } from "@/components/layout/system-catalog-bootstrap";
 import { usePluginStore } from "@/stores/use-plugin-store";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
@@ -90,6 +91,22 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
     useEffect(() => {
         initializeClientDiagnostics();
     }, []);
+
+    // 已认证且非本地工作区时拉取平台系统渠道目录；queryKey 带 userId，
+    // 账号切换由 hydrateSystemModelCatalog 内的当前用户校验与 React Query 缓存键共同隔离，
+    // 迟到响应不会把上一个账号的目录写进当前配置。
+    useEffect(() => {
+        if (!userId || localMode) return;
+        void appQueryClient
+            .fetchQuery({
+                queryKey: ["model-catalog", userId],
+                queryFn: () => hydrateSystemModelCatalogForUser(userId),
+                staleTime: 60_000,
+            })
+            .catch(() => {
+                // 失败已在 hydrateSystemModelCatalogForUser 内记录并保留原配置，这里只需避免未处理 rejection。
+            });
+    }, [localMode, userId]);
 
     useEffect(() => {
         if (!localMode || !assetsHydrated || !canvasHydrated) return;

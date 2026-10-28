@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,7 +35,7 @@ type assistantReference struct {
 
 // normalizeAssistantReferences 校验界面请求的额外引用确实属于当前用户。
 // 对话入口用严格模式：任何一项非法都整轮拒绝，避免界面以为授权生效了却没有。
-func normalizeAssistantReferences(svc *app.Service, userID string, items []assistantReference) ([]assistantReference, error) {
+func normalizeAssistantReferences(svc *app.Service, userID string, items []assistantReference, studioGateways ...agentops.StudioGateway) ([]assistantReference, error) {
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -62,6 +63,13 @@ func normalizeAssistantReferences(svc *app.Service, userID string, items []assis
 			if _, err := svc.UserCanvasProject(userID, id); err != nil {
 				return nil, errors.New("引用的画布不存在或不属于当前工作区")
 			}
+		case "studio_project":
+			if len(studioGateways) == 0 || studioGateways[0] == nil {
+				return nil, errors.New("studio_delegation_required: Studio 只读委托不可用")
+			}
+			if _, err := studioGateways[0].Project(context.Background(), userID, id); err != nil {
+				return nil, fmt.Errorf("Studio 项目不存在、不属于当前用户或委托无效: %w", err)
+			}
 		default:
 			return nil, errors.New("不支持的引用类型: " + kind)
 		}
@@ -80,6 +88,8 @@ func assistantTurnInput(selected []string, references []assistantReference) app.
 			input.AssetIDs = append(input.AssetIDs, item.ID)
 		case "canvas":
 			input.CanvasIDs = append(input.CanvasIDs, item.ID)
+		case "studio_project":
+			input.StudioProjectIDs = append(input.StudioProjectIDs, item.ID)
 		}
 	}
 	return input
@@ -110,10 +120,11 @@ func assistantScopeForRequest(c *gin.Context, svc *app.Service, userID string, h
 		return nil, "", errors.New("这一轮对话不存在、不属于当前工作区或已经结束")
 	}
 	return &agentops.AssistantScope{
-		CanvasID:  scope.CanvasID,
-		AssetIDs:  assistantIDSet(scope.AssetIDs),
-		CanvasIDs: assistantIDSet(scope.CanvasIDs),
-		TaskIDs:   assistantIDSet(scope.TaskIDs),
+		CanvasID:         scope.CanvasID,
+		AssetIDs:         assistantIDSet(scope.AssetIDs),
+		CanvasIDs:        assistantIDSet(scope.CanvasIDs),
+		TaskIDs:          assistantIDSet(scope.TaskIDs),
+		StudioProjectIDs: assistantIDSet(scope.StudioProjectIDs),
 	}, turnID, nil
 }
 

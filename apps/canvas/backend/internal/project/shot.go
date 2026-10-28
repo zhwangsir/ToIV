@@ -310,7 +310,7 @@ func (s *Service) CreateProjectAssetCandidates(userID string, projectID string, 
 	if err != nil {
 		return nil, err
 	}
-	knownKeys := projectAssetCandidateIdentityKeys(existingCandidates, projectAssets)
+	knownKeys := newAssetCandidateIdentityScopes(existingCandidates, projectAssets)
 	now := time.Now()
 	pending := make([]model.ProjectAssetCandidate, 0, len(req.Candidates))
 	for _, input := range req.Candidates {
@@ -345,12 +345,13 @@ func (s *Service) CreateProjectAssetCandidates(userID string, projectID string, 
 				return nil, err
 			}
 		}
+		unitID := strings.TrimSpace(input.UnitID)
 		identityKeys := assetCandidateInputIdentityKeys(name, input.Details)
-		if assetCandidateIdentityExists(knownKeys, category, identityKeys) {
+		if knownKeys.blocks(unitID, category, identityKeys) {
 			continue
 		}
-		pending = append(pending, model.ProjectAssetCandidate{ID: kernel.NewID(), ProjectID: projectID, UnitID: strings.TrimSpace(input.UnitID), ShotID: strings.TrimSpace(input.ShotID), Name: name, NameKey: nameKey, Category: category, Status: "pending_confirmation", Source: source, DetailsJSON: detailsJSON, CreatedAt: now, UpdatedAt: now})
-		addAssetCandidateIdentityKeys(knownKeys, category, identityKeys)
+		pending = append(pending, model.ProjectAssetCandidate{ID: kernel.NewID(), ProjectID: projectID, UnitID: unitID, ShotID: strings.TrimSpace(input.ShotID), Name: name, NameKey: nameKey, Category: category, Status: "pending_confirmation", Source: source, DetailsJSON: detailsJSON, CreatedAt: now, UpdatedAt: now})
+		knownKeys.add(unitID, category, identityKeys)
 	}
 	applyUnitID := characterApplyUnitID(req)
 	applySource, err := s.resolveChapterApplySource(userID, projectID, applyUnitID, sourceTaskID, chapterApplyCharacters, characterApplyPayloadFromRequest(req))
@@ -404,8 +405,25 @@ func characterApplyUnitID(req CreateAssetCandidatesRequest) string {
 	return ""
 }
 
-func projectAssetCandidateIdentityKeys(candidates []model.ProjectAssetCandidate, assets []model.Asset) map[string]struct{} {
-	known := make(map[string]struct{}, len(candidates)+len(assets))
+// assetCandidateIdentityScopes 决定新候选会不会被已有身份吞掉：
+// 已归并候选与项目资产按全项目身份去重；待确认候选只在同集（或无集）内去重，
+// 这样同一实体在其它集的出现会留下记录，供跨集对账归并。
+type assetCandidateIdentityScopes struct {
+	assets   map[string]struct{}
+	resolved map[string]struct{}
+	unscoped map[string]struct{}
+	any      map[string]struct{}
+	byUnit   map[string]map[string]struct{}
+}
+
+func newAssetCandidateIdentityScopes(candidates []model.ProjectAssetCandidate, assets []model.Asset) assetCandidateIdentityScopes {
+	scopes := assetCandidateIdentityScopes{
+		assets:   make(map[string]struct{}, len(assets)),
+		resolved: make(map[string]struct{}, len(candidates)),
+		unscoped: make(map[string]struct{}),
+		any:      make(map[string]struct{}, len(candidates)),
+		byUnit:   make(map[string]map[string]struct{}),
+	}
 	for _, candidate := range candidates {
 		keys := []string{candidate.NameKey}
 		if strings.TrimSpace(candidate.DetailsJSON) != "" {
@@ -414,16 +432,53 @@ func projectAssetCandidateIdentityKeys(candidates []model.ProjectAssetCandidate,
 				keys = append(keys, assetCandidateAliases(details)...)
 			}
 		}
-		addAssetCandidateIdentityKeys(known, candidate.Category, keys)
+		if candidate.Status != "pending_confirmation" {
+			addAssetCandidateIdentityKeys(scopes.resolved, candidate.Category, keys)
+			continue
+		}
+		addAssetCandidateIdentityKeys(scopes.any, candidate.Category, keys)
+		if strings.TrimSpace(candidate.UnitID) == "" {
+			addAssetCandidateIdentityKeys(scopes.unscoped, candidate.Category, keys)
+			continue
+		}
+		if scopes.byUnit[candidate.UnitID] == nil {
+			scopes.byUnit[candidate.UnitID] = make(map[string]struct{})
+		}
+		addAssetCandidateIdentityKeys(scopes.byUnit[candidate.UnitID], candidate.Category, keys)
 	}
 	for _, asset := range assets {
 		keys := []string{model.AssetCandidateNameKey(asset.Title)}
 		if asset.Category == model.AssetCategoryCharacter {
 			keys = append(keys, characterAssetAliasKeys(asset.PayloadJSON)...)
 		}
-		addAssetCandidateIdentityKeys(known, asset.Category, keys)
+		addAssetCandidateIdentityKeys(scopes.assets, asset.Category, keys)
 	}
-	return known
+	return scopes
+}
+
+func (scopes assetCandidateIdentityScopes) blocks(unitID string, category model.AssetCategory, keys []string) bool {
+	if assetCandidateIdentityExists(scopes.assets, category, keys) || assetCandidateIdentityExists(scopes.resolved, category, keys) {
+		return true
+	}
+	if assetCandidateIdentityExists(scopes.unscoped, category, keys) {
+		return true
+	}
+	if strings.TrimSpace(unitID) == "" {
+		return assetCandidateIdentityExists(scopes.any, category, keys)
+	}
+	return assetCandidateIdentityExists(scopes.byUnit[unitID], category, keys)
+}
+
+func (scopes assetCandidateIdentityScopes) add(unitID string, category model.AssetCategory, keys []string) {
+	addAssetCandidateIdentityKeys(scopes.any, category, keys)
+	if strings.TrimSpace(unitID) == "" {
+		addAssetCandidateIdentityKeys(scopes.unscoped, category, keys)
+		return
+	}
+	if scopes.byUnit[unitID] == nil {
+		scopes.byUnit[unitID] = make(map[string]struct{})
+	}
+	addAssetCandidateIdentityKeys(scopes.byUnit[unitID], category, keys)
 }
 
 func assetCandidateInputIdentityKeys(name string, details map[string]any) []string {

@@ -17,27 +17,28 @@ describe("canvas visual contrast", () => {
     test("changes only the canvas substrate while retaining original surfaces", () => {
         expect(canvasThemes.light.canvas.background).toBe("#f0f0f0");
         expect(canvasThemes.light.node.fill).toBe("#ffffff");
-        expect(canvasThemes.light.node.edge).toBe("rgba(15,23,42,.16)");
-        expect(canvasThemes.light.node.shadow).toBe("0 6px 18px rgba(15,23,42,.08)");
-        expect(canvasThemes.light.node.hoverShadow).toBe("0 10px 24px rgba(15,23,42,.12)");
+        expect(canvasThemes.light.node.edge).toBe("rgba(91,160,255,.28)");
+        expect(canvasThemes.light.node.shadow).toBe("0 6px 18px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.8)");
+        expect(canvasThemes.light.node.hoverShadow).toBe("0 10px 24px rgba(15,23,42,.12), 0 0 0 1px rgba(91,160,255,.28)");
         expect(canvasThemes.light.toolbar.panel).toBe("rgba(255,255,255,.94)");
         expect(canvasThemes.light.spatial.elevated).toBe("rgba(255,255,255,.94)");
 
-        expect(canvasThemes.dark.canvas.background).toBe("#141414");
-        expect(canvasThemes.dark.node.fill).toBe("#262626");
-        expect(canvasThemes.dark.node.edge).toBe("rgba(255,255,255,.18)");
-        expect(canvasThemes.dark.node.shadow).toBe("0 8px 24px rgba(0,0,0,.34)");
-        expect(canvasThemes.dark.node.hoverShadow).toBe("0 12px 30px rgba(0,0,0,.46)");
-        expect(canvasThemes.dark.toolbar.panel).toBe("rgba(20,20,20,.97)");
+        expect(canvasThemes.dark.canvas.background).toBe("#0a0c12");
+        expect(canvasThemes.dark.node.fill).toBe("rgba(21, 22, 29, 0.92)");
+        expect(canvasThemes.dark.node.edge).toBe("rgba(91,160,255,.32)");
+        expect(canvasThemes.dark.node.muted).toBe("#9298a6");
+        expect(canvasThemes.dark.node.shadow).toBe("0 10px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07)");
+        expect(canvasThemes.dark.node.hoverShadow).toBe("0 14px 36px rgba(0,0,0,.52), 0 0 0 1px rgba(91,160,255,.28), inset 0 1px 0 rgba(255,255,255,.09)");
+        expect(canvasThemes.dark.toolbar.panel).toBe("rgba(21,22,29,.97)");
         expect(canvasThemes.dark.toolbar.border).toBe("rgba(255,255,255,.1)");
-        expect(canvasThemes.dark.spatial.elevated).toBe("rgba(15,15,15,.97)");
+        expect(canvasThemes.dark.spatial.elevated).toBe("rgba(15,16,22,.97)");
     });
 
     test("pins intentional grid tokens while retaining canvas grid opacity", async () => {
         expect(canvasThemes.light.canvas.dot).toBe("rgba(0,0,0,.80)");
         expect(canvasThemes.light.canvas.line).toBe("rgba(0,0,0,.80)");
-        expect(canvasThemes.dark.canvas.dot).toBe("rgba(175,175,175,.24)");
-        expect(canvasThemes.dark.canvas.line).toBe("rgba(175,175,175,.24)");
+        expect(canvasThemes.dark.canvas.dot).toBe("rgba(175,175,175,.18)");
+        expect(canvasThemes.dark.canvas.line).toBe("rgba(175,175,175,.14)");
 
         const source = await Bun.file(new URL("../src/components/canvas/infinite-canvas.tsx", import.meta.url)).text();
         expect(source).toContain('opacity: mode === "dots" ? 0.34 : 0.46');

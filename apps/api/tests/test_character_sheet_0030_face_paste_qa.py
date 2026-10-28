@@ -78,7 +78,7 @@ def test_0030_parse_qa_json():
 
 
 def test_0030_source_contract():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "paste_qedit_face_onto_portrait" in src
     assert "classify_expression_qa" in src
     assert "for attempt in range(6)" in src

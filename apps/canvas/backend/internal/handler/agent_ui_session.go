@@ -21,9 +21,10 @@ import (
 // 内置 UI 会话：短期限、限定 scope 的独立凭据，由后端签发给可信 UI。
 // CSRF 层（loopback/同源）只防跨站，不能替代身份层；未认证的 /agent/* 一律拒绝。
 type uiSession struct {
-	Token     string
-	UserID    string
-	ExpiresAt time.Time
+	Token          string
+	UserID         string
+	ExpiresAt      time.Time
+	delegatedToken string
 }
 
 type uiSessionStore struct {
@@ -37,13 +38,16 @@ func newUISessionStore() *uiSessionStore {
 	return &uiSessionStore{sessions: map[string]uiSession{}, ttl: 30 * time.Minute, now: time.Now}
 }
 
-func (s *uiSessionStore) issue(userID string) uiSession {
+func (s *uiSessionStore) issue(userID string, delegatedToken ...string) uiSession {
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		return uiSession{}
 	}
 	now := s.now()
 	session := uiSession{Token: hex.EncodeToString(buf), UserID: userID, ExpiresAt: now.Add(s.ttl)}
+	if len(delegatedToken) > 0 {
+		session.delegatedToken = strings.TrimSpace(delegatedToken[0])
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// 清理过期项，避免长期累积。
@@ -54,6 +58,22 @@ func (s *uiSessionStore) issue(userID string) uiSession {
 	}
 	s.sessions[session.Token] = session
 	return session
+}
+
+func (s *uiSessionStore) delegatedStudioToken(userID string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	for token, item := range s.sessions {
+		if !now.Before(item.ExpiresAt) {
+			delete(s.sessions, token)
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(item.UserID), []byte(userID)) == 1 && item.delegatedToken != "" {
+			return item.delegatedToken, true
+		}
+	}
+	return "", false
 }
 
 func (s *uiSessionStore) verify(token, userID string) (uiSession, bool) {
@@ -119,7 +139,11 @@ func RegisterAgentUISessionRoutes(r gin.IRouter, svc *app.Service, ui *uiSession
 			fail(c, http.StatusForbidden, app.BadAuthRequest("签发内置 UI 会话需要 owner 凭据或显式本地引导"))
 			return
 		}
-		session := ui.issue(user.ID)
+		delegatedToken := ""
+		if authorization := c.GetHeader("Authorization"); toivLogin && strings.HasPrefix(authorization, "Bearer ") {
+			delegatedToken = strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer "))
+		}
+		session := ui.issue(user.ID, delegatedToken)
 		if session.Token == "" {
 			fail(c, http.StatusInternalServerError, app.BadAuthRequest("无法签发 UI 会话"))
 			return

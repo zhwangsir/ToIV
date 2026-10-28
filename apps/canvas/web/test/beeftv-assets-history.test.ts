@@ -14,7 +14,10 @@ test("assets history keeps LibTV source tabs and local media filtering", async (
     for (const label of ["所有评级", "已评级", "未评级"]) expect(page).not.toContain(label);
     expect(page).toContain("generation-history-preview");
     expect(page).toContain("generation-history-badge");
-    expect(page).toContain('setProperty("background-color", "#fff", "important")');
+    // R12（ae158cce）修白 CTA：强制白底的内联 setProperty hack 退场，改走 tokens 化的 CSS。
+    expect(page).not.toContain('setProperty("background-color", "#fff", "important")');
+    expect(styles).toContain(".assets-new-button");
+    expect(styles).toContain("var(--toiv-accent");
     expect(styles).toContain(".app-workspace-shell:has(.assets-library-page)");
     expect(styles).not.toContain(".assets-reference-announcement");
     expect(styles).not.toContain("height: 60px");

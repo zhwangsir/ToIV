@@ -44,10 +44,17 @@ describe("project library covers", () => {
         expect(css).not.toContain(".canvas-project-empty-image { width: 64px; height: 48px;");
     });
 
-    test("home recents use the same complete project preview as the library", () => {
+    test("home recents 走 BeefTV 画布预览卡（BF0）；库侧 ProjectPreview 仍保留", () => {
+        // BF0：最近项目对齐 BeefTV home/index —— listWorkspaceCanvasProjectsPage / local canvas store + ProjectPreview。
         const home = readFileSync(new URL("../src/pages/home/index.tsx", import.meta.url), "utf8");
         const dashboard = readFileSync(new URL("../src/pages/home/home-dashboard.tsx", import.meta.url), "utf8");
-        expect(home).toContain("previewNodesForWorkspaceProject(localProjects, project.id)");
-        expect(dashboard).toContain("<ProjectPreview project={{ id: project.id, nodes: project.previewNodes }}");
+        const folderCard = readFileSync(new URL("../src/components/canvas/canvas-folder-card.tsx", import.meta.url), "utf8");
+        expect(home).toContain("listWorkspaceCanvasProjectsPage");
+        expect(home).toContain("previewNodesForWorkspaceProject");
+        expect(home).not.toContain("fetchDramaProjects()");
+        expect(dashboard).toContain("最近项目");
+        expect(dashboard).toContain("ProjectPreview");
+        expect(dashboard).toContain("to={`/canvas/${project.id}`}");
+        expect(folderCard).toContain("<ProjectPreview project={{ id: project.id, nodes: project.previewNodes }}");
     });
 });

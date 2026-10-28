@@ -1,9 +1,15 @@
 """studioshot.candidates_json 统一按 JSON 字符串读写（列类型 VARCHAR，禁止 jsonb 强转）。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from typing import Any
+
+
+def candidates_digest(raw: str | None) -> str:
+    """客户端候选快照指纹；必须基于数据库原始 JSON 字符串。"""
+    return hashlib.sha256((raw or "[]").encode("utf-8")).hexdigest()
 
 
 def loads_candidates(raw: str | None) -> list[dict[str, Any]]:

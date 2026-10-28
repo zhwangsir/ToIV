@@ -5,7 +5,7 @@
     (model-visible means logged);标题取首条 user 消息前 30 字
   - 会话 id 经 X-Agent-Session-Id 响应头返回;续聊只追加本轮新输入
   - 列表(归属隔离 + 消息数 + updated_at 倒序)/ 回放 / 分叉(截断)/ 删除
-  - R18:nsfw 会话无 X-NSFW 头不可见(列表过滤 + 详情/续聊 404)
+  - R18:P0-5 R4 nsfw 会话 ordinary 可见并透出 nsfw(限制只前端)
   - 未认证 401
 """
 from __future__ import annotations
@@ -447,33 +447,36 @@ def test_delete_session(ctx, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# R18 过滤(对齐 Job:无 X-NSFW 头一律不可见)
+# R18 可见性(P0-5 R4:后端不过滤;nsfw 字段透出)
 # --------------------------------------------------------------------------- #
 def test_nsfw_session_filtered_without_header(ctx, monkeypatch):
-    c, alice, _, _, _ = ctx
+    """P0-5 R4:降回 ordinary 后 nsfw 会话仍可见并透出 nsfw。"""
+    c, alice, _, engine, ids = ctx
     _mock_llm(monkeypatch, [{"content": "答"}])
+
+    def _set_mode(mode: str) -> None:
+        with Session(engine) as s:
+            u = s.get(User, ids[0])
+            u.content_mode = mode
+            s.add(u)
+            s.commit()
+
+    # 成人态创建:会话打 nsfw=True
+    _set_mode("adult")
     sid = _chat(c, alice, [{"role": "user", "content": "R18 创作"}], nsfw=True).headers[
         "x-agent-session-id"
     ]
 
-    # 无头:列表过滤、详情/分叉/删除/续聊 404
-    assert c.get("/api/agent/sessions", headers=_auth(alice)).json() == []
-    assert c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice)).status_code == 404
-    assert (
-        c.post(f"/api/agent/sessions/{sid}/fork", headers=_auth(alice), json={}).status_code
-        == 404
-    )
-    assert c.delete(f"/api/agent/sessions/{sid}", headers=_auth(alice)).status_code == 404
-    assert (
-        _chat(c, alice, [{"role": "user", "content": "继续"}], session_id=sid).status_code
-        == 404
-    )
-
-    # 带头:可见
-    r = c.get("/api/agent/sessions", headers=_auth(alice, nsfw=True))
+    # 降回普通态:仍可见(限制只前端);nsfw 字段透出
+    _set_mode("ordinary")
+    r = c.get("/api/agent/sessions", headers=_auth(alice))
     assert [s["id"] for s in r.json()] == [sid]
     assert r.json()[0]["nsfw"] is True
-    assert c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice, nsfw=True)).status_code == 200
+    assert c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice)).status_code == 200
+    assert (
+        c.post(f"/api/agent/sessions/{sid}/fork", headers=_auth(alice), json={}).status_code
+        == 200
+    )
 
 
 # --------------------------------------------------------------------------- #

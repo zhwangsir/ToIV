@@ -149,8 +149,16 @@ describe("local-capability-surface wiring (source)", () => {
         expect(surface).toContain("resolveIntentAppId");
         expect(home).toContain("HOME_INTENT_ENTRIES");
         expect(home).toContain("homeIntentBarItems");
-        expect(dashboard).toContain("homeIntentBarItems");
-        expect(dashboard).toContain("toiv-intent-bar");
+        // BF0：意图条仅 export（工具台/市场后用），首页禁止 import/map 意图墙
+        expect(dashboard).not.toMatch(/import\s*\{[^}]*homeIntentBarItems/);
+        expect(dashboard).not.toContain("homeIntentBarItems.map");
+        const market = readFileSync(join(import.meta.dir, "../src/pages/toiv/market-page.tsx"), "utf8");
+        expect(market).toContain("ToolsIntentGrid");
+        const grid = readFileSync(join(import.meta.dir, "../src/components/toiv/tools-intent-grid.tsx"), "utf8");
+        expect(grid).toContain("homeIntentBarItems");
+        expect(grid).toContain("INTENT_TOOL_GROUPS");
+        expect(dashboard).toContain("beefTVCapabilityItems");
+        expect(dashboard).toContain("新建画布创作");
         expect(home).not.toContain("add=lipsync");
         expect(home).not.toContain("add=inpaint");
         expect(home).not.toContain("add=dub");

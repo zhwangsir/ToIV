@@ -1,0 +1,82 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · BF1 short-drama three-pane · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;--node:#14151a;--bar:#8b8e98}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--bg);padding:12px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none}
+.nav a.is-on{color:var(--text);background:rgba(255,255,255,.08);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+.top .spacer{flex:1}
+.stage{flex:1;display:grid;grid-template-columns:240px 8px 1fr 8px 320px;min-height:0}
+.col{background:var(--raised);padding:12px;overflow:auto}
+.col.stage-mid{background:var(--bg);padding:0;display:flex;flex-direction:column}
+.split{position:relative}.split::before{content:"";position:absolute;inset:0 50% 0 auto;width:1px;background:var(--line);transform:translateX(50%)}
+.col h3{margin:0 0 10px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px}
+.rail a{display:flex;gap:8px;padding:8px;border-radius:8px;border:1px solid transparent;color:inherit;text-decoration:none;margin-bottom:4px;font-size:12px}
+.rail a.is-on{border-color:var(--line);background:color-mix(in srgb,#1a1b21 80%,transparent);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 45%,transparent)}
+.rail a em{display:block;font-style:normal;color:var(--muted);font-size:11px}
+.toolbar{min-height:40px;display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--raised) 92%,transparent)}
+.tool{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.drama{flex:1;padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.drama h1{margin:0;font-size:15px;font-weight:600}
+.drama .sub{font-size:11px;color:var(--muted)}
+.tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--raised) 60%,transparent);width:max-content}
+.tabs span{padding:4px 10px;border-radius:6px;font-size:11px;color:var(--muted)}
+.tabs span.on{background:rgba(255,255,255,.08);color:var(--text);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 40%,transparent)}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.shot{border:1px solid var(--line);border-radius:10px;background:var(--raised);padding:8px;min-height:88px}
+.shot.is-on{border-color:var(--accent);box-shadow:0 0 0 1px rgb(74 127 193 / 0.45)}
+.shot strong{display:block;font-size:12px}
+.shot em{display:block;font-style:normal;font-size:10px;color:var(--muted);margin-top:4px}
+.insp label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px}
+.insp .row{height:32px;border:1px solid var(--line);border-radius:8px;background:#0d0e12}
+.insp .cta{margin-top:12px;height:32px;width:100%;border:0;border-radius:8px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:12px}
+.insp .ghost{margin-top:8px;height:32px;width:100%;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font-size:12px}
+.note{position:absolute;bottom:14px;left:270px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+.cta-top{height:32px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:12px}
+.ghost-top{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font-size:12px}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · BF1 drama three-pane · 1280</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav"><a class="is-on" href="#">创作</a><a href="#">短剧项目</a><a href="#">任务</a><a href="#">工具台</a><a href="#">设置</a></nav></aside>
+<div class="main" style="position:relative">
+<header class="top"><span style="font-weight:600">创作台 · ?project=</span><span class="spacer"></span><button class="ghost-top">助手</button><button class="cta-top" id="cta">生成</button></header>
+<div class="stage">
+  <div class="col rail"><h3>资产</h3>
+    <a class="is-on" href="#"><strong>分镜工作区</strong><em>剧本→成片</em></a>
+    <a href="#"><strong>设定圣经</strong><em>钉版只读</em></a>
+    <a href="#"><strong>自由创作</strong><em>无项目线程</em></a>
+  </div>
+  <div class="split"></div>
+  <div class="col stage-mid">
+    <div class="toolbar"><button class="tool"></button><button class="tool"></button><span style="flex:1"></span><span style="font-size:11px;color:var(--muted)">hosted drama · BeefTV 密台</span></div>
+    <div class="drama" data-surface="beeftv-drama">
+      <h1>雨夜短剧 · DEMO</h1>
+      <p class="sub">剧本 → 定妆 → 分镜 → 生成 · is-hosted 密密度 · 无 Toonflow chrome</p>
+      <div class="tabs"><span>剧本</span><span class="on">分镜</span><span>生成</span><span>合成</span></div>
+      <div class="board">
+        <div class="shot is-on"><strong>SHOT 01</strong><em>近黑面板 · accent 选中</em></div>
+        <div class="shot"><strong>SHOT 02</strong><em>DramaClaw 几何 only</em></div>
+        <div class="shot"><strong>SHOT 03</strong><em>无第二彩壳</em></div>
+      </div>
+    </div>
+  </div>
+  <div class="split"></div>
+  <div class="col insp"><h3>属性</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">镜头</div>
+    <label>标题</label><div class="row"></div>
+    <label>对白</label><div class="row"></div>
+    <button class="cta" id="insp-cta">应用</button>
+    <button class="ghost">次级</button>
+  </div>
+</div>
+<p class="note">BF1 · /create?project= · 240/舞台/320 · CTA #4A7FC1 · B1 250/67/56</p>
+</div></div>
+</body></html>

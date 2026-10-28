@@ -76,10 +76,15 @@ describe("toiv agent-chat service surface", () => {
         expect(src).toContain("toolCardPayload");
     });
 
-    test("sidebar already points internal /toiv/agent", () => {
+    test("sidebar 智能体对话并入创作台，不再单列 /toiv/agent 入口", () => {
         const src = read("src/components/layout/workspace-sidebar-nav.tsx");
-        expect(src).toContain('to: "/toiv/agent"');
-        expect(src).toContain("智能体对话");
+        // R12 strangler（f0d789a3/ae158cce）：智能体对话进 /create，与「创作」不双入口；
+        // /agents 仅保留外部 Agent 管理。
+        expect(src).not.toContain('to: "/toiv/agent"');
+        expect(src).toContain('title: "创作"');
+        expect(src).toContain('to: "/create"');
+        expect(src).toContain('title: "外部 Agent"');
+        expect(src).toContain('to: "/agents"');
     });
 });
 
@@ -117,7 +122,9 @@ describe("agent draft (发到对话)", () => {
         expect(menu).toContain("MessageSquarePlus");
         const project = read("src/pages/canvas/project.tsx");
         expect(project).toContain("stashAgentDraft");
-        expect(project).toContain('navigate("/toiv/agent")');
+        // R15：发到对话 = stash 草稿后进入工作台内的 Agent 会话视图。
+        expect(project).toContain('navigate("/create?view=agent")');
+        expect(project).not.toContain('navigate("/toiv/agent")');
     });
 });
 

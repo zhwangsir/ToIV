@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import numpy as np
@@ -238,8 +239,7 @@ def test_gentle_determined_prompt_strings():
     assert "surprised" in d.lower() or "open mouth" in d.lower() or "张嘴" in d
 
     # 几何 lift 硬拒已撤回（注释/源中不应再对温柔 lift<0.02 硬拒）
-    src = sheet_svc.__file__
-    text = open(src, encoding="utf-8").read()
+    text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "须嘴角微扬 lift=" not in text
     assert "classify_expression_vlm" in text
     assert "assert_expression_vlm_match" in text

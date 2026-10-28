@@ -1,0 +1,81 @@
+.render-cost-estimate {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--foreground);
+}
+
+.render-cost-estimate__heading,
+.render-cost-estimate__price,
+.render-cost-estimate__blocker,
+.render-cost-estimate__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.render-cost-estimate__work {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    color: var(--foreground);
+}
+
+.render-cost-estimate__items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    color: var(--muted-foreground);
+    list-style: none;
+}
+
+.render-cost-estimate__price {
+    align-items: baseline;
+    padding-top: 4px;
+    font-size: 13px;
+}
+
+.render-cost-estimate__price strong {
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+.render-cost-estimate__price--blocked,
+.render-cost-estimate__error,
+.render-cost-estimate__warning,
+.render-cost-estimate__blocker {
+    color: var(--danger);
+}
+
+.render-cost-estimate__error,
+.render-cost-estimate__blocker {
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    background: var(--muted);
+}
+
+.render-cost-estimate__error p,
+.render-cost-estimate__muted,
+.render-cost-estimate__warning {
+    margin: 0;
+}
+
+.render-cost-estimate__muted,
+.render-cost-estimate__fingerprint {
+    color: var(--muted-foreground);
+}
+
+.render-cost-estimate__fingerprint {
+    overflow-wrap: anywhere;
+}
+
+.render-cost-estimate__actions {
+    justify-content: flex-start;
+    padding-top: 4px;
+}

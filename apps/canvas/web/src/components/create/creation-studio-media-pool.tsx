@@ -6,7 +6,6 @@ import { AudioLines, Clapperboard, FileText, Image as ImageIcon, Box, FolderOpen
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
-import { ToivSoftGlow } from "@/components/toiv/toiv-soft-glow";
 import { cn } from "@/lib/utils";
 import {
     COPY_MODE_ADULT,
@@ -66,7 +65,7 @@ function KindGlyph({ kind }: { kind: AssetKind }) {
     return <FileText {...props} />;
 }
 
-/** Compact media pool for /create left rail — Freezone cards + NSFW dual-channel lock. */
+/** Compact media pool for /create left rail — Freezone cards + content-mode lock. */
 export function CreationStudioMediaPool({ projectId }: { projectId: string | null }) {
     const navigate = useNavigate();
     const adultOn = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
@@ -196,38 +195,32 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
             {!hydrated ? (
                 <ToivSkeletonGrid count={8} />
             ) : filtered.length === 0 ? (
-                <ToivSoftGlow className="toiv-asset-pool-empty" data-testid="creation-studio-media-pool-empty">
+                <div className="toiv-asset-pool-empty" data-testid="creation-studio-media-pool-empty">
                     {library.length === 0 ? (
                         <ToivEmptyState
                             compact
                             icon={FolderOpen}
                             title="还没有素材"
-                            description={
-                                <>
-                                    去 <Link to={assetsHref}>资产库</Link> 上传，或在成片后自动入库。
-                                </>
-                            }
+                            description="上传图片、视频或音频；生成成片也会自动入库。"
+                            action={<Link className="toiv-empty-cta" to={assetsHref}>上传素材</Link>}
                         />
-                    ) : !adultOn && listable.length < library.length ? (
+                    ) : !adultOn && listable.length === 0 ? (
                         <ToivEmptyState
                             compact
                             icon={Images}
                             title={`当前为${COPY_MODE_NORMAL}`}
-                            description={`部分条目已按模式隐藏。切到顶栏「${COPY_MODE_ADULT}」可查看。`}
+                            description={`当前为${COPY_MODE_NORMAL}，成人素材已隐藏。切换到「${COPY_MODE_ADULT}」后可查看。`}
                         />
                     ) : (
                         <ToivEmptyState
                             compact
                             icon={Search}
                             title="无匹配结果"
-                            description={
-                                <>
-                                    试试清空筛选，或打开 <Link to={assetsHref}>资产库</Link>。
-                                </>
-                            }
+                            description="当前关键词、类型或标签没有匹配素材。"
+                            action={<button type="button" className="toiv-empty-cta" onClick={() => { setKeyword(""); setKind("all"); setActiveTag(null); }}>清空筛选</button>}
                         />
                     )}
-                </ToivSoftGlow>
+                </div>
             ) : (
                 <div className="toiv-asset-pool-scroll">
                     <div className="toiv-asset-pool-grid" role="list">
@@ -249,7 +242,7 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
                                     data-locked={locked ? "1" : "0"}
                                     tabIndex={locked ? -1 : 0}
                                     aria-disabled={locked || undefined}
-                                    title={locked ? `已锁定 · NSFW（当前为${COPY_MODE_NORMAL}）` : asset.title}
+                                    title={locked ? `已锁定（${COPY_MODE_NORMAL}）` : asset.title}
                                     onClick={() => {
                                         if (locked) return;
                                         navigate(`${assetsHref}${assetsHref.includes("?") ? "&" : "?"}focus=${encodeURIComponent(asset.id)}`);
@@ -300,9 +293,7 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
             )}
 
             <p className="toiv-asset-pool-foot">
-                {adultOn
-                    ? `${COPY_MODE_ADULT}：成人条目可选。切换在顶栏光幕。`
-                    : `${COPY_MODE_NORMAL}：NSFW 灰化+锁标可见不可点；未评级隐藏。`}
+                {adultOn ? `${COPY_MODE_ADULT}内容可见` : `${COPY_MODE_NORMAL} · 成人内容已锁定`}
             </p>
         </section>
     );

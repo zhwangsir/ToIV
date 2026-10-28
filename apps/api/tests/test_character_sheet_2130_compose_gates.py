@@ -116,7 +116,7 @@ def test_gentle_prompt_soft_closed_eye_smile():
 
 
 def test_locked_normalize_contract_in_source():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "normalized_2130" in src
     assert "build_eyes_only_mask_hard" in src
     assert "_fit_expr_cell_face_fill" in src

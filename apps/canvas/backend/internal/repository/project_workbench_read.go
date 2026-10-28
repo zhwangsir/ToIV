@@ -123,6 +123,16 @@ func (r *Repository) ProjectAssetVersionsByIDs(projectID string, versionIDs []st
 	return versions, err
 }
 
+// AssetVersionsByIDs 不限定项目归属读取版本；对账需要发现已脱离项目素材的悬空引用。
+func (r *Repository) AssetVersionsByIDs(versionIDs []string) ([]model.AssetVersion, error) {
+	if len(versionIDs) == 0 {
+		return []model.AssetVersion{}, nil
+	}
+	var versions []model.AssetVersion
+	err := r.db.Where("id IN ?", versionIDs).Find(&versions).Error
+	return versions, err
+}
+
 func (r *Repository) AssetRepresentationsByVersionIDs(versionIDs []string) ([]model.AssetRepresentation, error) {
 	if len(versionIDs) == 0 {
 		return []model.AssetRepresentation{}, nil

@@ -117,7 +117,7 @@ def _head(ornament) -> bytes:
 
 
 def test_hairpin_gate_gold_fails_wood_passes(monkeypatch):
-    monkeypatch.setattr(cs, "_face_bbox_for_center", lambda im: (150, 130, 250, 260))
+    monkeypatch.setattr(cs.gates, "_face_bbox_for_center", lambda im: (150, 130, 250, 260))
     import pytest
 
     with pytest.raises(cs.CharacterSheetError) as e:
@@ -127,7 +127,7 @@ def test_hairpin_gate_gold_fails_wood_passes(monkeypatch):
     assert st["frac"] is not None and st["frac"] <= cs.HAIRPIN_GOLD_MAX_FRAC
     # 非木簪 spec / 无脸 → 放行
     assert cs.assert_hairpin_not_gold(_head((212, 175, 55)), _meta("青色衣裙，金簪")).get("skipped")
-    monkeypatch.setattr(cs, "_face_bbox_for_center", lambda im: None)
+    monkeypatch.setattr(cs.gates, "_face_bbox_for_center", lambda im: None)
     assert cs.assert_hairpin_not_gold(_head((212, 175, 55)), _meta())["frac"] is None
 
 

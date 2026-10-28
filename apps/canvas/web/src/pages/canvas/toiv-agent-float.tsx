@@ -232,10 +232,10 @@ export function ToivAgentFloat() {
         }
     }, [loadSessions, openSession]);
 
-    /** 在对话页打开(整页形态):stash 会话 id,AgentPage 挂载时消费。 */
+    /** 在对话视图打开:stash 会话 id,工作台内 AgentPage 挂载时消费。 */
     const openInAgentPage = useCallback((sid: string) => {
         stashPendingAgentSession(sid);
-        navigate("/create");
+        navigate("/create?view=agent");
     }, [navigate]);
 
     const applyToCanvas = useCallback(async (payload: Record<string, unknown>) => {

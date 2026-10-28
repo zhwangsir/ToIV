@@ -4,7 +4,7 @@ H2 会话日志(model-visible means logged):chat 流式过程中把进 LLM 的
 user/assistant/tool 消息逐条追加落库(AgentMessage);会话 id 经响应头
 X-Agent-Session-Id 立即返回前端(SSE 事件类型零变更)。会话管理端点:
 列表 / 回放 / 分叉 / 删除,全部 get_current_user + 归属校验(404 不泄露),
-nsfw=True 会话仅 X-NSFW 上下文可见(对齐 Job 过滤语义)。
+P0-5 R4:nsfw 会话不过滤(限制只前端);创建时仍可按账号态打 nsfw 快照。
 
 深度接管(2026-08-24):在既有 msg 包络(text/error/tool/媒体)之外新增三类
 顶层 SSE 事件(协议固定,前端按 event 名订阅):
@@ -134,11 +134,12 @@ class ChatRequest(BaseModel):
 # 会话日志内部助手
 # --------------------------------------------------------------------------- #
 def _get_owned_session(session: Session, user: User, sid: str) -> AgentSession:
-    """取当前用户的会话;不存在/非本人/主站碰 R18 一律 404(不泄露存在性)。"""
+    """取当前用户的会话;不存在/非本人一律 404(不泄露存在性)。
+
+    P0-5 R4:不再因 sess.nsfw+ordinary 伪装 404;nsfw 字段仍透出。
+    """
     sess = session.get(AgentSession, sid)
     if sess is None or sess.user_id != user.id:
-        raise HTTPException(status_code=404, detail="会话不存在")
-    if sess.nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="会话不存在")
     return sess
 
@@ -333,10 +334,11 @@ async def list_agent_sessions(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """当前用户的会话列表(updated_at 倒序,含消息数)。主站过滤 R18 会话。"""
+    """当前用户的会话列表(updated_at 倒序,含消息数)。
+
+    P0-5 R4:不再因 ordinary 过滤 nsfw 会话;nsfw 字段仍透出。
+    """
     stmt = select(AgentSession).where(AgentSession.user_id == user.id)
-    if not nsfw_allowed(user):
-        stmt = stmt.where(AgentSession.nsfw == False)  # noqa: E712  SQLModel 需 == 生成 SQL
     rows = session.exec(stmt.order_by(AgentSession.updated_at.desc())).all()
     if not rows:
         return []

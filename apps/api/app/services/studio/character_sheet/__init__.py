@@ -24,6 +24,7 @@ def _bridge_missing(dst, *donors):
             if k not in dst.__dict__:
                 setattr(dst, k, v)
 
+_bridge_missing(templates, gates, layout, _impl, retry, ux)
 _bridge_missing(gates, layout, _impl, retry, ux)
 _bridge_missing(layout, gates, _impl, retry, ux)
 _bridge_missing(_impl, gates, layout, retry, ux)

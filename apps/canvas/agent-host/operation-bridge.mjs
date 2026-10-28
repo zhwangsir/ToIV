@@ -65,7 +65,7 @@ export function createOperationBridge({
     return [...descriptors.entries()].map(([toolName, descriptor]) => ({
       name: toolName,
       label: descriptor.id,
-      description: `${descriptor.summary}（本会话 scope=canvas:${canvasId}）`,
+      description: `${descriptor.summary}（${descriptor.scope === 'studio' ? '仅限本会话显式授权的 Studio projectId' : `本会话 scope=canvas:${canvasId}`}）`,
       parameters: scopedSchema(descriptor.params, descriptor.id === 'canvas.get', descriptor.id),
       ...(descriptor.readOnly ? {} : { executionMode: 'sequential' }),
       execute: async (toolCallId, args, signal) => {

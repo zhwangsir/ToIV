@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import http, { createServer } from 'node:http';
+import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -328,8 +328,8 @@ test('stdin EOF with an idle HTTP keepalive socket still shuts down promptly', a
     res.end(JSON.stringify({ code: 0, data: { ops: [] } }));
   });
   const provider = createServer((_req, res) => res.writeHead(500).end('no'));
-  const agent = new http.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 1 });
   let child;
+  let probe;
   try {
     const opsPort = await listen(ops);
     const modelPort = await listen(provider);
@@ -356,31 +356,71 @@ test('stdin EOF with an idle HTTP keepalive socket still shuts down promptly', a
       await delay(50);
     }
     if (!healthy) throw new Error('host never became healthy: ' + spawned.getLog());
-    await new Promise((resolve, reject) => {
+    // Node frees the keepalive socket into agent.freeSockets on nextTick after the
+    // response ends, but Bun's node:http shim never consults http.Agent at all
+    // (agent.freeSockets stays empty forever). Run the keepalive request and the
+    // freeSockets wait in a node helper — the same runtime as the host — and have it
+    // report its real freeSockets state unconditionally after a bounded wait.
+    const probeScript = `
+      import http from 'node:http';
+      const agent = new http.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 1 });
+      const idleCount = () => Object.values(agent.freeSockets).flat().length;
+      const hold = setInterval(() => {}, 1000);
+      const report = (payload) => process.stdout.write(JSON.stringify(payload) + '\\n');
       const req = http.get({
         hostname: '127.0.0.1',
-        port,
+        port: ${port},
         path: '/health',
         headers: {
-          'X-Beeftv-Instance-Nonce': nonce,
-          'X-Beeftv-Agent-Token': hostToken,
+          'X-Beeftv-Instance-Nonce': ${JSON.stringify(nonce)},
+          'X-Beeftv-Agent-Token': ${JSON.stringify(hostToken)},
           Connection: 'keep-alive',
         },
         agent,
       }, (res) => {
         res.resume();
-        res.on('end', resolve);
+        res.on('error', (error) => {
+          report({ status: 0, idleFreeSockets: idleCount(), error: String(error) });
+          process.exit(1);
+        });
+        res.on('end', async () => {
+          const waitUntil = Date.now() + 1000;
+          while (idleCount() === 0 && Date.now() < waitUntil) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+          report({ status: res.statusCode, idleFreeSockets: idleCount() });
+        });
       });
-      req.on('error', reject);
+      req.on('error', (error) => {
+        report({ status: 0, idleFreeSockets: 0, error: String(error) });
+        process.exit(1);
+      });
+    `;
+    probe = spawn('node', ['--input-type=module', '-e', probeScript], {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    const idle = Object.values(agent.freeSockets).flat();
-    expect(idle.length).toBeGreaterThan(0);
+    let probeLog = '';
+    probe.stdout.on('data', (chunk) => { probeLog += chunk; });
+    probe.stderr.on('data', (chunk) => { probeLog += chunk; });
+    const probeDeadline = Date.now() + 10000;
+    let report = null;
+    while (Date.now() < probeDeadline) {
+      const line = probeLog.split('\n').find((entry) => entry.startsWith('{'));
+      if (line) { report = JSON.parse(line); break; }
+      if (probe.exitCode !== null) throw new Error('keepalive probe exited before reporting: ' + probeLog);
+      await delay(20);
+    }
+    if (!report) throw new Error('keepalive probe never reported freeSockets state: ' + probeLog);
+    expect(report.status).toBe(200);
+    const idle = report.idleFreeSockets;
+    expect(idle).toBeGreaterThan(0);
     const closed = waitExit(child, 3000);
     child.stdin.end();
     await closed;
     child = null;
   } finally {
-    agent.destroy();
+    if (probe && probe.exitCode === null) probe.kill('SIGKILL');
     if (child && child.exitCode === null) child.kill('SIGKILL');
     for (const server of [ops, provider]) {
       if (server.listening) {

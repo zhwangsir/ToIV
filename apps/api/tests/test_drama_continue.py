@@ -529,8 +529,13 @@ def test_continue_nsfw_blocked_without_x_nsfw(ctx):
 
 
 def test_continue_nsfw_allowed_with_x_nsfw(ctx, monkeypatch):
-    """continue-video:带 X-NSFW 头门控放行(后台链路 mock,验证全链路 200)。"""
+    """continue-video:成人态账号门控放行(D-U1=B,后台链路 mock,验证全链路 200)。"""
     client, token, engine, pid, sid, _ = ctx
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.email == "cont@toiv.ai")).first()
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
     monkeypatch.setattr(drama_studio_route, "_spawn", _close_coro)
     r = client.post(
         f"/api/drama/shots/{sid}/continue-video",

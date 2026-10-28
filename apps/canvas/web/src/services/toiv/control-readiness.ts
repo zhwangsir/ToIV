@@ -188,7 +188,7 @@ export function projectControlReadinessLamps(input: ControlReadinessInput): Cont
 
 export function controlLampTone(
     state: ControlLampState,
-): "neutral" | "success" | "warning" | "danger" {
+): "neutral" | "success" | "warning" | "error" {
     switch (state) {
         case "ready":
             return "success";
@@ -197,7 +197,7 @@ export function controlLampTone(
             return "warning";
         case "failed":
         case "blocked":
-            return "danger";
+            return "error";
         default:
             return "neutral";
     }

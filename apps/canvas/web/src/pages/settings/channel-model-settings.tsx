@@ -36,7 +36,11 @@ export function ChannelModelSettings({ channel, onChange, draft = false }: { cha
 
     if (!channel.models.length) return null;
 
+    // 系统渠道的能力由平台模型目录下发，前端只做只读证据展示；自定义渠道的手工修改是显式 override。
+    const systemChannel = channel.scope === "system";
+
     const updateProfile = (model: string, patch: Partial<ModelProfile>) => {
+        if (systemChannel) return;
         const defaultProtocol = defaultProtocolForModel(model, availableProtocols);
         const defaultCap = modelProtocolCapability(defaultProtocol, availableProtocols) || inferProtocolCapabilityFromModel(model);
         const current = channel.modelProfiles?.find((item) => item.model === model) || {
@@ -145,6 +149,7 @@ export function ChannelModelSettings({ channel, onChange, draft = false }: { cha
                                 <div className="text-xs font-medium">模型能力</div>
                                 <Segmented<ModelCapabilityChoice>
                                     block
+                                    disabled={systemChannel}
                                     options={[{ label: "文本", value: "text" }, { label: "图片", value: "image" }, { label: "视频", value: "video" }, { label: "音频", value: "audio" }]}
                                     value={activeCapability}
                                     onChange={(nextCapability) => {
@@ -165,6 +170,7 @@ export function ChannelModelSettings({ channel, onChange, draft = false }: { cha
                                     capability={activeCapability}
                                     value={activeProtocol}
                                     protocols={availableProtocols}
+                                    disabled={systemChannel}
                                     onChange={(nextProtocol) => updateProfile(activeModel, {
                                         protocol: nextProtocol,
                                         capabilityConfig: activeCapability === "image" || activeCapability === "video" ? defaultModelCapabilityConfig(nextProtocol, activeModel) : undefined,
@@ -178,13 +184,21 @@ export function ChannelModelSettings({ channel, onChange, draft = false }: { cha
                         label: "能力与参数",
                         children: <div inert={Boolean(testingModel)}>
                             {activeCapability === "image" || activeCapability === "video" ? (
-                                <ModelCapabilityEditor
-                                    capability={activeCapability}
-                                    model={activeModel}
-                                    value={activeModelProfile?.capabilityConfig || defaultModelCapabilityConfig(activeProtocol, activeModel)}
-                                    protocol={activeProtocol}
-                                    onChange={(capabilityConfig) => updateProfile(activeModel, { capabilityConfig })}
-                                />
+                                <div className="space-y-2">
+                                    {systemChannel ? (
+                                        <p className="text-xs leading-5 text-foreground/55">系统渠道能力由平台模型目录下发，此处为只读证据展示；调整请联系管理员在后台修改渠道模型能力配置。</p>
+                                    ) : (
+                                        <p className="text-xs leading-5 text-foreground/55">目录下发的默认值仅供参考；此处手工修改是对该模型的显式 override，仅影响本渠道。</p>
+                                    )}
+                                    <ModelCapabilityEditor
+                                        capability={activeCapability}
+                                        model={activeModel}
+                                        value={activeModelProfile?.capabilityConfig || defaultModelCapabilityConfig(activeProtocol, activeModel)}
+                                        protocol={activeProtocol}
+                                        disabled={systemChannel}
+                                        onChange={(capabilityConfig) => updateProfile(activeModel, { capabilityConfig })}
+                                    />
+                                </div>
                             ) : <p className="text-xs text-foreground/50">当前模型类型无需额外配置引用与参数。</p>}
                         </div>,
                     },

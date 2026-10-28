@@ -1,0 +1,39 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · M1 store · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--elev:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:#25262c;--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;right:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+.stage{flex:1;position:relative;min-height:0;padding:18px 18px 0}
+.win{height:calc(100% - 8px);border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:10px;background:var(--elev);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 22px 56px rgba(0,0,0,.55)}
+.title{height:36px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;background:color-mix(in srgb,var(--bg) 70%,var(--elev))}
+.body{flex:1;overflow:auto;padding:20px 22px;background:var(--bg)}
+h1{margin:0 0 4px;font-size:18px} .sub{margin:0 0 16px;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{border:1px solid var(--line);background:var(--elev);border-radius:10px;padding:14px}
+.card h3{margin:0 0 8px;font-size:14px}.card p{margin:0 0 10px;color:var(--muted);font-size:12px;min-height:32px}
+.btn{height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;margin-right:6px}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#f4f6f7;font-weight:600}
+.task{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:1px solid var(--line);background:var(--elev)}
+.start{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:12px;font-weight:650}
+.tb{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-size:12px}
+.tb.active{box-shadow:inset 0 -2px 0 var(--accent)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · M1 store · CTA #4A7FC1</div>
+<div class="shell"><div class="stage"><div class="win">
+<div class="title">应用商店</div>
+<div class="body">
+<h1>应用商店</h1>
+<p class="sub">安装→桌面 / 卸载 / 已安装 · 定名≠工具台≠工作流</p>
+<div class="grid">
+<div class="card"><h3>创作</h3><p>创作台</p><button class="btn p">打开</button><button class="btn">隐藏</button></div>
+<div class="card"><h3>短剧项目</h3><p>短剧列表与工作区</p><button class="btn p">打开</button><button class="btn">隐藏</button></div>
+<div class="card"><h3>插件中心</h3><p>插件管理</p><button class="btn p">安装</button></div>
+<div class="card"><h3>Eagle 素材库</h3><p>Eagle 插件</p><button class="btn p">安装</button></div>
+<div class="card"><h3>工具台</h3><p>产品工具箱（≠ 应用商店）</p><button class="btn p">打开</button><button class="btn">隐藏</button></div>
+<div class="card"><h3>学习看板</h3><p>学习与 KPI</p><button class="btn p">打开</button><button class="btn">卸载</button></div>
+</div></div></div></div>
+<footer class="task"><button class="start">开始</button><button class="tb active">应用商店</button></footer></div>
+</body></html>

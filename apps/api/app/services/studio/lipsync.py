@@ -375,13 +375,22 @@ async def lipsync_video(shot: StudioShot, pool: "WorkerPool") -> str:
 async def lipsync_for_shot(
     session: Session, shot: StudioShot, pool: "WorkerPool | None" = None
 ) -> str:
-    """对口型并回写分镜;状态机:voiced → lipsynced。"""
+    """对口型并回写分镜;状态机:voiced → lipsynced。
+
+    C1a M3:提交前快照合成来源(rendered/voiced 修订指针)——在途用户编辑不归属
+    到本次合成;完成写 final 来源指针 + final_media_status 据此可追踪可 stale。
+    """
     if pool is None:
         from app.deps import get_pool
 
         pool = get_pool()
+    # 提交时快照:完成回写用此刻来源,不记后续编辑
+    final_visual_rev = shot.rendered_revision_id or ""
+    final_voice_rev = shot.voiced_revision_id or ""
     url = await lipsync_video(shot, pool)
     shot.final_clip_url = url
+    shot.final_visual_revision_id = final_visual_rev
+    shot.final_voice_revision_id = final_voice_rev
     shot.status = "lipsynced"
     shot.lipsync_skipped = False
     shot.error = ""
@@ -396,11 +405,16 @@ async def skip_lipsync_for_shot(session: Session, shot: StudioShot) -> str:
 
     Wave P2 IA:须前端二次确认;成片标「未对口型」,仍可进合成(有音轨)。
     前置:已有 video_url + voice_url;image_motion 由路由层拦截。
+    C1a M3:与对口型同一来源快照/归属语义。
     """
     if not (shot.video_url or "").strip():
         raise LipsyncError("分镜尚无视频,无法跳过口型")
     if not (shot.voice_url or "").strip():
         raise LipsyncError("分镜尚无配音,无法跳过口型")
+
+    # 提交时快照(同 lipsync_for_shot)
+    final_visual_rev = shot.rendered_revision_id or ""
+    final_voice_rev = shot.voiced_revision_id or ""
 
     async with httpx.AsyncClient(
         timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
@@ -412,6 +426,8 @@ async def skip_lipsync_for_shot(session: Session, shot: StudioShot) -> str:
     muxed = await mux_voice_into_clip(video_bytes, voice_bytes)
     url = _save_clip(muxed)
     shot.final_clip_url = url
+    shot.final_visual_revision_id = final_visual_rev
+    shot.final_voice_revision_id = final_voice_rev
     shot.status = "lipsynced"
     shot.lipsync_skipped = True
     shot.error = ""

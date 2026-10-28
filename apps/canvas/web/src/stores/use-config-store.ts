@@ -612,9 +612,11 @@ export function channelHasManagedBeefAPICredential(channel: Pick<ModelChannel, "
     return channel.credentialRef === MANAGED_BEEFAPI_CREDENTIAL_REF || channel.hasApiKey === true;
 }
 
-export function channelHasGenerationCredential(channel: Pick<ModelChannel, "id" | "pinned" | "credentialRef" | "hasApiKey" | "apiKey">) {
+export function channelHasGenerationCredential(channel: Pick<ModelChannel, "id" | "pinned" | "credentialRef" | "hasApiKey" | "apiKey" | "scope">) {
     // Local Comfy / H3 / Spark talk LAN workers — no cloud API Key.
     if (isLocalToivChannelId(channel.id)) return true;
+    // 平台系统渠道由后端 /api/ai/system/:channelId 代理，执行凭证在服务端，浏览器侧只存展示配置。
+    if (channel.scope === "system") return true;
     return channelHasManagedBeefAPICredential(channel) || Boolean(channel.apiKey?.trim());
 }
 

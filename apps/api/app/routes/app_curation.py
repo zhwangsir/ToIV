@@ -21,7 +21,6 @@ from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.services import apps_list_cache
 from app.models import App, User
-from app.redline import nsfw_allowed
 from app.routes.apps import _visible
 from app.services.app_use_case_gen import classify_use_case, save_use_case
 from app.services.use_cases import USE_CASE_IDS, USE_CASES
@@ -104,16 +103,13 @@ def use_cases_summary(
     """各用途分类的可见应用计数(导航位数据源)。
 
     可见性口径与 GET /api/apps 列表一致:_visible(目录尊重 is_public;个人=本人
-    或上架;admin 可见 soft-hide)+ NSFW 门控(无 X-NSFW 头不计 nsfw 应用)。
+    或上架;admin 可见 soft-hide)。P0-5 R4:不再因 is_nsfw 不计。
     12 类全量返回(count 可为 0),顺序 = 导航展示顺序。
     """
-    allow_nsfw = nsfw_allowed(user)
     counts: dict[str, int] = {uc: 0 for uc, _ in USE_CASES}
     # 行数不大(550 级),按列表口径逐行过滤
     for a in session.exec(select(App)).all():
         if not _visible(a, user):
-            continue
-        if a.is_nsfw and not allow_nsfw:
             continue
         uc = (a.use_case or "").strip()
         if uc in counts:

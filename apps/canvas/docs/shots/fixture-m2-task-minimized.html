@@ -1,0 +1,65 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · M2 task-minimized · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--elev:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:#25262c;--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;right:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{height:100vh;display:flex;flex-direction:column;background:radial-gradient(900px 500px at 90% 110%,rgba(255,255,255,.03),transparent 50%),radial-gradient(1200px 600px at 10% -10%,rgba(74,127,193,.08),transparent 55%),var(--bg)}
+.stage{flex:1;position:relative;min-height:0}
+.icons{position:absolute;left:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:1}
+.icon{width:72px;text-align:center;font-size:11px;color:var(--text)}
+.glyph{width:40px;height:40px;margin:0 auto 6px;border-radius:10px;border:1px solid var(--line);background:var(--elev)}
+.win{position:absolute;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:10px;background:var(--elev);display:grid;grid-template-rows:36px 1fr;overflow:hidden;box-shadow:0 22px 56px rgba(0,0,0,.55),0 0 0 1px rgba(74,127,193,.18);z-index:2}
+.title{display:flex;align-items:center;padding:0 10px 0 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;background:color-mix(in srgb,var(--bg) 70%,var(--elev))}
+.title .sp{flex:1}.ctl{display:flex;gap:4px}
+.ctl i{width:28px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);display:inline-block}
+.body{display:grid;grid-template-columns:250px 1fr;min-height:0;background:var(--bg)}
+.side{border-right:1px solid var(--line);padding:10px;background:var(--bg)}
+.nav a{display:block;min-height:34px;line-height:34px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.on{color:var(--text);background:rgba(255,255,255,.08);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line)}
+.pill{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;color:var(--muted);font-size:12px}
+.btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#f4f6f7;font-size:12px;font-weight:600;margin-left:auto}
+.content{padding:14px;color:var(--muted);font-size:12px;line-height:1.6}
+.task{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:1px solid var(--line);background:var(--elev);z-index:5}
+.start{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:12px;font-weight:650;color:var(--text)}
+.tb{height:34px;padding:0 10px;border-radius:8px;border:1px solid transparent;background:transparent;font-size:12px;color:var(--muted)}
+.tb.open{background:rgba(255,255,255,.06);border-color:var(--line);color:var(--text)}
+.tb.active{box-shadow:inset 0 -2px 0 var(--accent);color:var(--text)}
+.tb.min{opacity:.7}
+.ghost{position:absolute;left:120px;top:72px;width:720px;height:420px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:12px;background:rgba(20,21,26,.55);z-index:2}
+.store{position:absolute;left:80px;top:36px;width:1040px;height:620px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:10px;background:var(--elev);display:grid;grid-template-rows:36px 1fr;overflow:hidden;box-shadow:0 22px 56px rgba(0,0,0,.55);z-index:2}
+.store-body{padding:18px 20px;overflow:auto;background:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{border:1px solid var(--line);background:var(--elev);border-radius:10px;padding:14px}
+.card h3{margin:0 0 6px;font-size:14px}.card p{margin:0 0 10px;font-size:12px;color:var(--muted);min-height:32px}
+.actions{display:flex;gap:8px}
+.actions button{height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px}
+.actions button.primary{background:var(--accent);border-color:var(--accent);color:#f4f6f7;font-weight:600}
+.actions button.danger{border-color:#B85C5C;color:#B85C5C}
+.gone{opacity:.35;text-decoration:line-through}
+.note{margin-top:14px;font-size:11px;color:var(--muted)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · M2 task-minimized · 创作前台 + 任务最小化</div>
+<div class="shell"><div class="stage">
+<div class="icons">
+  <div class="icon"><div class="glyph"></div>创作</div>
+  <div class="icon"><div class="glyph"></div>任务中心</div>
+</div>
+<div class="win" style="left:88px;top:32px;width:1000px;height:600px">
+<div class="title"><span>创作</span><span class="sp"></span><span class="ctl"><i></i><i></i><i></i></span></div>
+<div class="body">
+<aside class="side"><nav class="nav"><a class="on" href="#">创作</a><a href="#">任务中心</a><a href="#">设置</a></nav></aside>
+<div class="main"><header class="top"><span class="pill">工作台</span><button class="btn">继续</button></header>
+<div class="content">前台：创作窗 · 任务中心已最小化（任务栏 <em>min</em>）· 点任务栏可还原 · URL 随聚焦窗切换</div></div>
+</div></div>
+<!-- minimized indicator only in taskbar; no second live chrome -->
+</div>
+<footer class="task"><button class="start">开始</button>
+<button class="tb open active">创作</button>
+<button class="tb open min">任务中心</button>
+<button class="tb">工具台</button>
+</footer></div>
+</body></html>

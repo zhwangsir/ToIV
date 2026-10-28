@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN" class="dark"><head><meta charset=utf-8>
+<title>FIXTURE · A3v2 Landing · 非现网硬刷</title>
+<style>
+:root {
+  --toiv-bg: #0a0c12; --toiv-surface: #15161d; --toiv-surface-raised: #1b1c23;
+  --toiv-surface-panel: #13141b; --toiv-border: #22232c; --toiv-border-strong: #2f3036;
+  --toiv-text: #e8eaf0; --toiv-text-secondary: #b4b8c4; --toiv-text-muted: #9298a6;
+  --toiv-accent: #5ba0ff; --toiv-accent-hover: #7ab4ff;
+  --toiv-accent-soft: rgba(91, 160, 255, 0.16);
+  --toiv-danger: #ea4335; --toiv-danger-soft: rgba(234, 67, 53, 0.14);
+}
+html, body { margin: 0; background: #0a0c12; font-family: system-ui, -apple-system, sans-serif; }
+.btn { appearance: none; font: inherit; }
+.fixture-badge {
+  position: fixed; top: 10px; left: 10px; z-index: 9999;
+  font: 600 10px/1.2 ui-monospace, Menlo, monospace;
+  letter-spacing: 0.04em; color: #0a0c12; background: #5ba0ff;
+  padding: 5px 8px; border-radius: 4px;
+}
+/* ════════════════════════════════════════════════════════════════════
+   登录落地页 — A3v2 密台门（非 AI SaaS 海报）
+   左：品牌+能力索引；右：登录卡。全部色值仅在 .landing；主焦点 #5ba0ff。
+   ════════════════════════════════════════════════════════════════════ */
+
+.landing {
+  --bg-canvas: var(--toiv-bg, #0a0c12);
+  --bg-surface-1: var(--toiv-surface, #15161d);
+  --bg-surface-2: var(--toiv-surface-raised, #1b1c23);
+  --bg-surface-3: var(--toiv-surface-panel, #13141b);
+  --border-subtle: var(--toiv-border, #22232c);
+  --border-strong: var(--toiv-border-strong, #2f3036);
+  --text-primary: var(--toiv-text, #e8eaf0);
+  --text-secondary: var(--toiv-text-secondary, #b4b8c4);
+  --text-muted: var(--toiv-text-muted, #9298a6);
+  --accent: var(--toiv-accent, #5ba0ff);
+  --accent-hover: var(--toiv-accent-hover, #7ab4ff);
+  --accent-soft: var(--toiv-accent-soft, rgba(91, 160, 255, 0.16));
+  --text-on-accent: #0a0c12;
+  --err: var(--toiv-danger, #ea4335);
+  --err-soft: var(--toiv-danger-soft, rgba(234, 67, 53, 0.14));
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 左：密台索引 ── */
+.landing-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: 48px 40px;
+  background: var(--bg-surface-1);
+  border-right: 1px solid var(--border-subtle);
+}
+.landing-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.landing-logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.landing-logo-text {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.landing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.landing-eyebrow-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.landing-slogan {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+.landing-brand-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 340px;
+}
+.landing-keywords {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+.landing-keyword {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.landing-keyword:hover {
+  background: transparent;
+}
+.landing-keyword-index {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+}
+.landing-keyword-label {
+  font-size: 13px;
+  font-weight: 560;
+  font-style: normal;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.landing-keyword-desc {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  text-align: right;
+  max-width: 52%;
+}
+
+/* ── 右：实体登录卡（非玻璃） ── */
+.landing-auth {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-canvas);
+}
+.landing-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 28px 24px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: none;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.landing-card-brand {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.landing-card-head {
+  margin-bottom: 20px;
+}
+.landing-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+.landing-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.landing-form .landing-submit {
+  display: flex;
+  width: 100%;
+  margin-top: 8px;
+}
+.landing-form .landing-submit .ui-ripple {
+  display: flex;
+  flex: 1;
+}
+.landing-form .btn-primary {
+  flex: 1;
+  width: 100%;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text-on-accent);
+  box-shadow: none;
+  cursor: pointer;
+}
+.landing-form .btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: none;
+}
+.landing-form .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.landing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.landing-field .input {
+  height: 40px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  caret-color: var(--accent);
+  font: inherit;
+  outline: none;
+}
+.landing-field .input::placeholder {
+  color: #6f7079;
+}
+.landing-field .input:hover {
+  border-color: var(--border-strong);
+}
+.landing-field .input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(91, 160, 255, 0.18);
+}
+.landing-field .input[aria-invalid="true"] {
+  border-color: var(--err);
+}
+.landing-field-error {
+  font-size: 12px;
+  color: var(--err);
+  line-height: 1.4;
+}
+.landing-error {
+  padding: 8px 12px;
+  background: var(--err-soft);
+  border: 1px solid var(--err);
+  border-radius: 8px;
+  color: var(--err);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.landing-hint {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.landing-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  background: var(--bg-surface-3);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+@media (max-width: 1023px) {
+  .landing {
+    grid-template-columns: 1fr;
+    place-items: center;
+    padding: 16px;
+  }
+  .landing-brand {
+    display: none;
+  }
+  .landing-auth {
+    padding: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .landing-card-brand {
+    display: flex;
+  }
+}
+
+@media (max-width: 767px) {
+  .landing-card {
+    padding: 24px 20px;
+  }
+  .landing-card-brand {
+    margin-bottom: 12px;
+  }
+}
+</style></head>
+<body>
+<div class="fixture-badge">FIXTURE · 非现网硬刷 · A3v2 /?view=home</div>
+<div class="landing" data-landing-shell="dramaclaw-dark">
+  <section class="landing-brand">
+    <div class="landing-logo"><span class="landing-logo-dot"></span><span class="landing-logo-text">ToIV</span></div>
+    <div class="landing-hero">
+      <div class="landing-eyebrow"><span class="landing-eyebrow-dot"></span>短剧工作台</div>
+      <h1 class="landing-slogan">进入工作室</h1>
+      <p class="landing-brand-desc">登录后进入密台：短剧项目、分镜与成片轨。</p>
+    </div>
+    <ul class="landing-keywords">
+      <li class="landing-keyword"><span class="landing-keyword-index">01</span><span class="landing-keyword-label">分镜台</span><span class="landing-keyword-desc">剧本拆镜 · 镜头表</span></li>
+      <li class="landing-keyword"><span class="landing-keyword-index">02</span><span class="landing-keyword-label">成片轨</span><span class="landing-keyword-desc">预览时间线 · 导出</span></li>
+      <li class="landing-keyword"><span class="landing-keyword-index">03</span><span class="landing-keyword-label">素材池</span><span class="landing-keyword-desc">镜头 / 音频 / 参考</span></li>
+    </ul>
+  </section>
+  <section class="landing-auth">
+    <div class="landing-card">
+      <div class="landing-card-head">
+        <h2 class="landing-title">登录</h2>
+        <p class="landing-subtitle">账号登录 · 进入短剧工作台</p>
+      </div>
+      <form class="landing-form" onsubmit="return false">
+        <div class="landing-field"><input class="input" type="email" placeholder="邮箱"></div>
+        <div class="landing-field"><input class="input" type="password" placeholder="密码"></div>
+        <div class="landing-submit"><button type="submit" class="btn btn-primary">进入工作室</button></div>
+      </form>
+    </div>
+  </section>
+</div>
+</body></html>

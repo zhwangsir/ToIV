@@ -1,10 +1,13 @@
-/* Creation studio three-pane — R3/R4 TL nail; --toiv-create-* / --toiv-shot-* */
+/* Creation studio three-pane — R3/R4 + B2 BeefTV dense surface (2026-10-28)
+   Geometry: --toiv-create-* retained. Surface/toolbar/Inspector = BeefTV desk.
+   Nodes: DramaClaw numeric only (see --toiv-node-*). No second colorful shell. */
 
 .toiv-create-studio {
   --toiv-create-inspector-w-current: var(--toiv-create-right-default, 320px);
+  position: relative;
   display: grid;
   grid-template-columns:
-    var(--toiv-create-left-default, 280px)
+    var(--toiv-create-left-default, 240px)
     var(--toiv-create-splitter-hit, 8px)
     minmax(0, 1fr)
     var(--toiv-create-splitter-hit, 8px)
@@ -14,8 +17,8 @@
   flex: 1 1 auto;
   height: 100%;
   min-width: 0;
-  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
-  border-top: 1px solid var(--toiv-create-divider, var(--toiv-border, #22232c));
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0b0c0f));
+  border-top: 1px solid var(--toiv-create-divider, var(--toiv-border, rgba(255, 255, 255, 0.10)));
   transition: grid-template-columns var(--toiv-create-dur-collapse, 200ms) var(--toiv-create-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
@@ -23,13 +26,44 @@
 .toiv-create-studio.is-shot-selected {
   --toiv-create-inspector-w-current: min(var(--toiv-shot-detail-w, 420px), var(--toiv-shot-detail-w-max, 480px));
 }
+.toiv-create-studio.is-inspector-hidden {
+  grid-template-columns:
+    var(--toiv-create-left-default, 240px)
+    var(--toiv-create-splitter-hit, 8px)
+    minmax(0, 1fr);
+}
+.toiv-create-inspector-toggle {
+  position: absolute;
+  z-index: var(--toiv-z-pane, 30);
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--toiv-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--toiv-surface) 92%, transparent);
+  color: var(--toiv-text-muted);
+  cursor: pointer;
+}
+.toiv-create-inspector-toggle:hover,
+.toiv-create-inspector-toggle:focus-visible {
+  border-color: var(--toiv-accent);
+  color: var(--toiv-text);
+  outline: none;
+}
+.toiv-create-inspector-toggle svg {
+  width: 14px;
+  height: 14px;
+}
 
 .toiv-create-rail,
 .toiv-create-inspector {
   min-height: 0;
   overflow: auto;
-  background: var(--toiv-create-panel-bg, var(--toiv-surface, #15161d));
-  color: var(--toiv-text, #e8eaf0);
+  background: var(--toiv-create-panel-bg, var(--toiv-surface, #14151a));
+  color: var(--toiv-text, #f4f6f7);
 }
 
 .toiv-create-splitter {
@@ -47,7 +81,7 @@
   left: 50%;
   width: var(--toiv-create-splitter-visual, 1px);
   transform: translateX(-50%);
-  background: var(--toiv-create-divider, var(--toiv-border, #22232c));
+  background: var(--toiv-create-divider, var(--toiv-border, rgba(255, 255, 255, 0.10)));
   pointer-events: none;
 }
 .toiv-create-splitter:hover {
@@ -55,7 +89,7 @@
 }
 .toiv-create-splitter:hover::before,
 .toiv-create-splitter:active::before {
-  background: var(--toiv-create-splitter-active, rgb(91 160 255 / 0.45));
+  background: var(--toiv-create-splitter-active, rgb(74 127 193 / 0.45));
 }
 
 .toiv-create-stage {
@@ -65,7 +99,7 @@
   display: flex;
   flex-direction: column;
   padding: 0; /* canvas gutter 0 — inset lives inside stage children */
-  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0a0c12));
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0b0c0f));
 }
 
 .toiv-create-stage > * {
@@ -93,9 +127,12 @@
 .toiv-create-rail-head,
 .toiv-create-inspector-head {
   display: flex;
-  align-items: baseline;
+  min-height: 32px;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--toiv-create-divider, var(--toiv-border));
 }
 
 .toiv-create-rail-title,
@@ -111,7 +148,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-create-rail-block {
@@ -128,8 +165,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--toiv-radius-card, 12px);
+  padding: 8px;
+  border-radius: var(--toiv-radius-badge, 8px);
   border: 1px solid transparent;
   color: inherit;
   text-decoration: none;
@@ -140,7 +177,7 @@
   height: 14px;
   margin-top: 2px;
   flex: none;
-  color: var(--toiv-accent-cyan, #00bdcf);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 .toiv-create-rail-link span {
   display: flex;
@@ -155,12 +192,17 @@
 .toiv-create-rail-link em {
   font-style: normal;
   font-size: 11px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 .toiv-create-rail-link:hover,
 .toiv-create-rail-link.is-primary {
   border-color: var(--toiv-create-panel-border, var(--toiv-border));
-  background: color-mix(in srgb, var(--toiv-surface-raised, #1b1c23) 80%, transparent);
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1a1b21) 80%, transparent);
+  /* B2: nav active = gray desk (BeefTV); accent reserved for single primary CTA */
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--toiv-text) 45%, transparent);
+}
+.toiv-create-rail-link.is-primary svg {
+  color: var(--toiv-text, #f4f6f7);
 }
 
 .toiv-create-rail-footnote,
@@ -169,18 +211,19 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-create-inspector-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px;
-  border-radius: var(--toiv-radius-card, 12px);
-  border: 1px solid var(--toiv-create-panel-border, var(--toiv-border));
-  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
-  box-shadow: var(--toiv-shadow-inner-glow, none);
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--toiv-create-panel-border, var(--toiv-border));
+  background: transparent;
+}
+.toiv-create-inspector-section:last-child {
+  border-bottom: 0;
 }
 
 .toiv-create-inspector-section-title {
@@ -189,7 +232,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: none;
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
 }
 
 .toiv-create-inspector-list {
@@ -209,7 +252,7 @@
 .toiv-create-inspector-list em {
   font-style: normal;
   font-size: 11px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 /* create-mode tabs: no NSFW glow */
@@ -239,6 +282,17 @@
   border-radius: var(--toiv-create-mode-radius-item, 12px);
   background: var(--toiv-create-mode-item-active-bg);
   box-shadow: none;
+}
+
+@media (max-width: 1400px) {
+  .toiv-create-studio {
+    grid-template-columns:
+      var(--toiv-create-left-min, 200px)
+      var(--toiv-create-splitter-hit, 8px)
+      minmax(0, 1fr)
+      var(--toiv-create-splitter-hit, 8px)
+      var(--toiv-create-right-min, 280px);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -289,7 +343,7 @@
 }
 .toiv-script-stage-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
 .toiv-script-stage-title { margin: 0; font-size: 15px; font-weight: 600; }
-.toiv-script-stage-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #6f7079); }
+.toiv-script-stage-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #8b8e98); }
 .toiv-script-stage-editor {
   flex: 1 1 auto;
   min-height: 180px;
@@ -303,9 +357,9 @@
   width: 100%;
   resize: vertical;
   border-radius: var(--toiv-radius-card, 12px);
-  border: 1px solid var(--toiv-border, #22232c);
-  background: color-mix(in srgb, var(--toiv-surface, #15161d) 92%, transparent);
-  color: var(--toiv-text, #e8eaf0);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: color-mix(in srgb, var(--toiv-surface, #14151a) 92%, transparent);
+  color: var(--toiv-text, #f4f6f7);
   padding: 12px 14px;
   font-size: 14px;
   line-height: 1.6;
@@ -313,21 +367,21 @@
 }
 .toiv-script-stage-editor textarea:focus,
 .toiv-script-stage .toiv-script-editor:focus {
-  border-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 55%, var(--toiv-border));
-  box-shadow: var(--toiv-focus-ring, 0 0 0 3px rgb(91 160 255 / 0.12));
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 55%, var(--toiv-border));
+  box-shadow: var(--toiv-focus-ring, 0 0 0 3px rgb(74 127 193 / 0.12));
 }
 .toiv-script-stage-status,
 .toiv-script-stage-result {
   font-size: 12px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 .toiv-script-stage-result {
   padding: 10px 12px;
   border-radius: var(--toiv-radius-card, 12px);
-  border: 1px solid var(--toiv-border, #22232c);
-  background: var(--toiv-surface, #15161d);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: var(--toiv-surface, #14151a);
   box-shadow: var(--toiv-shadow-inner-glow, none);
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
 }
 
 
@@ -338,35 +392,23 @@
   gap: var(--toiv-create-section-gap, 12px);
   min-height: 0;
   padding: var(--toiv-shot-grid-pad, 24px) var(--toiv-create-canvas-inset, 12px);
+  color: var(--toiv-text);
 }
 .toiv-storyboard-flow-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
 .toiv-storyboard-flow-title { margin: 0; font-size: 15px; font-weight: 600; }
-.toiv-storyboard-flow-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #6f7079); }
+.toiv-storyboard-flow-meta { margin: 0; font-size: 11px; color: var(--toiv-text-muted, #8b8e98); }
 .toiv-storyboard-flow-error {
   margin: 0;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid var(--toiv-border);
-  color: var(--toiv-danger, #ea4335);
+  color: var(--toiv-danger, #B85C5C);
   font-size: 12px;
 }
 .toiv-storyboard-flow-grid {
   display: grid;
-  grid-template-columns: repeat(var(--toiv-shot-grid-cols-default, 4), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: var(--toiv-shot-grid-gap, 16px);
-}
-.toiv-create-studio.is-shot-selected .toiv-storyboard-flow-grid {
-  grid-template-columns: repeat(var(--toiv-shot-grid-cols-compact, 2), minmax(0, 1fr));
-}
-@media (min-width: 1440px) {
-  .toiv-create-studio:not(.is-shot-selected) .toiv-storyboard-flow-grid {
-    grid-template-columns: repeat(var(--toiv-shot-grid-cols-max, 5), minmax(0, 1fr));
-  }
-}
-@media (max-width: 1100px) {
-  .toiv-storyboard-flow-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 .toiv-storyboard-card {
   display: flex;
@@ -384,11 +426,16 @@
     border-color var(--toiv-shot-dur, 150ms) var(--toiv-shot-ease, cubic-bezier(0.22, 1, 0.36, 1)),
     box-shadow var(--toiv-shot-dur, 150ms) var(--toiv-shot-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
+.toiv-storyboard-card:hover {
+  border-color: var(--toiv-border-strong);
+}
+.toiv-storyboard-card:focus-visible {
+  outline: 2px solid var(--toiv-accent);
+  outline-offset: 2px;
+}
 .toiv-storyboard-card.is-selected {
   border: var(--toiv-shot-card-border-active, 1px solid var(--toiv-accent));
-  box-shadow: var(--toiv-switch-ring-nsfw, 0 0 0 1px rgb(91 160 255 / 0.45));
-  /* use accent ring — not NSFW glow color; adult geometry unchanged */
-  box-shadow: 0 0 0 1px rgb(91 160 255 / 0.45);
+  box-shadow: 0 0 0 1px rgb(74 127 193 / 0.45);
 }
 .toiv-storyboard-card-phase {
   height: 22px;
@@ -398,16 +445,16 @@
   font-size: var(--toiv-shot-meta-fs, 10px);
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--toiv-text-muted, #6f7079);
-  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 70%, transparent);
-  border-bottom: 1px solid var(--toiv-border, #22232c);
+  color: var(--toiv-text-muted, #8b8e98);
+  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 70%, transparent);
+  border-bottom: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
 }
 .toiv-storyboard-card-phase.is-done,
-.toiv-storyboard-card-phase.is-rendered { color: var(--toiv-ok, #51bf6f); }
+.toiv-storyboard-card-phase.is-rendered { color: var(--toiv-ok, #3D8B6E); }
 .toiv-storyboard-card-phase.is-generating,
-.toiv-storyboard-card-phase.is-audio { color: var(--toiv-warn, #efa831); }
-.toiv-storyboard-card-phase.is-failed { color: var(--toiv-danger, #ea4335); }
-.toiv-storyboard-card-phase.is-pending { color: var(--toiv-accent-cyan, #00bdcf); }
+.toiv-storyboard-card-phase.is-audio { color: var(--toiv-warn, #C4A35A); }
+.toiv-storyboard-card-phase.is-failed { color: var(--toiv-danger, #B85C5C); }
+.toiv-storyboard-card-phase.is-pending { color: var(--toiv-text-muted, #8b8e98); }
 .toiv-storyboard-card-body { display: flex; flex-direction: column; gap: 0; }
 .toiv-storyboard-card-top {
   display: flex;
@@ -429,7 +476,7 @@
   width: 100%;
   aspect-ratio: var(--toiv-shot-media-aspect, 16 / 9);
   background: var(--toiv-surface-field, #0d0e14);
-  border-block: 1px solid var(--toiv-border, #22232c);
+  border-block: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
   overflow: hidden;
 }
 .toiv-storyboard-card-media > img.toiv-storyboard-card-main,
@@ -441,7 +488,7 @@
 }
 .toiv-storyboard-card-media.is-empty {
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--toiv-accent, #5ba0ff) 12%, transparent), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--toiv-accent, #4A7FC1) 12%, transparent), transparent 55%),
     var(--toiv-surface-field, #0d0e14);
 }
 /* Dual-track default PiP: sketch 2:3 over finished 16:9 — not tabs */
@@ -454,7 +501,7 @@
   border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--toiv-border) 80%, var(--toiv-text) 20%);
   overflow: hidden;
-  background: var(--toiv-bg, #0a0c12);
+  background: var(--toiv-bg, #0b0c0f);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 .toiv-storyboard-card-pip img {
@@ -479,11 +526,30 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.toiv-storyboard-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.toiv-storyboard-card-tags > span {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--toiv-border);
+  border-radius: 6px;
+  color: var(--toiv-text-secondary);
+  background: color-mix(in srgb, var(--toiv-surface-raised) 72%, transparent);
+  font-size: var(--toiv-shot-meta-fs, 10px);
+  line-height: 1.3;
+}
 .toiv-storyboard-card-dialogue {
   margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid color-mix(in srgb, var(--toiv-accent) 36%, transparent);
   font-size: var(--toiv-shot-card-footer-fs, 12px);
   line-height: 1.45;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   display: -webkit-box;
   -webkit-line-clamp: var(--toiv-shot-card-footer-lines, 2);
   -webkit-box-orient: vertical;
@@ -494,7 +560,7 @@
   justify-content: space-between;
   gap: 8px;
   font-size: var(--toiv-shot-meta-fs, 10px);
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   font-variant-numeric: tabular-nums;
 }
 .toiv-storyboard-card-actions {
@@ -532,7 +598,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 .toiv-create-inspector-form select,
 .toiv-create-inspector-form textarea {
@@ -552,4 +618,127 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+
+/* A4: no idle color bloom on chrome; keep focus/selected rings only */
+.toiv-create-shell .toiv-soft-glow::before { display: none !important; content: none !important; }
+.toiv-create-mode-tab:not([aria-selected="true"]):not(.is-active) {
+  box-shadow: none;
+}
+.toiv-create-inspector {
+  backdrop-filter: none;
+}
+
+
+/* ── B2 BeefTV dense Inspector / toolbar hierarchy ── */
+.toiv-creation-workbench {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--toiv-bg, #0b0c0f);
+}
+
+.toiv-create-inspector-inner {
+  gap: 10px;
+}
+
+.toiv-create-inspector-section {
+  padding: 6px 0 10px;
+  gap: 6px;
+}
+
+.toiv-create-inspector-section-title {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--toiv-text-muted, #8b8e98);
+  font-weight: 700;
+}
+
+/* Single primary CTA weight inside Inspector slot forms */
+.toiv-create-inspector .ant-btn-primary,
+.toiv-create-inspector button.toiv-bible-btn.is-primary,
+.toiv-create-inspector [data-testid="creation-studio-inspector-slot"] .ant-btn-primary {
+  background: var(--toiv-accent, #4A7FC1) !important;
+  border-color: var(--toiv-accent, #4A7FC1) !important;
+  color: var(--toiv-text-on-accent, #f4f6f7) !important;
+  box-shadow: none !important;
+}
+
+.toiv-create-inspector .ant-btn-default,
+.toiv-create-inspector .ant-btn-text,
+.toiv-create-inspector button.toiv-bible-btn:not(.is-primary) {
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+/* Stage toolbar strip when drama/create injects one */
+.toiv-create-stage .creation-thread-toolbar,
+.toiv-create-stage .toiv-ws-creation-dock,
+.toiv-create-stage [data-testid="creation-stage-toolbar"] {
+  min-height: 40px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--toiv-create-divider, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-surface, #14151a) 92%, transparent);
+  gap: 8px;
+}
+
+.toiv-create-stage .creation-toolbar-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--toiv-text-muted, #8b8e98);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.toiv-create-stage .creation-toolbar-action:hover,
+.toiv-create-stage .creation-toolbar-action:focus-visible {
+  color: var(--toiv-text, #f4f6f7);
+  border-color: var(--toiv-border);
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1a1b21) 70%, transparent);
+  outline: none;
+}
+
+
+/* ── BF1 · short-drama hosted in three-pane: BeefTV dense, no Toonflow chrome ── */
+.toiv-create-stage .toiv-drama-workspace.is-hosted,
+.toiv-create-stage .toiv-drama-workspace {
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0b0c0f));
+  color: var(--toiv-text, #f4f6f7);
+}
+
+.toiv-create-stage .toiv-drama-workspace.is-hosted {
+  /* neutralize nested WorkspacePage scroll chrome when hosted */
+  overflow: auto;
+}
+
+.toiv-create-stage .toiv-drama-workspace .mx-auto.max-w-7xl,
+.toiv-create-stage .toiv-drama-workspace [data-surface="beeftv-drama"] {
+  max-width: none;
+  padding: var(--toiv-create-canvas-inset, 12px);
+  gap: 10px;
+}
+
+.toiv-create-stage .toiv-drama-workspace h1 {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toiv-create-stage .toiv-drama-workspace .ant-btn-primary,
+.toiv-create-stage .toiv-drama-workspace button[data-variant="primary"],
+.toiv-create-stage .toiv-drama-workspace [data-testid="crew-one-click-btn"].ant-btn-primary {
+  background: var(--toiv-accent, #4A7FC1) !important;
+  border-color: var(--toiv-accent, #4A7FC1) !important;
+  color: var(--toiv-text-on-accent, #f4f6f7) !important;
+  box-shadow: none !important;
+}
+
+/* Ban residual marketing / neon gradients inside hosted drama */
+.toiv-create-stage .toiv-drama-workspace [class*="gradient"],
+.toiv-create-stage .toiv-drama-workspace .toiv-soft-glow::before {
+  background-image: none !important;
 }

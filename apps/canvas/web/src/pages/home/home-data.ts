@@ -26,7 +26,7 @@ import {
 
 import { HOME_INTENT_ENTRIES, type HomeIntentMarketLink } from "@/services/toiv/local-capability-surface";
 
-/** 首页核心模块卡（画布 / ToIV 路由）；意图 keepers 另见 homeIntentBarItems。 */
+/** BF0 capability 单行：画布/视频/图片/音频 + ToIV 短剧/创作台/工具箱/作品库/任务。意图墙不得铺首页。 */
 export const beefTVCapabilityItems = [
     { id: "canvas", label: "自由画布", detail: "组织镜头与素材", to: "/canvas?mode=new", icon: Layers3, disabled: false, external: false },
     { id: "video", label: "视频生成", detail: "在画布中创建视频节点", to: "/canvas?mode=new&add=video", icon: Video, disabled: false, external: false },
@@ -69,7 +69,7 @@ const INTENT_ICONS: Record<string, LucideIcon> = {
 
 export type HomeIntentBarItem = HomeIntentMarketLink & { icon: LucideIcon };
 
-/** 首页意图条：完整 keepers → `/toiv/market?app=`（与 intentMap / HOME_INTENT_ENTRIES 对齐）。 */
+/** 意图条 export：BF1 挂工具台 ToolsIntentGrid；BF0 首页禁止整墙铺 homeIntentBarItems。 */
 export const homeIntentBarItems: readonly HomeIntentBarItem[] = HOME_INTENT_ENTRIES.map((entry) => ({
     ...entry,
     icon: INTENT_ICONS[entry.id] ?? Store,

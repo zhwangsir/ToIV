@@ -1,5 +1,5 @@
 import { Button, Dropdown, Tooltip } from "antd";
-import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight, LoaderCircle, PanelRight, AppWindow } from "lucide-react";
+import { History, MessageSquarePlus, X, Clapperboard, ArrowUpRight, LoaderCircle } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { AppDrawer } from "@/components/ui/product/app-drawer";
@@ -92,18 +92,7 @@ export function CanvasAssistantSidebar(props: Props) {
                 <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items: sessionItems, selectedKeys: assistant.sessionId ? [assistant.sessionId] : [] }}>
                     <Button type="text" size="small" aria-label="历史对话" disabled={assistant.streaming || assistant.sessionBusy} icon={<History className="size-4" />} />
                 </Dropdown>
-                {dockable && assistant.setPresentation ? (
-                    <Tooltip title={assistant.presentation === "dock" ? "切换为悬浮（Toonflow）" : "停靠到右侧"}>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="canvas-assistant-presentation-toggle"
-                            aria-label={assistant.presentation === "dock" ? "切换为悬浮" : "停靠到右侧"}
-                            icon={assistant.presentation === "dock" ? <AppWindow className="size-4" /> : <PanelRight className="size-4" />}
-                            onClick={() => assistant.setPresentation(assistant.presentation === "dock" ? "float" : "dock")}
-                        />
-                    </Tooltip>
-                ) : null}
+                {/* B1 BeefTV primary: Toonflow float kicked from default chrome — dock only */}
                 <Tooltip title="关闭助手">
                     <Button type="text" size="small" aria-label="关闭助手" icon={<X className="size-4" />} onClick={() => assistant.setOpen(false)} />
                 </Tooltip>

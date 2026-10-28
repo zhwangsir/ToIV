@@ -6,12 +6,17 @@ import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:
  */
 
 const requests: Array<{ url: string; method: string; body: string }> = [];
+const uiSessionBodies: Record<string, unknown>[] = [];
+const uiSessionHeaders: Record<string, string>[] = [];
 let chatResponse: (() => Response | Promise<Response>) | null = null;
 let sessionResponse: (() => Response) | null = null;
 
 mock.module("@/services/api/request", () => ({
 	apiBaseURL: "http://127.0.0.1:54321/api",
-    withToivAuth: (h?: Record<string, string>) => ({ ...(h || {}) }),
+	withToivAuth: (h?: Record<string, string>) => {
+		const token = typeof window !== "undefined" ? window.localStorage?.getItem("toiv_token") : null;
+		return { ...(h || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+	},
     ApiError: class ApiError extends Error {
         status?: number;
         reason?: string;
@@ -23,7 +28,9 @@ mock.module("@/services/api/request", () => ({
     },
     http: {
         get: async () => ({ available: true }),
-        post: async () => {
+        post: async (_path: string, body: Record<string, unknown>, config?: { headers?: Record<string, string> }) => {
+            uiSessionBodies.push(body);
+            uiSessionHeaders.push(config?.headers ?? {});
             const response = sessionResponse ? sessionResponse() : new Response(JSON.stringify({ code: 0, data: { token: "ui-token" } }), { status: 200, headers: { "Content-Type": "application/json" } });
             if (!response.ok) throw new (class extends Error { status = response.status; })("session failed");
             const payload = await response.json();
@@ -74,6 +81,7 @@ let cancelResponse: () => Response = () => new Response(JSON.stringify({ code: 0
 
 beforeEach(() => {
     requests.length = 0;
+    uiSessionBodies.length = 0;
     chatResponse = null;
     sessionResponse = null;
     cancelResponse = () => new Response(JSON.stringify({ code: 0, accepted: true }), { status: 202 });
@@ -325,6 +333,39 @@ describe("创作助手回合流边界", () => {
         await streamAgentChat("c1", "hi", {});
         const plain = requests.find((item) => item.url.includes("/assistant/chat"));
         expect(JSON.parse(plain!.body)).toEqual({ canvasId: "c1", message: "hi", selectedNodeIds: [] });
+    });
+
+    test("UI 会话只在已有 ToIV 凭据时委托，且不进入聊天请求体", async () => {
+        const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+        const values = new Map<string, string>();
+        Object.defineProperty(globalThis, "window", {
+            configurable: true,
+            value: {
+                localStorage: {
+                    getItem: (key: string) => values.get(key) ?? null,
+                    setItem: (key: string, value: string) => values.set(key, value),
+                    removeItem: (key: string) => values.delete(key),
+                },
+            },
+        });
+        try {
+            chatResponse = () => chatResponseOf([`${TURN_END}\n`]);
+            await ensureAgentUiSession();
+            expect(uiSessionBodies.at(-1)).toEqual({});
+            expect(uiSessionHeaders.at(-1)).toEqual({});
+
+            window.localStorage.setItem("toiv_token", "synthetic-delegated-token");
+            resetAgentUiSession();
+            await streamAgentChat("c1", "hi", {});
+            // 委托只能走 Authorization Bearer；token 既不能进签发请求体，也不能进聊天请求体。
+            expect(uiSessionBodies.at(-1)).toEqual({});
+            expect(uiSessionHeaders.at(-1)).toEqual({ Authorization: "Bearer synthetic-delegated-token" });
+            const chat = requests.find((item) => item.url.includes("/assistant/chat"));
+            expect(chat?.body).not.toContain("synthetic-delegated-token");
+        } finally {
+            if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+            else Reflect.deleteProperty(globalThis, "window");
+        }
     });
 });
 

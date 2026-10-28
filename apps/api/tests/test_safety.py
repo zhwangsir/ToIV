@@ -173,14 +173,19 @@ def test_agent_session_delete_audited(ctx):
 # ── ④ 社区配方门控 ──────────────────────────────────────────────
 
 def test_recipes_nsfw_gating(ctx):
-    client, token, _, _, _, engine = ctx
+    client, token, _, uid, _, engine = ctx
     H = _h(token)
     r = client.get("/api/models/recipes", headers=H)
     assert r.status_code == 200
     rows = r.json()["recipes"]
-    # 主站(无 X-NSFW)只有 SFW 配方
+    # 普通账号只有 SFW 配方(D-U1=B:账号态为判据)
     assert all(not x["nsfw"] for x in rows)
-    # /nsfw 上下文可见 R18 配方
+    # 成人态可见 R18 配方(X-NSFW 仅审计)
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        u.content_mode = "adult"
+        s.add(u)
+        s.commit()
     rows2 = client.get("/api/models/recipes", headers={**H, "X-NSFW": "1"}).json()["recipes"]
     assert any(x["id"] == "wan-kenpechi-missionary" for x in rows2)
     # engine 过滤

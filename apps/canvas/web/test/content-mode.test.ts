@@ -5,7 +5,9 @@ import { join } from "node:path";
 
 import {
     CLASSIC_NSFW_TO_MARKET,
+    appIsPureNsfw,
     appShowsR18Badge,
+    appVisibleForContentMode,
     canShowContentModeToggle,
     normalizeContentModeFields,
     normalizeContentModes,
@@ -74,6 +76,16 @@ describe("content-mode pure helpers", () => {
         expect(appShowsR18Badge({ content_modes: ["sfw"] })).toBe(false);
     });
 
+    test("appIsPureNsfw + appVisibleForContentMode ordinary/adult", () => {
+        const pure = { is_nsfw: true, content_modes: ["nsfw"] };
+        const dual = { content_modes: ["sfw", "nsfw"] };
+        expect(appIsPureNsfw(pure)).toBe(true);
+        expect(appIsPureNsfw(dual)).toBe(false);
+        expect(appVisibleForContentMode(pure, false)).toBe(false);
+        expect(appVisibleForContentMode(pure, true)).toBe(true);
+        expect(appVisibleForContentMode(dual, false)).toBe(true);
+    });
+
     test("CLASSIC_NSFW_TO_MARKET covers #9A engine list", () => {
         const ids = CLASSIC_NSFW_TO_MARKET.map((x) => x.classicEngineId);
         for (const need of [
@@ -121,5 +133,32 @@ describe("content-mode market wiring (source contracts)", () => {
         // 提交路径必须经 resolveSubmitContentMode,禁止裸 "nsfw" 字面量直传 run
         expect(page).toMatch(/runToivApp\([\s\S]*?content_mode:\s*mode/);
         expect(page).not.toMatch(/runToivApp\([^)]*content_mode:\s*"nsfw"/);
+    });
+});
+
+describe("W1-A redline single lock (source)", () => {
+    const redline = readFileSync(join(import.meta.dir, "../src/redline.ts"), "utf8");
+    const contentMode = readFileSync(join(import.meta.dir, "../src/services/toiv/content-mode.ts"), "utf8");
+    const page = readFileSync(join(import.meta.dir, "../src/pages/toiv/market-page.tsx"), "utf8");
+
+    test("predicates land only in redline", () => {
+        for (const name of [
+            "resolveSubmitContentMode",
+            "appVisibleForContentMode",
+            "appIsPureNsfw",
+            "canShowContentModeToggle",
+            "appShowsR18Badge",
+        ]) {
+            expect(redline).toContain(`export function ${name}`);
+            expect(contentMode).not.toContain(`export function ${name}`);
+            expect(contentMode).toContain(name);
+        }
+        expect(contentMode).toContain('from "@/redline"');
+    });
+
+    test("market consumes predicates from @/redline", () => {
+        expect(page).toMatch(/resolveSubmitContentMode[\s\S]*from "@\/redline"|from "@\/redline"[\s\S]*resolveSubmitContentMode/);
+        expect(page).toContain("appVisibleForContentMode");
+        expect(page).toContain("canShowContentModeToggle");
     });
 });

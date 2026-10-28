@@ -72,6 +72,25 @@ export async function fetchAgentRuns(limit = 100): Promise<ToivAgentRun[]> {
     return Array.isArray(data) ? data : ((data as { items?: ToivAgentRun[] })?.items ?? []);
 }
 
+export type ToivJobProgress = {
+    pct: number | null;
+    step?: number | null;
+    total?: number | null;
+    queue_pos?: number | null;
+    updated_at?: number | null;
+    phase?: string;
+    phase_label?: string;
+};
+
+export type ToivJobRuntime = {
+    state: "fresh" | "watch" | "stalled" | "waiting" | "terminal" | "unknown";
+    label: string;
+    reason: string;
+    last_evidence_at: number | null;
+    age_seconds: number | null;
+    evidence: "progress_snapshot" | "created_at" | "terminal" | "none";
+};
+
 /** ToIV 生成作业（主站 /api/jobs，任务中心统一执行层） */
 export type ToivJob = {
     id: string;
@@ -83,13 +102,21 @@ export type ToivJob = {
     error?: string;
     hold_reason?: string;
     nsfw?: boolean;
+    progress?: ToivJobProgress;
+    results?: string[];
+    runtime?: ToivJobRuntime;
     /** Wave P2:Studio 作业回跳短剧工作区 */
     project_id?: string;
 };
 
 export async function fetchJobs(limit = 100): Promise<ToivJob[]> {
     const { data } = await toivHttp.get("/jobs", { params: { limit } });
-    return Array.isArray(data) ? (data as ToivJob[]) : ((data as { items?: ToivJob[] })?.items ?? []);
+    return extractWorkJobList(data) as ToivJob[];
+}
+
+export async function fetchJobById(jobId: string): Promise<ToivJob> {
+    const { data } = await toivHttp.get("/jobs/lookup", { params: { job_id: jobId } });
+    return data as ToivJob;
 }
 
 export async function cancelJob(jobId: string): Promise<boolean> {
@@ -218,6 +245,7 @@ export {
     normalizeToivAppParam,
     parseResolutionPreset,
     requiredToivParamLabel,
+    marketRunValidation,
     splitMarketRunParams,
     splitMarketRunParamsWithConvenience,
     MARKET_EXTENSION_SHORTCUTS,
@@ -227,11 +255,11 @@ import { normalizeToivAppParam, type ToivAppParam } from "./market-run";
 import {
     normalizeContentModeFields,
     type ContentMode,
-} from "./content-mode";
+} from "@/redline";
 
 
 export { toivCoverImageUrl } from "./cover-url";
-export type { ContentMode } from "./content-mode";
+export type { ContentMode } from "@/redline";
 export {
     CLASSIC_NSFW_TO_MARKET,
     appIsPureNsfw,
@@ -240,7 +268,7 @@ export {
     canShowContentModeToggle,
     normalizeContentModes,
     resolveSubmitContentMode,
-} from "./content-mode";
+} from "@/redline";
 
 
 export type ToivApp = {
@@ -643,6 +671,14 @@ export type ToivReflowResult = {
     persisted?: boolean;
 };
 
+export type ToivDramaShotCandidateQa = {
+    verdict?: string;
+    reason?: string;
+    engine?: string;
+    total?: number;
+    scores?: Record<string, number>;
+};
+
 export type ToivDramaShotCandidate = {
     id: string;
     url?: string;
@@ -650,7 +686,16 @@ export type ToivDramaShotCandidate = {
     status?: string;
     is_picked?: boolean;
     error?: string;
+    video_model?: string;
+    pipeline?: string;
+    revision_id?: string;
+    job_id?: string;
+    db_job_id?: string;
+    qa?: ToivDramaShotCandidateQa;
 };
+
+/** C1a 媒体归属投影(后端 _shot_out 派生,只消费不计算):none=无产物 unknown=旧行无归属 current=与当前内容一致 stale=内容已变 */
+export type ToivShotMediaStatus = "none" | "unknown" | "current" | "stale";
 
 export type ToivDramaShot = {
     id: string;
@@ -658,6 +703,18 @@ export type ToivDramaShot = {
     status: string;
     /** Wave P2:跳过口型标注 */
     lipsync_skipped?: boolean;
+    /** C1a 修订指针与媒体归属投影(后端真值) */
+    current_revision_id?: string;
+    rendered_revision_id?: string;
+    voiced_revision_id?: string;
+    visual_media_status?: ToivShotMediaStatus;
+    audio_media_status?: ToivShotMediaStatus;
+    /** C1a 待上线:final_clip/lipsync 归属投影(none|unknown|current|stale)。
+     *  后端尚未实现该字段,前端只声明类型,等后端真值上线后再接 stale 徽章/重对口型入口 */
+    final_media_status?: ToivShotMediaStatus;
+    /** C1a 参考纪元(场景锚绑定快照;PUT 时透传,None=后端不改) */
+    ref_epoch?: string;
+    ref_epoch_note?: string;
     /** S9:PUT shots 全量保存回传所需(后端 ShotInput 契约字段) */
     negative?: string;
     characters?: string[];
@@ -668,6 +725,11 @@ export type ToivDramaShot = {
     camera?: string;
     duration_sec?: number;
     render_mode?: string;
+    video_model?: string;
+    num_candidates?: number;
+    ref_images?: string[];
+    scene_images?: string[];
+    ref_style?: string;
     image_url?: string;
     video_url?: string;
     voice_url?: string;
@@ -675,20 +737,98 @@ export type ToivDramaShot = {
     error?: string;
     /** S4:多候选(candidates_json 透出)与 seam 衔接策略 */
     candidates?: ToivDramaShotCandidate[];
+    candidates_digest?: string;
     seam_to_next?: string;
     seam_anchor?: string;
     /** FU1 声明及服务端投影(空=无词锚) */
     beats?: ToivProjectedBeat[];
 };
 
+/** C1c 六阶段轨道:后端 stage_states 真值(旧服务端无该字段 → 前端回退四阶段) */
+export type ToivStageId = "script" | "assets" | "storyboard" | "generate" | "voice" | "timeline";
+
+export type ToivStageStateValue =
+    | "draft"
+    | "pending_confirmation"
+    | "confirmed"
+    | "generating"
+    | "failed"
+    | "needs_review"
+    | "skipped";
+
+export type ToivStageState = {
+    state: ToivStageStateValue;
+    ready: boolean;
+    blockers: string[];
+};
+
+export type ToivStageStates = Partial<Record<ToivStageId, ToivStageState>>;
+
+export type ToivStageTransitionAction = "confirm" | "skip" | "reopen";
+
+export type ToivStageTransitionBody = {
+    stage: ToivStageId;
+    action: ToivStageTransitionAction;
+    /** 跳过说明(skip 必填,缺失 → 后端保持 HTTP 409 detail) */
+    note?: string;
+    /** 乐观并发基线:须等于当前 stage_revision,不符 → 后端保持 HTTP 409 detail */
+    expected_stage_revision?: number;
+};
+
+export type ToivStageTransitionResult = {
+    project_id: string;
+    stage: ToivStageId;
+    stage_states: ToivStageStates;
+    stage_revision: number;
+};
+
+export type ToivStageHistoryEntry = {
+    id: string;
+    stage: string;
+    from_state: string;
+    to_state: string;
+    source: string;
+    note?: string | null;
+    created_by: string;
+    created_at: string;
+};
+
+export type ToivStageHistoryList = {
+    history: ToivStageHistoryEntry[];
+};
+
 export type ToivDramaDetail = ToivDramaProject & {
     characters?: ToivDramaCharacter[];
     shots?: ToivDramaShot[];
+    /** C1c:六阶段状态真源(旧服务端响应无此字段) */
+    stage_states?: ToivStageStates;
+    /** C1c:阶段乐观并发基线 */
+    stage_revision?: number;
 };
 
 export async function fetchDramaProject(pid: string): Promise<ToivDramaDetail> {
-    const { data } = await toivHttp.get(`/studio/projects/${pid}`);
+    const { data } = await toivHttp.get(`/studio/projects/${encodeURIComponent(pid)}`);
     return data as ToivDramaDetail;
+}
+
+/** C1c:POST /studio/projects/{pid}/stage-transition —— 阶段确认/跳过/重开。
+ *  成功返回服务端全量 stage_states 投影 + 新 stage_revision;CAS 不符 → 后端保持 HTTP 409 detail。
+ *  前端动作成功后必须重新 load() 项目详情派生阶段,不以返回值为本地真源。 */
+export async function transitionProjectStage(pid: string, input: ToivStageTransitionBody): Promise<ToivStageTransitionResult> {
+    const { data } = await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/stage-transition`,
+        input,
+        { timeout: 30_000 },
+    );
+    return data as ToivStageTransitionResult;
+}
+
+/** C1c:GET /studio/projects/{pid}/stages/history —— 阶段流转历史(新→旧);stage 过滤可选 */
+export async function fetchStageHistory(pid: string, stage?: ToivStageId): Promise<ToivStageHistoryList> {
+    const { data } = await toivHttp.get(`/studio/projects/${encodeURIComponent(pid)}/stages/history`, {
+        params: stage ? { stage } : {},
+    });
+    return data as ToivStageHistoryList;
 }
 
 export async function triggerShotRender(shotId: string): Promise<boolean> {
@@ -698,24 +838,22 @@ export async function triggerShotRender(shotId: string): Promise<boolean> {
 
 export type ToivRenderPipeline = "ref2va" | "c" | "c_hybrid";
 
+export type ToivBatchRenderAck = { job_id: string; status: string; project_id: string };
+
 export async function triggerBatchRender(
     pid: string,
     accel?: string,
     pipeline: ToivRenderPipeline = "ref2va",
-): Promise<boolean> {
-    try {
-        const body: Record<string, string> = {};
-        if (accel && accel !== "off") body.accel = accel;
-        if (pipeline && pipeline !== "ref2va") body.pipeline = pipeline;
-        await toivHttp.post(
-            `/studio/projects/${pid}/render`,
-            Object.keys(body).length ? body : undefined,
-            { timeout: 3600_000 },
-        );
-        return true;
-    } catch {
-        return false;
-    }
+): Promise<ToivBatchRenderAck> {
+    const body: Record<string, unknown> = { wait: false };
+    if (accel && accel !== "off") body.accel = accel;
+    if (pipeline && pipeline !== "ref2va") body.pipeline = pipeline;
+    const { data } = await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/render`,
+        body,
+        { timeout: 30_000, validateStatus: (status) => status === 202 },
+    );
+    return data as ToivBatchRenderAck;
 }
 
 export async function triggerShotVoice(shotId: string): Promise<boolean> {
@@ -902,6 +1040,12 @@ export type ToivParsedShot = {
     characters?: string[];
     render_mode?: string;
     beats?: ToivBeat[];
+    seam_to_next?: string;
+    /** C1a 乐观并发:与 shot.current_revision_id 不符 → 后端 409(已有镜必带) */
+    expected_revision?: string;
+    /** 参考纪元(可选;null=后端保持原值) */
+    ref_epoch?: string | null;
+    ref_epoch_note?: string | null;
 };
 
 /** POST /studio/projects/{pid}/import-svml → 词锚定脚本确定性拆镜(hypit 语法,不经 LLM,不落库)。
@@ -1013,6 +1157,256 @@ export async function attachToivSceneToShot(sid: string, body: { shot_id: string
 /** PUT /studio/projects/{pid}/shots —— 全量替换语义(拆解结果确认落库) */
 export async function saveStudioShots(pid: string, shots: ToivParsedShot[]): Promise<void> {
     await toivHttp.put(`/studio/projects/${encodeURIComponent(pid)}/shots`, { shots }, { timeout: 30_000 });
+}
+
+// ---- C1a:分镜修订历史 / diff / 回滚(后端真值;前端不造 hash/版本) ----
+
+export type ToivShotRevision = {
+    id: string;
+    version: number;
+    /** manual-edit | rollback | imported | render */
+    source: string;
+    parent_id: string;
+    visual_fingerprint: string;
+    audio_fingerprint: string;
+    created_by: string;
+    created_at: string;
+};
+
+export type ToivShotRevisionList = {
+    shot_id: string;
+    revisions: ToivShotRevision[];
+};
+
+export type ToivShotRevisionDiff = {
+    revision_id: string;
+    version: number;
+    source: string;
+    from_version: number | null;
+    /** 无上游(旧行首修)→ from 一律 null,不伪造对比基线 */
+    from_unknown: boolean;
+    fields: Record<string, { from: unknown; to: unknown }>;
+};
+
+/** GET /studio/shots/{sid}/revisions —— 修订历史(新→旧) */
+export async function fetchShotRevisions(shotId: string): Promise<ToivShotRevisionList> {
+    const { data } = await toivHttp.get(`/studio/shots/${encodeURIComponent(shotId)}/revisions`);
+    return data as ToivShotRevisionList;
+}
+
+/** GET /studio/shots/{sid}/revisions/{rid}/diff —— 与上游内容链的逐字段 diff */
+export async function fetchShotRevisionDiff(shotId: string, revisionId: string): Promise<ToivShotRevisionDiff> {
+    const { data } = await toivHttp.get(
+        `/studio/shots/${encodeURIComponent(shotId)}/revisions/${encodeURIComponent(revisionId)}/diff`,
+    );
+    return data as ToivShotRevisionDiff;
+}
+
+/** POST /studio/shots/{sid}/rollback —— 回滚到指定修订内容,返回 shot 全量投影。
+ *  expected_revision(可选):回滚基线乐观并发,须等于当前 current_revision_id(旧行空串);
+ *  不符 → 后端 409。不传则保持后端旧行为(不做基线校验)。 */
+export async function rollbackShotRevision(shotId: string, revisionId: string, expectedRevision?: string): Promise<ToivDramaShot> {
+    const body: { revision_id: string; expected_revision?: string } = { revision_id: revisionId };
+    if (expectedRevision !== undefined) body.expected_revision = expectedRevision;
+    const { data } = await toivHttp.post(
+        `/studio/shots/${encodeURIComponent(shotId)}/rollback`,
+        body,
+        { timeout: 30_000 },
+    );
+    return data as ToivDramaShot;
+}
+
+// ---- C1b:用户生成配方(StudioRecipe)——服务端真值,不用 localforage 伪造跨设备数据 ----
+
+/** 与后端 RECIPE_PICK_STRATEGIES 同口径:auto_best=出片自动择优,manual=人工挑选 */
+export type ToivRecipePickStrategy = "auto_best" | "manual";
+
+/** 配方快照(只存真实生成输入;无值=null,见 services/studio/recipes.py) */
+export type ToivRecipeSnapshot = {
+    engine?: string | null;
+    render_mode?: string | null;
+    pipeline?: string | null;
+    pick_strategy?: string | null;
+    prompt?: string | null;
+    negative?: string | null;
+    camera?: string | null;
+    duration_sec?: number | null;
+    num_candidates?: number | null;
+    seed?: number | null;
+    ref_images?: string[] | null;
+    scene_images?: string[] | null;
+    ref_style?: string | null;
+    accel?: string | null;
+    ref_epoch?: number | null;
+    ref_epoch_note?: string | null;
+    scene_ref_json?: string | null;
+    width?: number | null;
+    height?: number | null;
+    fps?: number | null;
+    ckpt_name?: string | null;
+};
+
+export type ToivRecipe = {
+    id: string;
+    name: string;
+    description: string;
+    engine: string;
+    render_mode: string;
+    pipeline: string;
+    pick_strategy: ToivRecipePickStrategy;
+    snapshot: ToivRecipeSnapshot;
+    source_revision_id: string;
+    source_shot_id: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/** GET /:id/export 的导出形状;import 接受同一形状(服务端校验,422 不落半成品) */
+export type ToivRecipeExport = {
+    schema: "toiv_generation_recipe_v1";
+    name: string;
+    description: string;
+    engine: string;
+    render_mode: string;
+    pipeline: string;
+    pick_strategy: ToivRecipePickStrategy;
+    snapshot: ToivRecipeSnapshot;
+    exported_at: string;
+};
+
+/** GET /:id/diff → 配方 vs live shot(from=live,to=配方);null 项不比较 */
+export type ToivRecipeDiff = {
+    recipe_id: string;
+    shot_id: string;
+    fields: Record<string, { from: unknown; to: unknown }>;
+    render_params: ToivRecipeRenderParams;
+};
+
+/** apply/diff 返回的 render_one 参数;可直接作为 renderShotAsync opts 的补充 */
+export type ToivRecipeRenderParams = {
+    video_model?: string;
+    auto_pick?: boolean;
+    wait?: boolean;
+    pipeline?: string;
+    num_candidates?: number;
+    seed?: number;
+    ref_images?: string[];
+    scene_images?: string[];
+    ref_style?: string;
+    accel?: string;
+    [key: string]: unknown;
+};
+
+/** POST /:id/apply → shot 全量投影 + render_params + 落库字段清单 */
+export type ToivRecipeApplyResult = {
+    shot: ToivDramaShot;
+    render_params: ToivRecipeRenderParams;
+    applied_fields: string[];
+    project_specs_changed: string[];
+};
+
+/** POST /studio/recipes/from-shot —— 从成功 shot 快照生成输入创建配方 */
+export async function createRecipeFromShot(
+    shotId: string,
+    opts: { name?: string; description?: string } = {},
+): Promise<ToivRecipe> {
+    const { data } = await toivHttp.post(
+        "/studio/recipes/from-shot",
+        { shot_id: shotId, name: opts.name ?? "", description: opts.description ?? "" },
+        { timeout: 30_000 },
+    );
+    return data as ToivRecipe;
+}
+
+/** GET /studio/recipes —— 我的配方(可按 engine 过滤);空集合返回空数组 */
+export async function fetchRecipes(engine?: string): Promise<ToivRecipe[]> {
+    const { data } = await toivHttp.get("/studio/recipes", {
+        params: engine ? { engine } : {},
+        timeout: 15_000,
+    });
+    const list = (data as { recipes?: ToivRecipe[] })?.recipes;
+    return Array.isArray(list) ? list : [];
+}
+
+/** GET /studio/recipes/{rid} */
+export async function fetchRecipe(recipeId: string): Promise<ToivRecipe> {
+    const { data } = await toivHttp.get(`/studio/recipes/${encodeURIComponent(recipeId)}`, { timeout: 15_000 });
+    return data as ToivRecipe;
+}
+
+/** PATCH /studio/recipes/{rid} —— 只提交显式给出的字段(不伪造空串清空) */
+export async function patchRecipe(
+    recipeId: string,
+    patch: { name?: string; description?: string; prompt?: string; negative?: string; pick_strategy?: ToivRecipePickStrategy },
+): Promise<ToivRecipe> {
+    const body: Record<string, string> = {};
+    if (patch.name !== undefined) body.name = patch.name;
+    if (patch.description !== undefined) body.description = patch.description;
+    if (patch.prompt !== undefined) body.prompt = patch.prompt;
+    if (patch.negative !== undefined) body.negative = patch.negative;
+    if (patch.pick_strategy !== undefined) body.pick_strategy = patch.pick_strategy;
+    const { data } = await toivHttp.patch(`/studio/recipes/${encodeURIComponent(recipeId)}`, body, { timeout: 30_000 });
+    return data as ToivRecipe;
+}
+
+/** POST /studio/recipes/{rid}/clone —— 克隆(来源修订/出处保留,非默认) */
+export async function cloneRecipe(recipeId: string, name?: string): Promise<ToivRecipe> {
+    const { data } = await toivHttp.post(
+        `/studio/recipes/${encodeURIComponent(recipeId)}/clone`,
+        name !== undefined ? { name } : {},
+        { timeout: 30_000 },
+    );
+    return data as ToivRecipe;
+}
+
+/** POST /studio/recipes/{rid}/set-default —— 每 (user, engine) 唯一默认(服务端同事务清旧) */
+export async function setDefaultRecipe(recipeId: string): Promise<ToivRecipe> {
+    const { data } = await toivHttp.post(`/studio/recipes/${encodeURIComponent(recipeId)}/set-default`, undefined, { timeout: 30_000 });
+    return data as ToivRecipe;
+}
+
+/** DELETE /studio/recipes/{rid} —— 只删配方行,不碰源镜/产物 */
+export async function deleteRecipe(recipeId: string): Promise<void> {
+    await toivHttp.delete(`/studio/recipes/${encodeURIComponent(recipeId)}`, { timeout: 30_000 });
+}
+
+/** GET /studio/recipes/{rid}/export —— toiv_generation_recipe_v1 JSON */
+export async function exportRecipe(recipeId: string): Promise<ToivRecipeExport> {
+    const { data } = await toivHttp.get(`/studio/recipes/${encodeURIComponent(recipeId)}/export`, { timeout: 15_000 });
+    return data as ToivRecipeExport;
+}
+
+/** POST /studio/recipes/import —— 接受 export 形状;校验失败 422(错误向上抛出由面板透出) */
+export async function importRecipe(payload: unknown): Promise<ToivRecipe> {
+    const { data } = await toivHttp.post("/studio/recipes/import", payload, { timeout: 30_000 });
+    return data as ToivRecipe;
+}
+
+/** GET /studio/recipes/{rid}/diff?shot_id= —— 应用前的逐字段差异(from=live shot,to=配方) */
+export async function fetchRecipeDiff(recipeId: string, shotId: string): Promise<ToivRecipeDiff> {
+    const { data } = await toivHttp.get(`/studio/recipes/${encodeURIComponent(recipeId)}/diff`, {
+        params: { shot_id: shotId },
+        timeout: 15_000,
+    });
+    return data as ToivRecipeDiff;
+}
+
+/** POST /studio/recipes/{rid}/apply —— 应用到 shot(保留剧情/roster);
+ *  expected_revision 与 current_revision_id 不符 → 后端 409(不静默覆盖,axios 错误向上抛) */
+export async function applyRecipe(
+    recipeId: string,
+    body: { shot_id: string; expected_revision?: string; apply_project_specs?: boolean },
+): Promise<ToivRecipeApplyResult> {
+    const payload: Record<string, unknown> = { shot_id: body.shot_id };
+    if (body.expected_revision !== undefined) payload.expected_revision = body.expected_revision;
+    payload.apply_project_specs = body.apply_project_specs ?? false;
+    const { data } = await toivHttp.post(
+        `/studio/recipes/${encodeURIComponent(recipeId)}/apply`,
+        payload,
+        { timeout: 30_000 },
+    );
+    return data as ToivRecipeApplyResult;
 }
 
 /** POST /studio/projects/{pid}/characters(拆解出的新角色入库) */
@@ -1165,13 +1559,104 @@ export async function assembleStudioProject(
     }
 }
 
+/** C1b 配方 render_params 透传选项(apply 返回的 render_params 可直接作为本 opts 的补充)。 */
+export type RenderShotAsyncOpts = {
+    num_candidates?: number;
+    accel?: string;
+    pipeline?: ToivRenderPipeline;
+    force_direct?: boolean;
+    /** C1b:配方带回的渲染参数(原样透传,不本地改写) */
+    auto_pick?: boolean;
+    seed?: number;
+    ref_images?: string[];
+    scene_images?: string[];
+    ref_style?: string;
+    video_model?: string;
+};
+
+export type ToivRenderEstimateBlocker = { code: string; message: string; stage?: ToivStageId };
+export type ToivRenderEstimateWarning = { code: string; message: string };
+export type ToivRenderEstimateItem = {
+    shot_id: string;
+    idx: string | number;
+    engine: string;
+    pipeline: string;
+    render_mode: string;
+    candidates: number;
+    duration_sec: number;
+    frames: number;
+    pixel_frames_upper_bound: number;
+};
+export type ToivRenderEstimate = {
+    schema: "toiv_render_estimate_v1";
+    scope: "batch" | "shot";
+    project_id: string;
+    shot_id?: string;
+    allowed: boolean;
+    blockers: ToivRenderEstimateBlocker[];
+    warnings: ToivRenderEstimateWarning[];
+    input_fingerprint: string;
+    work: {
+        shot_count: number;
+        candidate_upper_bound: number;
+        requested_duration_sec: number;
+        requested_frame_count: number;
+        pixel_frame_upper_bound: number;
+        image_motion_count: number;
+    };
+    items: ToivRenderEstimateItem[];
+    pricing: {
+        status: "estimated" | "unpriced";
+        currency: string | null;
+        total: string | null;
+        rate_source: string;
+        unknowns: string[];
+    };
+    budget: {
+        status: "disabled" | "within" | "exceeded" | "unpriced";
+        limit: string | null;
+        currency: string | null;
+    };
+};
+
+export type BatchRenderEstimateBody = { accel: string; pipeline: ToivRenderPipeline; wait?: boolean };
+
+export async function estimateBatchRender(pid: string, body: BatchRenderEstimateBody): Promise<ToivRenderEstimate> {
+    const { data } = await toivHttp.post(
+        `/studio/projects/${encodeURIComponent(pid)}/render-estimate`,
+        body,
+        { timeout: 30_000 },
+    );
+    return data as ToivRenderEstimate;
+}
+
+export function buildRenderShotRequestBody(opts: RenderShotAsyncOpts = {}): Record<string, unknown> {
+    const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false, pipeline: opts.pipeline ?? "ref2va" };
+    if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
+    if (opts.force_direct) payload.force_direct = true;
+    if (opts.auto_pick !== undefined) payload.auto_pick = opts.auto_pick;
+    if (opts.seed !== undefined) payload.seed = opts.seed;
+    if (opts.ref_images && opts.ref_images.length > 0) payload.ref_images = opts.ref_images;
+    if (opts.scene_images && opts.scene_images.length > 0) payload.scene_images = opts.scene_images;
+    if (opts.ref_style) payload.ref_style = opts.ref_style;
+    if (opts.video_model) payload.video_model = opts.video_model;
+    return payload;
+}
+
+export async function estimateShotRender(sid: string, opts: RenderShotAsyncOpts = {}): Promise<ToivRenderEstimate> {
+    const { data } = await toivHttp.post(
+        `/studio/shots/${encodeURIComponent(sid)}/render-estimate`,
+        buildRenderShotRequestBody(opts),
+        { timeout: 30_000 },
+    );
+    return data as ToivRenderEstimate;
+}
+
 /** S4-b(2026-10-11):异步单镜渲染——wait=false 登记 Job 即回(管线C阶段B机制);
  * 同步等待撞 reload/断连=状态僵死(实测),一律走此路。 */
-export async function renderShotAsync(sid: string, opts: { num_candidates?: number; accel?: string; pipeline?: ToivRenderPipeline; force_direct?: boolean } = {}): Promise<{ job_id: string }> {
+export async function renderShotAsync(sid: string, opts: RenderShotAsyncOpts = {}): Promise<{ job_id: string }> {
     try {
-        const payload: Record<string, unknown> = { num_candidates: opts.num_candidates ?? 2, wait: false, pipeline: opts.pipeline ?? "ref2va" };
-        if (opts.accel && opts.accel !== "off") payload.accel = opts.accel;
-        if (opts.force_direct) payload.force_direct = true;
+        const payload = buildRenderShotRequestBody(opts);
         const { data } = await toivHttp.post(
             `/studio/shots/${encodeURIComponent(sid)}/render`,
             payload,
@@ -1179,18 +1664,35 @@ export async function renderShotAsync(sid: string, opts: { num_candidates?: numb
         );
         return data as { job_id: string };
     } catch (e) {
-        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        throw new Error(detail || "渲染提交失败");
+        const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+        if (typeof detail === "string" && detail) throw new Error(detail);
+        if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+            const fields = detail as Record<string, unknown>;
+            const message = [fields.code, fields.message, fields.hint]
+                .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+                .join(" · ");
+            if (message) throw new Error(message);
+        }
+        throw new Error("渲染提交失败");
     }
 }
 
 /** S4:选用候选视频为该镜成片(POST /studio/shots/{sid}/candidates/{cid}/pick) */
-export async function pickShotCandidate(sid: string, cid: string): Promise<void> {
+export async function pickShotCandidate(sid: string, cid: string, expectedCandidatesDigest?: string): Promise<ToivDramaShot> {
     try {
-        await toivHttp.post(`/studio/shots/${encodeURIComponent(sid)}/candidates/${encodeURIComponent(cid)}/pick`, undefined, { timeout: 30_000 });
+        const body: { expected_candidates_digest?: string } = {};
+        if (expectedCandidatesDigest !== undefined) body.expected_candidates_digest = expectedCandidatesDigest;
+        const { data } = await toivHttp.post<ToivDramaShot>(
+            `/studio/shots/${encodeURIComponent(sid)}/candidates/${encodeURIComponent(cid)}/pick`,
+            body,
+            { timeout: 30_000 },
+        );
+        return data;
     } catch (e) {
-        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        throw new Error(detail || "选用候选失败");
+        const response = (e as { response?: { data?: { detail?: string } } })?.response;
+        const error = new Error(response?.data?.detail || "选用候选失败");
+        Object.assign(error, { response });
+        throw error;
     }
 }
 

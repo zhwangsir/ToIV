@@ -141,6 +141,9 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioproject", "scene_images_json", "scene_images_json VARCHAR NOT NULL DEFAULT '[]'"),
     # Wave P2:项目默认视频管线持久化
     ("studioproject", "preferred_pipeline", "preferred_pipeline VARCHAR NOT NULL DEFAULT 'ref2va'"),
+    # C1c 阶段状态机:人工态存储 + 乐观并发 revision
+    ("studioproject", "stage_states_json", "stage_states_json VARCHAR NOT NULL DEFAULT '{}'"),
+    ("studioproject", "stage_revision", "stage_revision INT NOT NULL DEFAULT 0"),
     ("studioproject", "preferred_drive_mode", "preferred_drive_mode VARCHAR NOT NULL DEFAULT 'keyframe'"),
     ("studioproject", "bgm_url", "bgm_url VARCHAR NOT NULL DEFAULT ''"),
     ("studioproject", "bgm_volume", "bgm_volume FLOAT NOT NULL DEFAULT 0.35"),
@@ -151,6 +154,13 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ('"user"', "content_mode", "content_mode VARCHAR NOT NULL DEFAULT 'ordinary'"),
     ('"user"', "content_mode_updated_at", "content_mode_updated_at TIMESTAMP"),
     ("job", "adult_at_submit", "adult_at_submit BOOLEAN NOT NULL DEFAULT FALSE"),
+    # C1a 修订/stale:studioshot 三指针(空=无历史,媒体状态投影 unknown)
+    ("studioshot", "current_revision_id", "current_revision_id VARCHAR NOT NULL DEFAULT ''"),
+    ("studioshot", "rendered_revision_id", "rendered_revision_id VARCHAR NOT NULL DEFAULT ''"),
+    ("studioshot", "voiced_revision_id", "voiced_revision_id VARCHAR NOT NULL DEFAULT ''"),
+    # C1a M3:最终合成来源指针(lipsync/skip 提交时快照)
+    ("studioshot", "final_visual_revision_id", "final_visual_revision_id VARCHAR NOT NULL DEFAULT ''"),
+    ("studioshot", "final_voice_revision_id", "final_voice_revision_id VARCHAR NOT NULL DEFAULT ''"),
 )
 
 
@@ -476,6 +486,65 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_agentsession_user ON agentsession(user_id)",
+    # ── C1a:分镜修订表(studioshotrevision)──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(双轨写法)。
+    """
+    CREATE TABLE IF NOT EXISTS studioshotrevision (
+        id                  TEXT PRIMARY KEY,
+        shot_id             TEXT NOT NULL,
+        project_id          TEXT NOT NULL,
+        version             INTEGER NOT NULL DEFAULT 0,
+        source              TEXT NOT NULL DEFAULT 'manual-edit',
+        parent_id           TEXT NOT NULL DEFAULT '',
+        content_json        TEXT NOT NULL DEFAULT '{}',
+        visual_fingerprint  TEXT NOT NULL DEFAULT '',
+        audio_fingerprint   TEXT NOT NULL DEFAULT '',
+        created_by          TEXT NOT NULL DEFAULT '',
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_studioshotrevision_shot ON studioshotrevision(shot_id)",
+    "CREATE INDEX IF NOT EXISTS idx_studioshotrevision_proj ON studioshotrevision(project_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_studioshotrevision_shot_version ON studioshotrevision(shot_id, version)",
+    # ── C1b:用户生成配方表(studiorecipe)──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(双轨写法)。
+    # 默认配方每 (user_id, engine) 唯一:部分唯一索引(PG/SQLite 3.8+ 均支持),
+    # set-default 事务内先清同引擎旧默认,索引兜底防并发双默认。
+    """
+    CREATE TABLE IF NOT EXISTS studiorecipe (
+        id                  TEXT PRIMARY KEY,
+        user_id             TEXT NOT NULL,
+        name                TEXT NOT NULL DEFAULT '',
+        description         TEXT NOT NULL DEFAULT '',
+        engine              TEXT NOT NULL DEFAULT 'h3',
+        render_mode         TEXT NOT NULL DEFAULT 'video',
+        pipeline            TEXT NOT NULL DEFAULT 'ref2va',
+        pick_strategy       TEXT NOT NULL DEFAULT 'auto_best',
+        snapshot_json       TEXT NOT NULL DEFAULT '{}',
+        source_revision_id  TEXT NOT NULL DEFAULT '',
+        source_shot_id      TEXT NOT NULL DEFAULT '',
+        is_default          BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_studiorecipe_user ON studiorecipe(user_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_studiorecipe_user_engine_default ON studiorecipe(user_id, engine) WHERE is_default",
+    # ── C1c:阶段确认审计表(studiostageconfirmation)──
+    """
+    CREATE TABLE IF NOT EXISTS studiostageconfirmation (
+        id          TEXT PRIMARY KEY,
+        project_id  TEXT NOT NULL,
+        stage       TEXT NOT NULL DEFAULT '',
+        from_state  TEXT NOT NULL DEFAULT '',
+        to_state    TEXT NOT NULL DEFAULT '',
+        source      TEXT NOT NULL DEFAULT 'manual',
+        note        TEXT NOT NULL DEFAULT '',
+        created_by  TEXT NOT NULL DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_stageconfirmation_proj ON studiostageconfirmation(project_id)",
     """
     CREATE TABLE IF NOT EXISTS agentmessage (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,

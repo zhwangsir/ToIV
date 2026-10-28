@@ -62,7 +62,7 @@ def _synth_hard_ellipse_seam(size: int = 768) -> bytes:
 
 
 def test_0150_gentle_prompts_no_closed_eye_required():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "gentle smile, mouth corners up, soft relaxed brows, eyes softly curved" in src
     qa = sheet_svc._EXPR_QA_PROMPTS["expr_3"]
     assert "closed-eye smile" not in qa.lower() or "NOT required" in qa
@@ -73,11 +73,11 @@ def test_0150_gentle_prompts_no_closed_eye_required():
 
 
 def test_0150_source_no_paste_in_qedit_route():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "qwen_image_edit_2509_full_headcrop" in src
     assert "paste_back\": False" in src or "paste_back': False" in src or '"paste_back": False' in src
-    # 新路线注释
-    assert "完整输出" in src
+    # 新路线注释(现行实现:01:50 整图输出、无贴回)
+    assert "no face paste" in src
     assert "crop_expr_head_closeup" in src
     assert "assert_no_hard_seam_contour" in src
 

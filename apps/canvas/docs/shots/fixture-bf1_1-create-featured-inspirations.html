@@ -1,0 +1,102 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · BF1.1 create featured inspirations · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:56px 24px 48px}
+.heading{text-align:center;margin-bottom:18px}
+.heading h1{margin:0;font-size:22px;font-weight:650;letter-spacing:-.01em}
+.heading p{margin:8px 0 0;font-size:13px;color:var(--muted);font-weight:450}
+.stage{width:min(720px,100%);border:1px solid var(--line);border-radius:12px;background:var(--raised);padding:14px}
+.tabs{display:flex;gap:6px;margin-bottom:12px;justify-content:center}
+.tab{height:32px;padding:0 12px;border-radius:8px;border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600}
+.tab.on{background:var(--panel);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.composer{min-height:96px;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:12px;color:var(--muted)}
+.bar{display:flex;justify-content:flex-end;margin-top:10px}
+.cta{height:36px;padding:0 16px;border:0;border-radius:999px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:13px}
+.quiet{width:min(720px,100%);margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.quiet p{margin:0;font-size:12px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%}
+.qcta{display:inline-flex;flex-direction:column;gap:2px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--text);text-align:left}
+.qcta strong{font-size:12px;font-weight:600}.qcta span{font-size:11px;color:var(--muted)}
+.featured{width:min(1080px,100%);margin-top:28px}
+.coll{display:flex;gap:24px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.coll button{appearance:none;border:0;background:none;color:var(--muted);font:600 15px/1.2 system-ui;padding:10px 2px 12px;position:relative;cursor:pointer}
+.coll button.is-active{color:var(--text)}
+.coll button.is-active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.filters button{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;min-height:36px;border:0;border-radius:999px;color:var(--muted);background:transparent;font-size:13px}
+.filters button span{font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
+.filters button[aria-pressed="true"]{background:#f4f6f7;color:#0b0c0f}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.card{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--raised);text-align:left;color:inherit;padding:0;cursor:pointer}
+.card.is-hero{grid-column:span 2}
+.media{display:block;aspect-ratio:16/10;background:#1a1b21;position:relative;overflow:hidden}
+.media img{width:100%;height:100%;object-fit:cover;display:block}
+.copy{display:flex;flex-direction:column;gap:6px;padding:12px 14px 14px}
+.copy strong{font-size:14px;font-weight:600}
+.copy > span{font-size:12px;color:var(--muted)}
+.copy em{font-style:normal;font-size:11px;color:var(--muted)}
+.note{margin-top:28px;font:11px ui-monospace,Menlo,monospace;color:var(--muted);text-align:center}
+@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card.is-hero{grid-column:span 1}}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · BF1.1 create featured</div>
+<div class="shell">
+  <div class="heading"><h1>创作台</h1><p>输入提示词，或从下方入口开始。</p></div>
+  <section class="stage" aria-label="开始创作">
+    <div class="tabs"><button class="tab">图像</button><button class="tab on">视频</button><button class="tab">文本</button></div>
+    <div class="composer">描述画面、镜头运动与光线…</div>
+    <div class="bar"><button class="cta" id="cta">生成</button></div>
+  </section>
+  <div class="quiet">
+    <p>在上方输入提示词开始，或选用一条入口。</p>
+    <div class="row">
+      <button class="qcta"><strong>生成镜头</strong><span>描述画面与运镜</span></button>
+      <button class="qcta"><strong>参考图</strong><span>从素材库选图</span></button>
+      <button class="qcta"><strong>续写故事</strong><span>剧情与对白</span></button>
+      <button class="qcta"><strong>3D 工具</strong><span>图生 3D / 相机</span></button>
+    </div>
+  </div>
+  <section class="featured creation-featured-works" aria-labelledby="creation-featured-title">
+    <div class="coll" id="creation-featured-title">
+      <button type="button" class="is-active" aria-pressed="true">精选灵感</button>
+      <button type="button" aria-pressed="false">Skill</button>
+    </div>
+    <div class="filters" role="group" aria-label="灵感类型">
+      <button type="button" aria-pressed="true">全部灵感<span>22</span></button>
+      <button type="button" aria-pressed="false">视频<span>7</span></button>
+      <button type="button" aria-pressed="false">图片<span>6</span></button>
+      <button type="button" aria-pressed="false">文本<span>9</span></button>
+    </div>
+    <div class="grid">
+      <button type="button" class="card is-hero">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/cyberpunk-neon.jpg" alt=""></span>
+        <span class="copy"><strong>雨夜霓虹 · 电影感开场</strong><span>宽银幕构图、环境反光与缓慢推进镜头</span><em>原创提示词 · 视频</em></span>
+      </button>
+      <button type="button" class="card">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/retro-hong-kong.jpg" alt=""></span>
+        <span class="copy"><strong>港风天台重逢</strong><span>复古色彩与克制的人物情绪</span><em>原创提示词 · 视频</em></span>
+      </button>
+      <button type="button" class="card">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/suspense-noir.jpg" alt=""></span>
+        <span class="copy"><strong>暗巷悬疑追逐</strong><span>高反差黑色电影与紧张节奏</span><em>原创提示词 · 视频</em></span>
+      </button>
+      <button type="button" class="card">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/fantasy-3d.jpg" alt=""></span>
+        <span class="copy"><strong>东方幻想角色设定</strong><span>角色概念图与细腻材质表达</span><em>原创提示词 · 图像</em></span>
+      </button>
+      <button type="button" class="card">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/nature-healing.jpg" alt=""></span>
+        <span class="copy"><strong>温暖室内对话</strong><span>生活化场景与柔和叙事氛围</span><em>原创提示词 · 文本</em></span>
+      </button>
+      <button type="button" class="card">
+        <span class="media"><img src="file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/canvas/web/public/short-drama-styles/ink-narrative.jpg" alt=""></span>
+        <span class="copy"><strong>水墨叙事开篇</strong><span>东方巨构与留白构图</span><em>原创提示词 · 视频</em></span>
+      </button>
+    </div>
+  </section>
+  <p class="note">BF1.1 · CreationFeaturedWorks 回补 · EmptySuggest 之后 · SoftGlow 不恢复 · 首页意图墙不回 · tip 0a426713 · 未 commit</p>
+</div>
+</body></html>

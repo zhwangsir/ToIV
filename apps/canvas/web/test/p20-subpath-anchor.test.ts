@@ -47,8 +47,9 @@ describe("P-20 子路径部署:禁止绕过 router basename 的裸站内绝对�
 
     test("已修复的三处(2026-10-14)不得回退为裸锚", () => {
         const dramaPage = readFileSync(join(root, "src/pages/toiv/drama-page.tsx"), "utf8");
-        expect(dramaPage).toContain("<Link key={p.id} to={`/toiv/ws/${p.id}`}");
-        expect(dramaPage).not.toMatch(/<a\b[^>]*href=\{`\/toiv\/ws/);
+        // R11（f0d789a3）项目卡目标收敛为 /create?project=；仍必须是 basename 安全的 <Link>。
+        expect(dramaPage).toContain("<Link key={p.id} to={`/create?project=${p.id}`}");
+        expect(dramaPage).not.toMatch(/<a\b[^>]*href=\{`\/(toiv\/ws|create)/);
         const dramaDetail = readFileSync(join(root, "src/pages/toiv/drama-detail.tsx"), "utf8");
         expect(dramaDetail).toContain("to={`/toiv/drama/${detail.id}?classic=1`}");
         const pane = readFileSync(join(root, "src/pages/settings/channel-settings-pane.tsx"), "utf8");

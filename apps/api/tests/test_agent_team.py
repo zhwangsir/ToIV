@@ -805,3 +805,66 @@ def test_resume_unfinished_plans_respawns_stuck_planning(ctx, monkeypatch):
     # reject 挂起态原样保留
     detail2 = client.get(f"/api/agent-runs/{rejected_id}", headers=H).json()
     assert detail2["status"] == "planning"
+
+
+# ── ⑩ 取消竞态:后台规划最后窗口内被取消,取消必须获胜 ─────────────────────────
+
+
+def test_cancel_wins_race_against_plan_finalization(ctx, monkeypatch):
+    """确定性复现 _plan_run ③的窗口:『最后 planning 检查之后、原子 claim 之前』。
+    不靠 sleep:包装模块级 update() 作同步点——后台规划一构造条件 UPDATE
+    (尚未执行)即调用真实 cancel API(独立会话并发),取消先于 claim 落库。
+
+    锁定:取消不被后台规划覆盖;取消后不得落下任何新任务。
+    """
+    from app.routes import agent_team as at
+
+    client, token, engine, tid = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+
+    fired = {"done": False}
+    orig_update = at.update
+
+    def tracked(entity):
+        # 同步点:_plan_run ③已通过最后 planning 检查、正要执行原子 claim
+        # (条件 UPDATE)的瞬间。此刻调用真实 cancel API(独立会话并发),
+        # 抢在 UPDATE 前落 canceled——UPDATE 的 status='planning' 条件必须救回取消。
+        # 须在创建 run 之前安装:创建即触发后台规划,同步点必须先行就位。
+        # 只认本会话的 run 且仍 planning 才触发(前序测试残留的后台规划
+        # 也会走到 update(),不能误耗触发机会/误取消)。
+        rid = run_id_holder.get("id")
+        if not fired["done"] and rid:
+            from app.models import AgentRun
+
+            with Session(engine) as s2:
+                run = s2.get(AgentRun, rid)
+                if run is None or run.status != "planning":
+                    return orig_update(entity)
+                fired["done"] = True
+                user = s2.exec(select(User).where(User.tenant_id == tid)).first()
+                r = at.cancel_run(run_id=rid, user=user, session=s2)
+                assert r["status"] == "canceled"
+        return orig_update(entity)
+
+    # 确定性构造:先落库建 run(id 已知,尚未触发规划),装好同步点再重挂规划
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "leader@toiv.ai")).first().id
+        run = AgentRun(
+            user_id=uid, level="L2", goal="拍一个短剧:取消竞态", status="planning",
+            plan_json=json.dumps({"tasks": [], "opts": {}, "meta": {}}, ensure_ascii=False),
+        )
+        s.add(run)
+        s.commit()
+        s.refresh(run)
+        run_id = run.id
+    run_id_holder: dict = {"id": run_id}
+    monkeypatch.setattr(at, "update", tracked)
+    assert at.resume_unfinished_plans(engine) == 1
+
+    detail = _wait_run(client, H, run_id, "canceled", timeout=10)
+    assert detail["status"] == "canceled"
+    # 竞态任务不得复活:取消之后不落任何新任务
+    with Session(engine) as s:
+        tasks = s.exec(select(AgentTask).where(AgentTask.run_id == run_id)).all()
+    assert tasks == [], f"取消后不得落新任务,实际 {tasks!r}"

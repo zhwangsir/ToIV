@@ -1,8 +1,10 @@
 import { Button } from "antd";
 import { Crosshair, Undo2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 
+import { studioProposalActionHref } from "@/lib/studio-proposal-links";
 import { agentAssistantFailureText, type AgentToolCall, type AssistantGenerationProposal, type AssistantTurn } from "@/services/api/agent-assistant";
 import { assistantChangeSummary, assistantChangedNodeIds, assistantProposalText, assistantUnresolvedFailures, assistantUndoFailureText, assistantVisibleReply } from "./canvas-assistant-copy";
 import { dismissedProposalKey, type AssistantTurnStatus } from "./use-canvas-assistant";
@@ -83,6 +85,29 @@ export function CanvasAssistantTurnView({ turn, status, handledProposals, propos
                     )}
                 </div>
             ) : null}
+
+            {(turn.studioProposals || []).map((proposal) => (
+                <section key={proposal.proposalId} className="canvas-assistant-card canvas-assistant-studio-proposal" data-testid={`studio-proposal-${proposal.proposalId}`} aria-label="Studio 制作提案">
+                    <div>
+                        <strong>Studio 制作提案</strong>
+                        <span className="canvas-assistant-meta"> · 待人工处理，尚未执行</span>
+                    </div>
+                    <span style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{proposal.summary}</span>
+                    {proposal.warnings.length > 0 ? (
+                        <ul className="canvas-assistant-studio-warnings">
+                            {proposal.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                        </ul>
+                    ) : null}
+                    <div className="canvas-assistant-card-actions">
+                        {proposal.nextActions.map((action, index) => {
+                            if (action.requiresHuman !== true) return null;
+                            const href = studioProposalActionHref(proposal, action);
+                            if (!href) return <span key={`${action.kind}:${index}`} className="canvas-assistant-meta">{action.label}：信息不完整，无法打开。</span>;
+                            return <Link key={`${action.kind}:${index}`} className="ant-btn ant-btn-default ant-btn-sm" to={href}>{action.label}</Link>;
+                        })}
+                    </div>
+                </section>
+            ))}
 
             {(turn.proposals || []).map((proposal) => {
                 const started = handledProposals.has(proposal.proposalId);

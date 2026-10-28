@@ -35,7 +35,9 @@ describe("video API response contracts", () => {
     });
 
     test("业务失败和空数据不会被静默转换为成功", () => {
-        expect(() => unwrapEnvelope({ code: 401, data: null, msg: "未授权" }, "缺少任务")).toThrow("未授权");
+        // a863efbe 起业务失败走 ChannelResponseError → explainGenerationError 归一化
+        // （不再透传上游 msg），401 映射为可执行的鉴权提示；保证失败必须抛出即可。
+        expect(() => unwrapEnvelope({ code: 401, data: null, msg: "未授权" }, "缺少任务")).toThrow("鉴权失败");
         expect(() => unwrapEnvelope({ code: 0, data: null, msg: "ok" }, "缺少任务")).toThrow("缺少任务");
     });
 });

@@ -333,12 +333,12 @@ def _verify_images_ownership(session, user: User, qs: dict[str, list[str]]) -> b
 
     - 有 sig 且 HMAC 匹配 → 签名即能力,放行;nsfw 从归属 Job 尽力继承(查不到=False)
     - 无 sig → DB 归属回退(本人/同租户 Job 产物才放行;admin 直通)
-    - 源 Job nsfw=True 而请求无 R18 上下文 → 403(不把 R18 产物降级成主站可见)
+    - 源 Job nsfw=True 时仅未成年硬关(P0-5 R3;成人 UX 403 退役)
     校验不过抛 404(不泄露存在性)。
     """
     from fastapi import HTTPException
 
-    from app.redline import nsfw_allowed
+    from app.redline import require_not_underage
 
     filename = (qs.get("filename") or [""])[0]
     subfolder = (qs.get("subfolder") or [""])[0]
@@ -365,8 +365,8 @@ def _verify_images_ownership(session, user: User, qs: dict[str, list[str]]) -> b
         raise HTTPException(status_code=404, detail="产物不存在")
 
     src_nsfw = bool(src_job.nsfw) if src_job else False
-    if src_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 产物需在专区内操作")
+    if src_nsfw:
+        require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
     return src_nsfw
 
 

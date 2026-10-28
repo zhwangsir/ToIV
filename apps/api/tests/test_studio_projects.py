@@ -48,6 +48,29 @@ def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _gate_stages_for_batch(client, H, pid):
+    """C1c 门禁:批量渲染前显式完成 storyboard 阶段(测试夹具,非放宽生产门禁)。
+    空项目(无分镜)不设防——生产门禁对空批次/空项目本就不拦。"""
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    if not detail.get("shots"):
+        return
+    states = detail["stage_states"]
+    script_action = "confirm" if states["script"]["ready"] else "skip"
+    for stage, action in (("script", script_action), ("assets", "skip"), ("storyboard", "confirm")):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": action, "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
+def _gate_stages_for_assemble(client, H, pid):
+    """C1c 门禁:合成前显式完成 storyboard/generate/voice 阶段。"""
+    _gate_stages_for_batch(client, H, pid)
+    for stage in ("generate", "voice"):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": "skip", "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
 def _mk_project(client: TestClient, H: dict) -> str:
     r = client.post("/api/studio/projects", headers=H, json={"title": "雨夜", "premise": "重逢"})
     assert r.status_code == 200, r.text
@@ -155,7 +178,7 @@ def test_render_single_shot(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
-    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "rendered"
     assert r.json()["video_url"].endswith("fake.mp4")
@@ -173,7 +196,7 @@ def test_render_single_shot_error(ctx, monkeypatch):
         raise RenderError("worker 全忙")
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
-    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 502
     assert "worker 全忙" in r.json()["detail"]
 
@@ -192,7 +215,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", ok_render)
-    client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
 
     # 批量:仅应渲染仍处于 draft 的 shot B
     rendered: list[str] = []
@@ -203,6 +226,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", recording_render)
+    _gate_stages_for_batch(client, H, pid)
     r = client.post(f"/api/studio/projects/{pid}/render", headers=H)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -223,6 +247,10 @@ def test_render_batch_failure_not_blocking(ctx, monkeypatch):
         raise RenderError("出图失败")
 
     monkeypatch.setattr(orch, "render_shot", failing_render)
+    _gate_stages_for_batch(client, H, pid)
+    direct = client.patch(f"/api/studio/projects/{pid}", headers=H,
+                          json={"preferred_drive_mode": "direct"})
+    assert direct.status_code == 200, direct.text
     r = client.post(f"/api/studio/projects/{pid}/render", headers=H)
     assert r.status_code == 200
     body = r.json()
@@ -301,7 +329,7 @@ def test_render_shot_injects_project_spec(ctx, monkeypatch):
             return RenderResult(kind="video", url="/api/studio/files/fake.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
-    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert seen["ckpt_name"] == "majicMIX.safetensors"
     assert (seen["width"], seen["height"], seen["fps"]) == (1024, 576, 12)
@@ -359,7 +387,7 @@ def test_render_shot_default_project_injects_portrait(ctx, monkeypatch):
             return RenderResult(kind="video", url="/api/studio/files/fake.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
-    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert (seen["width"], seen["height"], seen["fps"]) == (768, 1344, 24)
 
@@ -610,7 +638,7 @@ def test_render_body_h3_default_and_candidates(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sid}/render",
         headers=H,
-        json={"video_model": "h3", "num_candidates": 2},
+        json={"video_model": "h3", "num_candidates": 2, "force_direct": True},
     )
     assert r.status_code == 200, r.text
     body = r.json()
@@ -654,7 +682,7 @@ def test_render_no_body_stays_single_candidate(ctx, monkeypatch):
             return RenderResult(kind="video", url="/api/studio/files/one.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert calls["n"] == 1
     assert r.json()["video_model"] == "h3"
@@ -690,7 +718,7 @@ def test_render_retry_fail_preserves_selected_voiced(ctx, monkeypatch):
             return RenderResult(kind="video", url="/api/studio/files/picked-keep.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: OkRenderer())
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert r.json()["video_url"].endswith("picked-keep.mp4")
 
@@ -712,7 +740,7 @@ def test_render_retry_fail_preserves_selected_voiced(ctx, monkeypatch):
             raise RenderError("等待视频超时(1800s)")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: BoomRenderer())
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 502
     assert "1800" in r.json()["detail"]
 
@@ -760,7 +788,7 @@ def test_render_retry_fail_preserves_lipsynced_selected(ctx, monkeypatch):
             return RenderResult(kind="video", url="/api/studio/files/ls-keep.mp4")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: OkRenderer())
-    assert client.post(f"/api/studio/shots/{sid}/render", headers=H).status_code == 200
+    assert client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True}).status_code == 200
 
     with Session(app.dependency_overrides[get_session]().__next__().bind) as s:
         shot = s.get(StudioShot, sid)
@@ -779,7 +807,7 @@ def test_render_retry_fail_preserves_lipsynced_selected(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sid}/render",
         headers=H,
-        json={"video_model": "h3", "num_candidates": 2},
+        json={"video_model": "h3", "num_candidates": 2, "force_direct": True},
     )
     assert r.status_code == 502
     shot = client.get(f"/api/studio/projects/{pid}", headers=H).json()["shots"][0]
@@ -812,7 +840,7 @@ def test_render_fail_without_selected_still_marks_error(ctx, monkeypatch):
             raise RenderError("worker 全忙")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: BoomRenderer())
-    r = client.post(f"/api/studio/shots/{sid}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sid}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 502
     shot = client.get(f"/api/studio/projects/{pid}", headers=H).json()["shots"][0]
     assert shot["status"] == "error"

@@ -1,4 +1,4 @@
-"""Wave8 P0: timeline-preview + active/boards/媒体双闸。"""
+"""Wave8 P0: timeline-preview + active/boards/媒体闸(P0-5 R1/R2 已退役 UX 过滤)。"""
 from __future__ import annotations
 
 import json
@@ -110,6 +110,7 @@ def _mk_shot(
 
 
 def test_timeline_preview_aggregates_and_filters_nsfw(ctx):
+    """P0-5 R1:ordinary 也不再过滤 NSFW 条;仍标注 nsfw + 透出 content_mode。"""
     eng = ctx["engine"]
     pid = _mk_project(eng, user_id=ctx["ord"], tenant_id=ctx["tenant"], fps=24)
     sfw_vid = "/api/studio/files/sfw-clip.mp4"
@@ -134,7 +135,7 @@ def test_timeline_preview_aggregates_and_filters_nsfw(ctx):
         )
         s.commit()
 
-    # ordinary: NSFW 条不出现
+    # ordinary: 两条都在(不再服务端过滤);nsfw 标仍真;content_mode 透出
     r = ctx["client"].get(
         f"/api/studio/projects/{pid}/timeline-preview", headers=ctx["h_ord"]
     )
@@ -142,13 +143,16 @@ def test_timeline_preview_aggregates_and_filters_nsfw(ctx):
     body = r.json()
     assert body["fps"] == 24
     assert body["content_mode"] == "ordinary"
-    assert [i["shot_id"] for i in body["items"]] == [sid0]
-    assert body["items"][0]["kind"] == "video"
-    assert body["items"][0]["preview_url"].endswith("kf0.png")
-    assert body["items"][0]["media_url"] == sfw_vid
-    assert body["items"][0]["nsfw"] is False
+    assert {i["shot_id"] for i in body["items"]} == {sid0, sid1}
+    by = {i["shot_id"]: i for i in body["items"]}
+    assert by[sid0]["kind"] == "video"
+    assert by[sid0]["preview_url"].endswith("kf0.png")
+    assert by[sid0]["media_url"] == sfw_vid
+    assert by[sid0]["nsfw"] is False
+    assert by[sid1]["nsfw"] is True
+    assert by[sid1]["duration_sec"] == 8
 
-    # adult: 两条都在,nsfw 标真
+    # adult: 仍两条,content_mode 更新
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])
         u.content_mode = "adult"
@@ -161,12 +165,10 @@ def test_timeline_preview_aggregates_and_filters_nsfw(ctx):
     body2 = r2.json()
     assert body2["content_mode"] == "adult"
     assert {i["shot_id"] for i in body2["items"]} == {sid0, sid1}
-    by = {i["shot_id"]: i for i in body2["items"]}
-    assert by[sid1]["nsfw"] is True
-    assert by[sid1]["duration_sec"] == 8
 
 
 def test_jobs_active_filters_nsfw_like_list(ctx):
+    """P0-5 R2:ordinary 也能看见 NSFW active jobs。"""
     eng = ctx["engine"]
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])
@@ -199,7 +201,7 @@ def test_jobs_active_filters_nsfw_like_list(ctx):
     r = ctx["client"].get("/api/jobs/active", headers=ctx["h_ord"])
     assert r.status_code == 200
     ids = {i["prompt_id"] for i in r.json()["items"]}
-    assert ids == {"act-sfw"}
+    assert ids == {"act-sfw", "act-nsfw"}
 
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])
@@ -212,6 +214,7 @@ def test_jobs_active_filters_nsfw_like_list(ctx):
 
 
 def test_boards_items_hide_nsfw_results_when_ordinary(ctx):
+    """P0-5 R2:ordinary 也能看见 NSFW board items。"""
     eng = ctx["engine"]
     c = ctx["client"]
     H = ctx["h_ord"]
@@ -253,9 +256,7 @@ def test_boards_items_hide_nsfw_results_when_ordinary(ctx):
     assert put.status_code == 200, put.text
 
     items = c.get(f"/api/boards/{bid}/items", headers=H).json()
-    assert len(items) == 1
-    assert items[0]["job"]["id"] == sfw_id
-    assert "nsfw.png" not in json.dumps(items)
+    assert {i["job"]["id"] for i in items} == {sfw_id, nsfw_id}
 
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])
@@ -267,7 +268,7 @@ def test_boards_items_hide_nsfw_results_when_ordinary(ctx):
 
 
 def test_images_nsfw_gate_ordinary_404_adult_ok(ctx, monkeypatch):
-    """NSFW Job 产物:普通态 404;成人态放行(签名路径)。"""
+    """P0-5 R1:NSFW Job 产物 ordinary 也放行(媒体 UX 闸退役;签名路径)。"""
     from app.deps import get_pool
 
     eng = ctx["engine"]
@@ -306,7 +307,8 @@ def test_images_nsfw_gate_ordinary_404_adult_ok(ctx, monkeypatch):
     )
 
     r = ctx["client"].get(path, headers=ctx["h_ord"])
-    assert r.status_code == 404, r.text
+    assert r.status_code == 200, r.text
+    assert r.content == b"PNGDATA"
 
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])
@@ -342,10 +344,12 @@ def test_studio_file_nsfw_gate(ctx):
         s.commit()
 
     sig = studio_file_sig(name)
+    # P0-5 R1:ordinary 也放行(媒体 UX 闸退役);sig/归属仍校验
     r = ctx["client"].get(
         f"/api/studio/files/{name}?sig={sig}", headers=ctx["h_ord"]
     )
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert r.content == b"SECRET"
 
     with Session(eng) as s:
         u = s.get(User, ctx["ord"])

@@ -1,15 +1,45 @@
 /* R10补: --toiv-settings-* / --toiv-model-mgr-*; Dialog 1120×min(82vh,760); IA 模型|引擎|存储|通用|关于; no settings content_mode master switch */
 .settings-page.fz-desk,
 .settings-page {
-  --fz-canvas: #0a0c12;
-  --fz-surface: #15161d;
-  --fz-raised: #1b1c23;
-  --fz-border: #22232c;
-  --fz-ink: #e8eaf0;
-  --fz-muted: #6f7079;
-  --fz-primary: #00bdcf;
-  --fz-accent: #5ba0ff;
+  --fz-canvas: #0b0c0f;
+  --fz-surface: #14151a;
+  --fz-raised: #1a1b21;
+  --fz-border: rgba(255, 255, 255, 0.10);
+  --fz-ink: #f4f6f7;
+  --fz-muted: #8b8e98;
+  --fz-primary: #4A7FC1; /* form/shadcn surface only */
+  --fz-accent: #4A7FC1; /* product focus / nav */
 }
+
+/* A1: denser settings chrome — director desk, not marketing */
+.settings-page .settings-pane-root {
+  padding-top: 4px;
+}
+.settings-page .settings-pane-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--fz-border, rgba(255, 255, 255, 0.10));
+}
+.settings-page .settings-pane-header h2 {
+  font-size: 15px !important;
+  line-height: 22px !important;
+  font-weight: 600;
+}
+.settings-page .settings-pane-header p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--fz-muted, #8b8e98);
+}
+.settings-page [data-testid="settings-section-nav"] {
+  margin-bottom: 10px !important;
+  padding-bottom: 8px !important;
+}
+.settings-page .ant-btn-primary {
+  background: color-mix(in srgb, var(--fz-accent) 88%, #000) !important;
+  border-color: color-mix(in srgb, var(--fz-accent) 70%, transparent) !important;
+}
+
 
 html.dark .settings-page.fz-desk,
 .dark .settings-page.fz-desk {
@@ -26,8 +56,8 @@ html.dark .settings-page.fz-desk,
 .settings-page .settings-slot-surface,
 .settings-page .settings-bind-card,
 .settings-page .settings-advanced-collapse > .ant-collapse-item {
-  border-color: var(--fz-border, #22232c) !important;
-  background: color-mix(in srgb, var(--fz-surface, #15161d) 92%, transparent);
+  border-color: var(--fz-border, rgba(255, 255, 255, 0.10)) !important;
+  background: color-mix(in srgb, var(--fz-surface, #14151a) 92%, transparent);
 }
 
 .settings-page .settings-r18-row {
@@ -36,9 +66,9 @@ html.dark .settings-page.fz-desk,
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--fz-border, #22232c);
+  border: 1px solid var(--fz-border, rgba(255, 255, 255, 0.10));
   border-radius: 10px;
-  background: color-mix(in srgb, var(--fz-raised, #1b1c23) 80%, transparent);
+  background: color-mix(in srgb, var(--fz-raised, #1a1b21) 80%, transparent);
 }
 
 .settings-page .settings-r18-row h3 {
@@ -51,13 +81,13 @@ html.dark .settings-page.fz-desk,
   margin: 4px 0 0;
   font-size: 11px;
   line-height: 16px;
-  color: var(--fz-muted, #6f7079);
+  color: var(--fz-muted, #8b8e98);
 }
 
 .settings-page [data-testid="settings-section-nav"] {
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--fz-border, #22232c);
+  border-bottom: 1px solid var(--fz-border, rgba(255, 255, 255, 0.10));
 }
 
 /* Settings visual pass 2026-10-26 — LingGuo-style restraint: slot table first, less chrome */
@@ -350,7 +380,7 @@ html.dark .settings-page.fz-desk,
 }
 
 .settings-lora-pill.is-nsfw {
-  background: color-mix(in srgb, #e11d48 12%, transparent);
+  background: color-mix(in srgb, #4A7FC1 12%, transparent);
   color: #be123c;
 }
 

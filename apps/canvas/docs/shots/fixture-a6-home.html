@@ -1,0 +1,48 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · A6 home · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;--lock:#6B7280;--danger:#B85C5C;--ok:#3D8B6E;--warn:#C4A35A}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:200px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--raised);padding:12px}
+.brand{font:650 13px ui-monospace,Menlo,monospace;margin-bottom:16px}
+.nav a{display:block;padding:8px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:12px}
+.nav a.is-on{color:var(--text);background:rgba(74,127,193,.10);box-shadow:inset 2px 0 0 var(--accent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line)}
+.top .spacer{flex:1}
+.btn{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:12px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#f4f6f7;font-weight:600}
+.body{padding:16px;display:grid;gap:12px;grid-template-columns:1.2fr .8fr}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:12px}
+.card h3{margin:0 0 8px;font-size:13px;font-weight:600}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.row b{color:var(--text);font-weight:560}
+.pill{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:4px;font-size:11px;color:var(--muted)}
+.lock{color:var(--lock);font-size:11px}
+.stat{font:650 22px/1.2 ui-monospace,Menlo,monospace;color:var(--text)}
+.stat small{display:block;font:500 11px/1.4 system-ui;color:var(--muted);margin-top:4px}
+.status{display:flex;gap:10px;margin-top:10px;font-size:11px}
+.status .ok{color:var(--ok)}.status .warn{color:var(--warn)}.status .danger{color:var(--danger)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · A6 home</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav"><a class="is-on" href="#">首页</a><a href="#">短剧</a><a href="#">创作台</a><a href="#">设置</a></nav></aside>
+<div class="main">
+<header class="top"><span class="pill">普通</span><span class="lock">NSFW · 灰锁</span><span class="spacer"></span><button class="btn">导入</button><button class="btn btn-primary" id="cta">新建短剧</button></header>
+<div class="body">
+<section class="card"><h3>最近短剧</h3>
+<div class="row"><b>雨夜便利店</b><span>草稿 · 4 镜</span></div>
+<div class="row"><b>港风天台</b><span>成片 · 0:42</span></div>
+<div class="row"><b>末班车</b><span>分镜中</span></div>
+</section>
+<section class="card"><h3>今日</h3>
+<div class="stat">3<small>进行中任务</small></div>
+<div class="status"><span class="ok">Success</span><span class="warn">Warning</span><span class="danger">Danger</span></div>
+<p style="margin:12px 0 0;font-size:12px;color:var(--muted)">黑白壳 · accent #4A7FC1 仅 CTA/选中</p>
+</section>
+</div></div></div>
+</body></html>

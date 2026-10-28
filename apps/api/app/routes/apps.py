@@ -2,7 +2,7 @@
 
 M1 CRUD(可见性三区同 routes/agents 范式):
 - GET /api/apps?category=&q=&use_case=&featured=:列表,公共(user_id 空)+ 本人 + 属主上架(is_public)的
-  个人应用;NSFW 应用仅 R18 上下文可见(redline.nsfw_allowed 门控);按 sort/name 排序。
+  个人应用;按 sort/name 排序。P0-5 R4:NSFW 不再后端过滤,is_nsfw 透出供前端红线。
   use_case/featured 为市场策展层过滤(2026-09-12,见 routes/app_curation)。
   列表 slim:params_schema=[] / bindings={} / required_nodes=[] / workflow_json=None
   (1166 张 rh-* H3 社区卡的图 schema 否则会撑成数 MB)。运行页走详情拿完整 schema。
@@ -34,7 +34,7 @@ M2 运行器:
   + required_nodes(空则从图自动取 class_type 集)→ pool.pick + queue_prompt
   → 建 Job(kind=submit_kind,params 存 app_id+表单快照) + 审计 app.run
   → tracker 后台追踪落库;usage_count 只在 Job 到 done 时 +1
-  (tracker.mark_done 检测 params.app_id,失败/取消不计)。is_nsfw 应用无 X-NSFW 头 403。
+  (tracker.mark_done 检测 params.app_id,失败/取消不计)。is_nsfw 应用 P0-5 R3 仅未成年硬关(成人 UX 403 退役)。
 """
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ from app.services.provenance import (
     public_app_description,
     rh_webapp_url,
 )
-from app.redline import nsfw_allowed, adult_at_submit
+from app.redline import adult_at_submit, require_not_underage
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.agents import _slugify
 from app.routes.images import _ranged_response
@@ -436,11 +436,12 @@ def _visible_as_mode(session: Session, a: App, user: User) -> bool:
 
 
 def _get_visible(session: Session, aid: str, user: User) -> App:
-    """取应用并套可见性 + NSFW 门控;不可见一律 404(不泄露存在性)。"""
+    """取应用并套可见性;不可见一律 404(不泄露存在性)。
+
+    P0-5 R4:不再因 is_nsfw+ordinary 伪装 404;is_nsfw 仍由 _to_out 透出供前端红线。
+    """
     a = session.get(App, aid)
     if not a or not (_visible(a, user) or _visible_as_mode(session, a, user)):
-        raise HTTPException(status_code=404, detail="应用不存在")
-    if a.is_nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="应用不存在")
     return a
 
@@ -471,7 +472,7 @@ def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = F
         params_schema=(
             []
             if slim
-            else app_deep_knobs_svc.enrich_params_schema(
+            else app_deep_knobs_svc.effective_params_schema(
                 a.id, a.params_schema or [], output_kind=a.output_kind
             )
         ),
@@ -548,6 +549,11 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
                 v = str(int(v))
             elif not isinstance(v, str):
                 raise HTTPException(status_code=422, detail=f"参数 {key} 须为字符串")
+            cap = p.get("max_chars")
+            if cap is not None and len(v) > int(cap):
+                raise HTTPException(
+                    status_code=422, detail=f"参数 {key} 超过 max_chars={int(cap)}"
+                )
         elif ptype in ("number", "slider"):
             if isinstance(v, bool) or not isinstance(v, (int, float)):
                 raise HTTPException(status_code=422, detail=f"参数 {key} 须为数字")
@@ -579,6 +585,16 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
                         raise HTTPException(
                             status_code=422, detail=f"参数 {key} 最多 {cap} 个文件"
                         )
+        elif ptype == "loras":
+            # 声明了 max_items 才按数量拒绝(limits 未声明 None 不伪造);形状归一仍交给
+            # apply_app_loras 的 parse_loras_value(既有 422 语义)
+            cap = p.get("max_items")
+            if cap is not None and isinstance(v, list):
+                named = [i for i in v if isinstance(i, dict) and str(i.get("name") or "").strip()]
+                if len(named) > int(cap):
+                    raise HTTPException(
+                        status_code=422, detail=f"参数 {key} 超过 max_items={int(cap)}"
+                    )
         # loras 等其余复合类型宽松透传
         out[key] = v
     # 保留可选 seed(可不在 schema 内);供 seed_policy / Job.seed 使用
@@ -3522,12 +3538,12 @@ def list_apps(
     extra = sorted(set(request.query_params.keys()) - _APPS_LIST_ALLOWED_QUERY)
     if extra:
         raise HTTPException(status_code=422, detail=f"未知的查询参数: {','.join(extra)}")
-    allow_nsfw = nsfw_allowed(user)
+    # P0-5 R4:列表不再按 content_mode 过滤 NSFW;缓存键固定 allow_nsfw=True(与成人同包)
     params = dict(
         category=category or "", q=q or "", use_case=use_case or "",
         featured=featured, fingerprint=fingerprint or "",
     )
-    key = apps_list_cache.make_key(user.id, allow_nsfw, params)
+    key = apps_list_cache.make_key(user.id, True, params)
     cached = apps_list_cache.get(key)
     if cached is not None:
         # 早释会话(2026-09-21 事故):FastAPI yield 依赖要等响应流完才 teardown,
@@ -3567,8 +3583,7 @@ def list_apps(
         for a in rows:
             if not _visible(a, user):
                 continue
-            if a.is_nsfw and not allow_nsfw:
-                continue
+            # P0-5 R4:不再因 ordinary 跳过 is_nsfw(限制只前端;字段仍透出)
             if category and a.category != category:
                 continue
             if use_case and (a.use_case or "") != use_case:
@@ -3599,7 +3614,8 @@ def get_app_variants(
 ) -> dict:
     """应用内「模式 / 示例」:aid 可为代表卡或其模式目标;无则空列表。
 
-    模式只列当前用户可见的目标(NSFW 门控同详情);示例只对代表卡本身有意义。
+    模式只列当前用户可见的目标;示例只对代表卡本身有意义。
+    P0-5 R4:不再因 is_nsfw 隐藏模式目标(限制只前端)。
     """
     _get_visible(session, aid, user)
     found = app_variants.variants_for(aid)
@@ -3607,14 +3623,15 @@ def get_app_variants(
         return {"keeper_id": aid, "keeper_name": "", "modes": [], "presets": []}
     kid, v = found
     keeper = session.get(App, kid)
-    if not keeper or not (_visible(keeper, user)) or (keeper.is_nsfw and not nsfw_allowed(user)):
+    if not keeper or not (_visible(keeper, user)):
         return {"keeper_id": aid, "keeper_name": "", "modes": [], "presets": []}
     modes = []
     for m in v["modes"]:
         t = session.get(App, m["app_id"])
-        if not t or (t.is_nsfw and not nsfw_allowed(user)):
+        if not t or not _visible(t, user):
             continue
-        modes.append({"label": m["label"], "desc": m.get("desc") or "", "app_id": t.id})
+        modes.append({"label": m["label"], "desc": m.get("desc") or "", "app_id": t.id,
+                      "is_nsfw": bool(t.is_nsfw)})
     return {"keeper_id": kid, "keeper_name": keeper.name, "modes": modes, "presets": v["presets"]}
 
 
@@ -3625,7 +3642,7 @@ def get_app(
     session: Session = Depends(get_session),
 ) -> AppOut:
     """详情;workflow_json 对所有可见用户透出(2026-09-02 产品决策:运行页「工作流」
-    模式把流程图展现给用户,最可控;可见性/NSFW 门控仍由 _get_visible 卡死)。"""
+    模式把流程图展现给用户,最可控;可见性仍由 _get_visible 卡死;P0-5 R4 不再 NSFW 伪装 404)。"""
     a = _get_visible(session, aid, user)
     return _to_out(a, user, with_workflow=True, guide=session.get(AppGuide, aid))
 
@@ -4403,9 +4420,9 @@ async def run_app(
     a = session.get(App, aid)
     if not a or not (_visible(a, user) or _visible_as_mode(session, a, user)):
         raise HTTPException(status_code=404, detail="应用不存在")
-    # is_nsfw 应用须 R18 上下文(与详情 404 不泄露不同:run 是动作,显式 403 引导去专页)
-    if a.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="该操作为 R18 内容,须切换到成人模式")
+    # P0-5 R3:成人 UX 403 退役;is_nsfw 应用仅未成年硬关
+    if a.is_nsfw:
+        require_not_underage(user)
     mode = (body.content_mode or ("nsfw" if a.is_nsfw else "sfw")).strip().lower()
     if mode not in ("sfw", "nsfw"):
         raise HTTPException(status_code=422, detail="content_mode 须为 sfw 或 nsfw")
@@ -4417,8 +4434,7 @@ async def run_app(
             twin = session.get(App, twin_id)
             if not twin:
                 raise HTTPException(status_code=422, detail=f"R18 变体不存在: {twin_id}")
-            if not nsfw_allowed(user):
-                raise HTTPException(status_code=403, detail="该操作为 R18 内容,须切换到成人模式")
+            require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
             run_app = twin
             run_nsfw = True
         elif not a.is_nsfw:
@@ -4431,7 +4447,14 @@ async def run_app(
     # 顶层 seed → values(values.seed 已有则不覆盖);修 resume 把 seed 放顶层被忽略(03:20 P0)
     if "seed" not in raw_values and body.seed is not None and body.seed != "":
         raw_values["seed"] = body.seed
-    values = _validate_params(a.params_schema or [], raw_values)
+    # 表单按父卡「有效 schema」校验(与 _to_out 下发同源:enrich + 引擎 limits),
+    # 界面声明的 max_chars/max_items 在提交侧同样生效,不可绕过
+    values = _validate_params(
+        app_deep_knobs_svc.effective_params_schema(
+            a.id, a.params_schema or [], output_kind=a.output_kind
+        ),
+        raw_values,
+    )
     graph = _build_graph(run_app.workflow_json or {}, run_app.bindings or {}, values)
     if not graph:
         raise HTTPException(status_code=422, detail="应用未配置工作流图")

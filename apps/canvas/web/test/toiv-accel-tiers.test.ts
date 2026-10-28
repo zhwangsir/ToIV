@@ -70,8 +70,10 @@ describe("任务 #24 — client.ts 渲染请求带 accel + tiers 端点", () => 
     });
 
     test("triggerBatchRender 透传 accel 到 project render 请求体", () => {
-        expect(client).toContain("triggerBatchRender(pid: string, accel?: string)");
-        expect(client).toContain('const body = accel && accel !== "off" ? { accel } : undefined;');
+        // 渲染管线期起签名扩为 (pid, accel?, pipeline)，body 由三元改逐项组装；
+        // accel 语义不变：非 off 才注入请求体。
+        expect(client).toMatch(/triggerBatchRender\(\s*pid: string,\s*accel\?: string,/);
+        expect(client).toContain('if (accel && accel !== "off") body.accel = accel;');
     });
 });
 
@@ -90,7 +92,10 @@ describe("任务 #24 — drama-workspace 加速档 Select 接线", () => {
     });
 
     test("单镜/整批渲染把 accelLevel 传进请求", () => {
-        expect(page).toContain("renderShotAsync(sid, { num_candidates: 2, accel: accelLevel })");
-        expect(page).toContain("triggerBatchRender(id, accelLevel)");
+        // R11 后调用为多行对象并带 renderPipeline 等扩展参数;C1b 后 runShotRender 带 opts,
+        // accel 默认档仍是 accelLevel(显式 opts.accel 仅配方 render_params 覆盖时生效)。
+        expect(page).toContain("num_candidates: opts.num_candidates ?? 2");
+        expect(page).toContain("accel: opts.accel ?? accelLevel");
+        expect(page).toContain("triggerBatchRender(id, accelLevel");
     });
 });

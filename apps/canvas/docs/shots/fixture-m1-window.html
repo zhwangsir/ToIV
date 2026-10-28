@@ -1,0 +1,46 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · M1 window · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--elev:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:#25262c;--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;right:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{height:100vh;display:flex;flex-direction:column;background:radial-gradient(900px 500px at 90% 110%,rgba(255,255,255,.03),transparent 50%),var(--bg)}
+.stage{flex:1;position:relative;min-height:0}
+.icons{position:absolute;left:16px;top:16px;display:flex;flex-direction:column;gap:8px;opacity:.55}
+.icon{width:64px;text-align:center;font-size:11px;color:var(--muted)}
+.glyph{width:36px;height:36px;margin:0 auto 4px;border-radius:8px;border:1px solid var(--line);background:var(--elev)}
+.win{position:absolute;left:96px;top:40px;width:980px;height:560px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:10px;background:var(--elev);display:grid;grid-template-rows:36px 1fr;overflow:hidden;box-shadow:0 22px 56px rgba(0,0,0,.55)}
+.title{display:flex;align-items:center;padding:0 10px 0 12px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;background:color-mix(in srgb,var(--bg) 70%,var(--elev))}
+.title .sp{flex:1}.ctl{display:flex;gap:4px}
+.ctl i{width:28px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);display:inline-block}
+.body{display:grid;grid-template-columns:250px 1fr;min-height:0;background:var(--bg)}
+.side{border-right:1px solid var(--line);padding:10px;background:var(--bg)}
+.nav a{display:block;min-height:34px;line-height:34px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.on{color:var(--text);background:rgba(255,255,255,.08);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line)}
+.pill{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;color:var(--muted);font-size:12px}
+.btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#f4f6f7;font-size:12px;font-weight:600;margin-left:auto}
+.content{padding:14px;color:var(--muted);font-size:12px}
+.task{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:1px solid var(--line);background:var(--elev)}
+.start{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:12px;font-weight:650}
+.tb{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-size:12px}
+.tb.active{box-shadow:inset 0 -2px 0 var(--accent)}
+.tb.min{opacity:.7}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · M1 window · sidebar 250 · taskbar kept</div>
+<div class="shell"><div class="stage">
+<div class="icons"><div class="icon"><div class="glyph"></div>创作</div><div class="icon"><div class="glyph"></div>任务</div></div>
+<div class="win">
+<div class="title"><span>创作</span><span class="sp"></span><span class="ctl"><i></i><i></i><i></i></span></div>
+<div class="body">
+<aside class="side"><nav class="nav"><a class="on" href="#">创作</a><a href="#">短剧项目</a><a href="#">任务中心</a><a href="#">工具台</a><a href="#">设置</a></nav></aside>
+<div class="main"><header class="top"><span class="pill">普通</span><span class="pill">灰锁</span><button class="btn" id="cta">继续</button></header>
+<div class="content">窗内 chrome = AppWorkspaceShell · B1 250/67/56 · BeefTV+A6<br/>桌面皮肤 themeId=toiv-noir 不染内容区</div></div>
+</div></div>
+</div>
+<footer class="task"><button class="start">开始</button>
+<button class="tb active">创作</button><button class="tb min">任务中心</button>
+</footer></div>
+</body></html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · B1 home · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;--hover:rgba(255,255,255,.08);--lock:#6B7280;--ok:#3D8B6E;--warn:#C4A35A;--danger:#B85C5C}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:8px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;letter-spacing:-.02em;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.is-on{color:var(--text);background:var(--hover);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.nav a.new{background:var(--raised);color:var(--text);font-weight:600;border:1px solid var(--line);margin-bottom:6px}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.top .spacer{flex:1}
+.pill{display:inline-flex;height:28px;align-items:center;padding:0 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:var(--muted)}
+.btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--raised);color:var(--muted);font-size:12px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#f4f6f7;font-weight:600}
+.body{padding:16px;display:grid;gap:12px;grid-template-columns:1.2fr .8fr}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:12px}
+.card h3{margin:0 0 8px;font-size:13px;font-weight:600}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.row b{color:var(--text);font-weight:560}
+.note{margin-top:10px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+.status{display:flex;gap:10px;margin-top:10px;font-size:11px}
+.status .ok{color:var(--ok)}.status .warn{color:var(--warn)}.status .danger{color:var(--danger)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · B1 home · sidebar 250</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav">
+<a class="new" href="#">创作</a>
+<a class="is-on" href="#">短剧</a>
+<a href="#">任务</a>
+<a href="#">工具</a>
+<a href="#">设置</a>
+</nav></aside>
+<div class="main">
+<header class="top"><span class="pill">普通</span><span class="pill" style="color:var(--lock)">灰锁</span><span class="spacer"></span><button class="btn">导入</button><button class="btn btn-primary" id="cta">新建短剧</button></header>
+<div class="body">
+<section class="card"><h3>最近短剧</h3>
+<div class="row"><b>雨夜便利店</b><span>草稿 · 4 镜</span></div>
+<div class="row"><b>港风天台</b><span>成片 · 0:42</span></div>
+<div class="row"><b>末班车</b><span>分镜中</span></div>
+<p class="note">chrome 灰阶 · CTA #4A7FC1 · dock only · no spatial glow</p>
+</section>
+<section class="card"><h3>壳密度</h3>
+<div class="row"><b>sidebar</b><span>250px</span></div>
+<div class="row"><b>collapsed</b><span>67px</span></div>
+<div class="row"><b>topbar</b><span>56px</span></div>
+<div class="status"><span class="ok">Success</span><span class="warn">Warning</span><span class="danger">Danger</span></div>
+</section>
+</div></div></div>
+</body></html>

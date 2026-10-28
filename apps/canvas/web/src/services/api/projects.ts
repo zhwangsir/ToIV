@@ -384,6 +384,92 @@ export function listProjectAssets(projectId: string) {
     return http.get<{ assets: ProjectAsset[] }>(`/projects/${encodeURIComponent(projectId)}/assets`).then((result) => ({ assets: result.assets.map(normalizeProjectAsset) }));
 }
 
+export type AssetReconciliationVersionUsage = {
+    versionId: string;
+    version: number;
+    isPrimary: boolean;
+    shotIds: string[];
+    roles: string[];
+};
+
+export type AssetReconciliationEntry = {
+    assetId: string;
+    title: string;
+    category: AssetCategory;
+    primaryVersionId?: string;
+    versions: AssetReconciliationVersionUsage[];
+};
+
+export type AssetReconciliationUnit = {
+    unitId: string;
+    unitTitle: string;
+    kind: string;
+    entries: AssetReconciliationEntry[];
+};
+
+export type AssetReconciliationDrift = {
+    kind: string;
+    reason: string;
+    unitId?: string;
+    shotId?: string;
+    assetId?: string;
+    assetTitle?: string;
+    versionIds?: string[];
+    artifactId?: string;
+    artifactType?: string;
+};
+
+export type AssetReconciliationAppearance = {
+    candidateId: string;
+    unitId?: string;
+    shotId?: string;
+    status: string;
+    resolvedAssetId?: string;
+};
+
+export type AssetReconciliationSuggestion = {
+    action: "merge" | "create" | string;
+    assetId?: string;
+    assetTitle?: string;
+    match: string;
+    reason: string;
+};
+
+export type AssetReconciliationGroup = {
+    key: string;
+    name: string;
+    category: AssetCategory;
+    appearances: AssetReconciliationAppearance[];
+    suggestion: AssetReconciliationSuggestion;
+};
+
+export type ProjectAssetReconciliation = {
+    units: AssetReconciliationUnit[];
+    drifts: AssetReconciliationDrift[];
+    candidateIdentities: AssetReconciliationGroup[];
+};
+
+export type ReconcileAction = "merge" | "create";
+
+export type ReconcileDecision = {
+    candidateId: string;
+    action: ReconcileAction;
+    assetId?: string;
+};
+
+export type ReconcileApplyOutcome = {
+    candidateId: string;
+    action: ReconcileAction | string;
+    assetId?: string;
+    outcome: "applied" | "already_confirmed" | "auto_linked" | string;
+    candidateStatus: string;
+};
+
+export type ReconcileApplyResult = {
+    replayed: boolean;
+    results: ReconcileApplyOutcome[];
+};
+
 export function listProjectAssetCandidates(projectId: string, options: { page?: number; pageSize?: number; unitId?: string; status?: string; category?: string; query?: string } = {}) {
     return http.get<ProjectAssetCandidatePage>(`/projects/${encodeURIComponent(projectId)}/asset-candidates`, { params: {
         page: options.page || 1,
@@ -401,6 +487,37 @@ function normalizeProjectAsset(asset: ProjectAsset): ProjectAsset {
 
 function normalizeProjectAssetCandidate(candidate: ProjectAssetCandidate): ProjectAssetCandidate {
     return { ...candidate, category: normalizeAssetCategory(candidate.category) };
+}
+
+function normalizeAssetReconciliation(data: ProjectAssetReconciliation): ProjectAssetReconciliation {
+    return {
+        units: (Array.isArray(data.units) ? data.units : []).map((unit) => ({
+            ...unit,
+            entries: (Array.isArray(unit.entries) ? unit.entries : []).map((entry) => ({
+                ...entry,
+                category: normalizeAssetCategory(entry.category),
+                versions: Array.isArray(entry.versions) ? entry.versions.map((usage) => ({
+                    ...usage,
+                    shotIds: Array.isArray(usage.shotIds) ? usage.shotIds : [],
+                    roles: Array.isArray(usage.roles) ? usage.roles : [],
+                })) : [],
+            })),
+        })),
+        drifts: (Array.isArray(data.drifts) ? data.drifts : []).map((drift) => ({ ...drift, versionIds: Array.isArray(drift.versionIds) ? drift.versionIds : undefined })),
+        candidateIdentities: (Array.isArray(data.candidateIdentities) ? data.candidateIdentities : []).map((group) => ({
+            ...group,
+            category: normalizeAssetCategory(group.category),
+            appearances: Array.isArray(group.appearances) ? group.appearances : [],
+        })),
+    };
+}
+
+export function getProjectAssetReconciliation(projectId: string, signal?: AbortSignal) {
+    return http.get<ProjectAssetReconciliation>(`/projects/${encodeURIComponent(projectId)}/asset-reconciliation`, { signal }).then(normalizeAssetReconciliation);
+}
+
+export function applyProjectAssetReconciliationDecisions(projectId: string, decisions: ReconcileDecision[]) {
+    return http.post<ReconcileApplyResult>(`/projects/${encodeURIComponent(projectId)}/asset-reconciliation/apply`, { decisions });
 }
 
 function normalizeProjectDetail(detail: ProjectDetail): ProjectDetail {

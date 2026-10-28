@@ -2,16 +2,16 @@ import { Lock, ShieldCheck } from "lucide-react";
 
 import { ContentModeConfirm } from "@/components/content-mode/content-mode-confirm";
 import { useContentModeControl } from "@/components/content-mode/use-content-mode-control";
-import { COPY_MODE_ADULT, COPY_MODE_NORMAL } from "@/redline";
+import { COPY_MODE_ADULT, COPY_MODE_NORMAL, COPY_UNDERAGE_ADULT } from "@/redline";
 import { cn } from "@/lib/utils";
 
 /**
  * R2 TL · 顶栏右 quiet segmented pill「普通｜成人」+ 滑动 thumb。
- * Token: --toiv-switch-*；轨高 28 / minW 108；普通无 glow；成人 #4f8cff glow。
+ * Token: --toiv-switch-*；轨高 32 / minW 108；普通无 glow；成人暗红描边（禁 glow）。
  * 禁 iOS 大开关 / 整页 View Transition / 设置页主入口。
  */
 export function LightCurtainPaddle({ compact }: { compact?: boolean }) {
-    const { adultOn, confirming, select, confirmAdult, cancelConfirm } = useContentModeControl();
+    const { adultOn, underage, confirming, select, confirmAdult, cancelConfirm } = useContentModeControl();
 
     return (
         <div
@@ -37,10 +37,11 @@ export function LightCurtainPaddle({ compact }: { compact?: boolean }) {
                 </button>
                 <button
                     type="button"
-                    className={cn("cm-light-curtain-opt", adultOn && "is-active")}
+                    className={cn("cm-light-curtain-opt", adultOn && "is-active", underage && "is-disabled")}
                     aria-pressed={adultOn}
                     data-testid="content-mode-a-adult"
-                    title={COPY_MODE_ADULT}
+                    title={underage ? COPY_UNDERAGE_ADULT : COPY_MODE_ADULT}
+                    disabled={underage}
                     onClick={() => select(true)}
                 >
                     <Lock aria-hidden />

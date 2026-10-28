@@ -72,7 +72,8 @@ describe("助手前端接线", () => {
     test("面板是右侧停靠栏，不再是浮在画布上的绝对定位卡片", () => {
         expect(project).not.toContain("absolute right-4 top-24");
         expect(project).not.toContain("CanvasAgentAssistantPanel");
-        expect(sidebar).toContain('className="canvas-assistant-sidebar"');
+        // 停靠栏根节点保留 canvas-assistant-sidebar 类（可浮动形态为同根的 is-floating 修饰）。
+        expect(sidebar).toContain("canvas-assistant-sidebar${float ? \" is-floating\" : \"\"}");
     });
 
     test("面板只使用应用里真实存在的样式变量", () => {

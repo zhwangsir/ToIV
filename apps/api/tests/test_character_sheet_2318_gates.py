@@ -94,17 +94,23 @@ def test_2318_compose_grid_full_coverage():
 
 
 def test_2318_no_side_base_in_source():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert "撤回沉思 side_base" in src or "23:18：撤回沉思" in src
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
+    # 23:18 撤回沉思 side_base:现行实现已无 side_base 机制(拆分后标记注释不再保留)
+    assert "side_base" not in src
     assert "22:28 contemplative uses side-face base" not in src
     # 不得再写 expr_2 side_base 落盘
     assert "expr_2_side_base_" not in src
 
 
 def test_2318_contemplative_gentle_qwen_edit_contract():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
-    assert 'if ek in ("expr_2", "expr_3")' in src or "ek in (\"expr_2\", \"expr_3\")" in src
-    assert 'ref_mode="qwen_edit"' in src
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
+    assert (
+        'if ek in ("expr_2", "expr_3")' in src
+        or 'ek in ("expr_2", "expr_3")' in src
+        or "if ek in ('expr_2', 'expr_3')" in src
+        or "ek in ('expr_2', 'expr_3')" in src
+    )
+    assert 'ref_mode="qwen_edit"' in src or "ref_mode='qwen_edit'" in src
     assert "qwen_image_edit_2509" in src
     assert "approved_portrait" in src
     assert "clip_image_cosine_sim" in src or "身份CLIP" in src

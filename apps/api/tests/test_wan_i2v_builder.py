@@ -112,6 +112,23 @@ def test_nsfw_loras_chain_after_accel_lora_by_side():
     assert g["16"]["inputs"]["model"] == ["21", 0]
 
 
+def test_nsfw22_low_is_registered_on_low_side_with_shared_trigger():
+    from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS, pick_trigger_words
+
+    meta = WAN_I2V_NSFW_LORAS["NSFW-22-L-e8.safetensors"]
+    assert meta.side == "low"
+    assert meta.default_strength == 0.8
+    assert pick_trigger_words(["NSFW-22-H-e8.safetensors", "NSFW-22-L-e8.safetensors"]) == ["nsfwsks"]
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="nsfwsks, adult", image="a.png",
+        high_loras=(("NSFW-22-H-e8.safetensors", 0.8),),
+        low_loras=(("NSFW-22-L-e8.safetensors", 0.8),),
+    ))
+    assert g["21"]["inputs"]["lora_name"] == "NSFW-22-L-e8.safetensors"
+    assert g["21"]["inputs"]["model"] == ["4", 0]
+    assert g["16"]["inputs"]["model"] == ["21", 0]
+
+
 def test_nsfw_loras_multiple_same_side_chain_in_order():
     """同侧多个 LoRA 按给定顺序依次串联(高噪 2 个:3 → 20 → 21 → 15)。"""
     g = build_wan_i2v_graph(WanI2VParams(

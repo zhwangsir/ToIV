@@ -1,42 +1,413 @@
-/* Home dense Freezone desk — companion to toiv-freezone-desk.css */
+/* BF0 · BeefTV home structure + A6/--toiv-* token bridge. No fz-desk platter. */
+
+.beeftv-home,
 .toiv-home {
+    --home-border: var(--toiv-border, var(--user-border));
+    --home-card: var(--toiv-surface, var(--user-surface));
+    --home-ink: var(--toiv-text, var(--user-ink));
+    --home-ink-muted: var(--toiv-text-muted, var(--user-ink-muted));
+    --home-ink-soft: var(--toiv-text-secondary, var(--user-ink-soft));
+    --home-surface: var(--toiv-surface, var(--user-surface));
+    --home-surface-muted: var(--toiv-surface-raised, var(--user-surface-muted));
+    --home-surface-hover: var(--toiv-surface-raised, var(--user-surface-hover));
+    --home-page-bg: var(--toiv-bg, var(--user-page-bg));
+    --home-border-strong: var(--toiv-border-strong, var(--user-border-strong));
+    --home-accent: var(--toiv-accent, #4A7FC1);
     height: 100%;
     overflow: auto;
+    color: var(--home-ink);
+    background: var(--home-page-bg);
+    padding: 48px 40px 72px;
     scrollbar-width: thin;
 }
-.toiv-home-section { margin-top: 16px; }
-.toiv-home-fleet-hint {
-    margin: 0 0 12px;
-    padding: 8px 10px;
-    border: 1px solid var(--fz-border);
-    border-radius: 10px;
-    background: var(--fz-surface);
-    color: var(--fz-muted);
+
+.beeftv-home-hero {
+    position: relative;
+    min-height: 160px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--home-border-strong);
+    border-radius: 12px;
+    background: var(--home-surface-muted);
+}
+
+.beeftv-home-dot-base,
+.beeftv-home-dot-flow {
+    position: absolute;
+    inset: 8px 2px;
+    pointer-events: none;
+    background-size: 18px 18px;
+}
+
+.beeftv-home-dot-base {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--home-ink) 12%, transparent) .3px, transparent 1.4px);
+}
+
+.beeftv-home-dot-flow {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--home-ink) 45%, transparent) .3px, transparent 1.4px);
+    -webkit-mask-image: radial-gradient(circle, transparent 18%, rgba(0, 0, 0, .2) 32%, rgba(0, 0, 0, .85) 50%, rgba(0, 0, 0, .2) 68%, transparent 82%);
+    mask-image: radial-gradient(circle, transparent 18%, rgba(0, 0, 0, .2) 32%, rgba(0, 0, 0, .85) 50%, rgba(0, 0, 0, .2) 68%, transparent 82%);
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    opacity: 0;
+    animation: beeftv-dot-ripple 4s cubic-bezier(.33, 0, .2, 1) infinite;
+}
+
+.beeftv-home-dot-flow-delay { animation-delay: -2s; }
+
+.beeftv-home-create {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    gap: 13px;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.beeftv-home-create-icon {
+    display: grid;
+    width: 88px;
+    height: 52px;
+    place-items: center;
+    border: 1.35px solid color-mix(in srgb, var(--home-ink) 18%, transparent);
+    border-radius: 16px;
+    color: #070707;
+    background: linear-gradient(180deg, #fff 25.3%, rgba(255, 255, 255, .87) 89.7%);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .2);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.beeftv-home-create-icon svg { width: 24px; height: 24px; stroke-width: 1.8; }
+
+.beeftv-home-create-title {
+    margin: 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+}
+
+.beeftv-home-create:hover .beeftv-home-create-icon {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .34);
+}
+
+.beeftv-home-create:active .beeftv-home-create-icon { transform: scale(.97); }
+
+.beeftv-home-create:focus-visible {
+    outline: 2px solid var(--home-accent);
+    outline-offset: 8px;
+    border-radius: 18px;
+}
+
+.beeftv-home-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    margin: 16px 0 0;
+    padding: 0 4px;
+}
+
+.beeftv-home-compute {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--home-ink-muted);
     font-size: 12px;
     line-height: 18px;
+    opacity: .85;
 }
+
+.beeftv-home-secondary {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.beeftv-home-secondary-btn {
+    display: inline-flex;
+    height: 32px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px solid var(--home-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--home-ink-muted);
+    font-size: 12px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.beeftv-home-secondary-btn svg { width: 14px; height: 14px; }
+
+.beeftv-home-secondary-btn:hover {
+    color: var(--home-ink);
+    border-color: var(--home-border-strong);
+    background: color-mix(in srgb, var(--home-ink) 4%, transparent);
+}
+
+.beeftv-home-secondary-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.beeftv-capabilities {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 8px;
+    margin: 20px 0 0;
+    padding: 8px 0;
+}
+
+.beeftv-capability {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--home-ink);
+    text-align: center;
+    text-decoration: none;
+}
+
+.beeftv-capability-icon {
+    position: relative;
+    display: grid;
+    width: 98px;
+    max-width: 100%;
+    height: 56px;
+    margin: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 16px;
+    background: var(--home-surface-muted);
+    box-shadow: 0 0 0 1px var(--home-surface-muted);
+    transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.beeftv-capability-icon svg { width: 24px; height: 24px; stroke-width: 1.7; }
+
+.beeftv-capability strong {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 22px;
+    font-weight: 400;
+}
+
+.beeftv-capability:hover .beeftv-capability-icon {
+    transform: translateY(-3px);
+    background: var(--home-surface-hover);
+    box-shadow: 0 0 0 1px var(--home-border-strong);
+}
+
+.beeftv-capability.is-disabled { color: var(--home-ink-soft); cursor: not-allowed; }
+
+.beeftv-capability.is-disabled .beeftv-capability-icon {
+    background: var(--home-surface-muted);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .02);
+}
+
+.beeftv-capability.is-disabled .beeftv-capability-icon svg { color: var(--home-ink-soft); }
+
+.beeftv-capability.is-disabled:hover .beeftv-capability-icon {
+    transform: none;
+    background: var(--home-surface-muted);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .02);
+}
+
+.beeftv-home-section { margin-top: 28px; }
+
+.beeftv-section-heading {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-inline: 8px 0;
+}
+
+.beeftv-section-heading h2 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+}
+
+.beeftv-section-heading a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--home-ink-muted);
+    font-size: 13px;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+.beeftv-section-heading svg { width: 16px; }
+
+.beeftv-recent-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.beeftv-recent-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 85px;
+    align-items: center;
+    gap: 14px;
+    overflow: hidden;
+    border: 1px solid var(--home-border);
+    border-radius: 24px;
+    padding: 4px 16px 4px 4px;
+    background: var(--home-surface);
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.beeftv-recent-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--home-border-strong);
+    background: var(--home-surface);
+}
+
+.beeftv-recent-preview {
+    display: grid;
+    width: 100px;
+    height: 75px;
+    flex: 0 0 100px;
+    margin: 0;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--home-surface-muted);
+    color: var(--home-ink-soft);
+}
+
+.beeftv-recent-preview img { width: 100%; height: 100%; object-fit: cover; }
+.beeftv-recent-preview svg { width: 28px; }
+
+.beeftv-recent-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+}
+
+.beeftv-recent-copy strong,
+.beeftv-recent-copy small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.beeftv-recent-copy strong { font-size: 14px; line-height: 22px; font-weight: 500; }
+.beeftv-recent-copy small { margin: 0; color: var(--home-ink-muted); font-size: 12px; line-height: 18px; }
+
+.beeftv-recent-arrow {
+    position: absolute;
+    right: 14px;
+    width: 16px;
+    color: var(--home-ink-muted);
+    opacity: 0;
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.beeftv-recent-card:hover .beeftv-recent-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+.beeftv-recent-card.is-loading {
+    background: linear-gradient(100deg, var(--home-surface) 30%, var(--home-surface-hover) 50%, var(--home-surface) 70%);
+    background-size: 200% 100%;
+    animation: beeftv-shimmer 1.4s linear infinite;
+}
+
+.beeftv-recent-card.is-empty { color: inherit; cursor: pointer; }
+
+.beeftv-home-error,
 .toiv-home-error {
     display: flex;
     width: 100%;
     min-height: 48px;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    margin: 8px 0;
-    border: 1px solid var(--fz-border);
-    border-radius: 10px;
-    background: var(--fz-surface);
-    color: var(--fz-muted);
+    gap: 10px;
+    margin: 12px 0 0;
+    border: 1px solid var(--home-border);
+    border-radius: 18px;
+    background: var(--home-surface);
+    color: var(--home-ink-muted);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
 }
-.toiv-recent-card.is-loading {
-    min-height: 78px;
-    background: linear-gradient(100deg, #15161d 30%, #1b1c23 50%, #15161d 70%);
-    background-size: 200% 100%;
-    animation: toiv-shimmer 1.4s linear infinite;
+
+@keyframes beeftv-dot-ripple {
+    0% { opacity: 0; -webkit-mask-size: 72px 72px; mask-size: 72px 72px; }
+    18% { opacity: .34; }
+    72% { opacity: .12; }
+    100% { opacity: 0; -webkit-mask-size: 1120px 1120px; mask-size: 1120px 1120px; }
 }
-@keyframes toiv-shimmer { to { background-position: -200% 0; } }
+
+@keyframes beeftv-shimmer { to { background-position: -200% 0; } }
+
+@media (max-width: 1500px) {
+    .beeftv-home { padding: 48px 32px 60px; }
+    .beeftv-capabilities { gap: 8px; }
+}
+
+@media (max-width: 1280px) {
+    .beeftv-capabilities { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1100px) {
+    .beeftv-recent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    .beeftv-home { padding: 20px; }
+    .beeftv-home-hero { min-height: 200px; }
+    .beeftv-capabilities {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-block: 20px 28px;
+    }
+    .beeftv-home-create-icon { width: 130px; height: 78px; }
+    .beeftv-home-create-title { font-size: 22px; }
+    .beeftv-recent-grid { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .toiv-home * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    .beeftv-home *,
+    .toiv-home * {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+    .beeftv-home-dot-flow { opacity: .24; transform: none; }
+    .beeftv-home :is(a, button):hover { transform: none !important; }
 }

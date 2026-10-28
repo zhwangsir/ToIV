@@ -13,10 +13,11 @@ import (
 // 这个范围只能由后端从回合记录构造；模型给的工具参数无法扩大它，
 // 所以「提示词里说可以读」不会变成真实权限。
 type AssistantScope struct {
-	CanvasID  string
-	AssetIDs  map[string]bool
-	CanvasIDs map[string]bool
-	TaskIDs   map[string]bool
+	CanvasID         string
+	AssetIDs         map[string]bool
+	CanvasIDs        map[string]bool
+	TaskIDs          map[string]bool
+	StudioProjectIDs map[string]bool
 }
 
 // assistantVisible 是内置助手可见的能力集合：
@@ -41,6 +42,9 @@ func (s *AssistantScope) Visible(op *operations.Op) bool {
 	if s == nil {
 		return true
 	}
+	if op != nil && strings.HasPrefix(op.ID, "studio.") {
+		return len(s.StudioProjectIDs) > 0
+	}
 	return assistantVisible(op)
 }
 
@@ -48,17 +52,24 @@ func (s *AssistantScope) Allows(op *operations.Op, params json.RawMessage) error
 	if s == nil {
 		return nil
 	}
-	if strings.TrimSpace(s.CanvasID) == "" {
-		return denied("当前会话没有绑定画布")
-	}
 	var args struct {
-		CanvasID string `json:"canvasId"`
-		NodeID   string `json:"nodeId"`
-		AssetID  string `json:"assetId"`
-		TaskID   string `json:"taskId"`
+		CanvasID  string `json:"canvasId"`
+		ProjectID string `json:"projectId"`
+		NodeID    string `json:"nodeId"`
+		AssetID   string `json:"assetId"`
+		TaskID    string `json:"taskId"`
 	}
 	if len(params) > 0 {
 		_ = json.Unmarshal(params, &args)
+	}
+	if strings.HasPrefix(op.ID, "studio.") {
+		if projectID := strings.TrimSpace(args.ProjectID); projectID != "" && s.StudioProjectIDs[projectID] {
+			return nil
+		}
+		return denied("只能读取本次对话显式授权的 Studio 项目")
+	}
+	if strings.TrimSpace(s.CanvasID) == "" {
+		return denied("当前会话没有绑定画布")
 	}
 	switch op.ID {
 	case "canvas.get":

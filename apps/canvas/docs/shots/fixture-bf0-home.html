@@ -1,0 +1,69 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · BF0 BeefTV home · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--elev:#1a1b21;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.14);--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:8px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;letter-spacing:-.02em;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px}
+.nav a.is-on{color:var(--text);background:rgba(255,255,255,.08);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.main{min-width:0;overflow:auto;padding:48px 40px 72px}
+.hero{position:relative;min-height:160px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:12px;background:var(--elev);overflow:hidden}
+.hero-btn{display:flex;flex-direction:column;align-items:center;gap:13px;border:0;background:none;color:inherit;cursor:pointer}
+.hero-icon{display:grid;width:88px;height:52px;place-items:center;border:1.35px solid #2c2c2c;border-radius:16px;color:#070707;background:linear-gradient(180deg,#fff 25.3%,rgba(255,255,255,.87) 89.7%);box-shadow:0 8px 20px rgba(0,0,0,.2);font-size:22px;font-weight:600}
+.hero-title{font-size:16px;line-height:24px;font-weight:500}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:16px 0 0;padding:0 4px;color:var(--muted);font-size:12px}
+.sec{display:flex;gap:8px}.sec button,.sec a{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;text-decoration:none;display:inline-flex;align-items:center}
+.caps{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;margin:20px 0 0;padding:8px 0}
+.cap{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:var(--text);text-decoration:none;min-width:0}
+.cap i{display:grid;width:98px;max-width:100%;height:56px;place-items:center;border-radius:16px;background:var(--elev);font-style:normal;font-size:18px}
+.cap strong{font-size:13px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+.sec-head{display:flex;justify-content:space-between;align-items:center;height:32px;margin:28px 0 12px;padding-inline:8px 0}
+.sec-head h2{margin:0;font-size:16px;font-weight:500}.sec-head a{color:var(--muted);font-size:13px;text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{display:flex;height:85px;align-items:center;gap:14px;border:1px solid var(--line);border-radius:24px;padding:4px 16px 4px 4px;background:var(--raised);text-decoration:none;color:inherit}
+.preview{width:100px;height:75px;flex:0 0 100px;border-radius:20px;background:var(--elev);display:grid;place-items:center;color:var(--muted);font-size:11px}
+.copy strong{display:block;font-size:14px;font-weight:500}.copy small{color:var(--muted);font-size:12px}
+.note{margin-top:24px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+.cta-sample{display:inline-block;margin-left:8px;width:14px;height:14px;border-radius:3px;background:var(--accent);vertical-align:middle}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · BF0 home · BeefTV</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav">
+<a href="#">创作</a>
+<a class="is-on" href="#">短剧项目</a>
+<a href="#">任务中心</a>
+<a href="#">工具台</a>
+<a href="#">设置</a>
+</nav></aside>
+<main class="main" aria-label="ToIV 首页">
+  <section class="hero" aria-label="新建画布">
+    <button class="hero-btn" type="button"><span class="hero-icon">+</span><span class="hero-title">新建画布创作</span></button>
+  </section>
+  <div class="meta"><span>算力 · 空闲（弱提示）</span><div class="sec"><button type="button">新建短剧</button><button type="button">雨夜示例</button><a href="#">去创作台</a></div></div>
+  <nav class="caps" aria-label="创作能力">
+    <a class="cap" href="#"><i>▦</i><strong>自由画布</strong></a>
+    <a class="cap" href="#"><i>▶</i><strong>视频生成</strong></a>
+    <a class="cap" href="#"><i>▣</i><strong>图片生成</strong></a>
+    <a class="cap" href="#"><i>♪</i><strong>音频生成</strong></a>
+    <a class="cap" href="#"><i>🎞</i><strong>短剧工作台</strong></a>
+    <a class="cap" href="#"><i>○</i><strong>创作台对话</strong></a>
+    <a class="cap" href="#"><i>⧉</i><strong>工具箱</strong></a>
+    <a class="cap" href="#"><i>▤</i><strong>作品库</strong></a>
+    <a class="cap" href="#"><i>✓</i><strong>任务中心</strong></a>
+  </nav>
+  <header class="sec-head"><h2>最近项目</h2><a href="#">查看全部 →</a></header>
+  <div class="grid">
+    <a class="card" href="#"><span class="preview">预览</span><span class="copy"><strong>港风天台</strong><small>2026-10-27</small></span></a>
+    <a class="card" href="#"><span class="preview">预览</span><span class="copy"><strong>雨夜分镜</strong><small>2026-10-26</small></span></a>
+    <a class="card" href="#"><span class="preview">预览</span><span class="copy"><strong>未命名</strong><small>2026-10-25</small></span></a>
+    <a class="card" href="#"><span class="preview">+</span><span class="copy"><strong>创建第一个画布</strong><small>空态次卡</small></span></a>
+  </div>
+  <p class="note">BF0 · Hero 新建画布 · capability 单行 · 无「快捷」意图墙 · accent <span class="cta-sample" id="cta"></span> #4A7FC1 · sidebar ToIV 五项 · B1 250/67/56</p>
+</main>
+</div>
+</body></html>

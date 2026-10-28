@@ -310,6 +310,13 @@ func (s *Service) ConfirmProjectAssetCandidate(userID string, projectID string, 
 	if candidate.Status != "pending_confirmation" {
 		return AssetSummary{}, kernel.BadAuthRequest("资产候选已处理")
 	}
+	return s.confirmLoadedAssetCandidate(userID, projectID, candidate, req)
+}
+
+// confirmLoadedAssetCandidate 复用同一份候选确认写入：
+// 角色合并只补空字段与别名并加新版本（expectedPrimary 乐观锁保护人工编辑），
+// 新建/并入已有资产走候选确认事务。批量归并与单条确认共用本入口。
+func (s *Service) confirmLoadedAssetCandidate(userID string, projectID string, candidate *model.ProjectAssetCandidate, req ConfirmProjectAssetCandidateRequest) (AssetSummary, error) {
 	now := time.Now()
 	assetID := strings.TrimSpace(req.AssetID)
 	if assetID != "" && candidate.Category == model.AssetCategoryCharacter {
@@ -368,6 +375,9 @@ func (s *Service) ConfirmProjectAssetCandidate(userID string, projectID string, 
 		existing, assetErr := s.repo.AssetForUser(userID, assetID)
 		if assetErr != nil {
 			return AssetSummary{}, assetErr
+		}
+		if existing.Category != candidate.Category {
+			return AssetSummary{}, kernel.BadAuthRequest("候选与目标资产分类不一致，不能合并")
 		}
 		asset = *existing
 	}

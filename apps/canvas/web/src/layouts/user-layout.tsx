@@ -12,6 +12,7 @@ import "@/styles/toiv-freezone-desk.css";
 
 const workspaceTheme = getWorkspaceAntThemeConfig();
 
+/** ToIV 收口：登录后根壳 = AppWorkspaceShell（工作室）。DesktopShell 属 Cosmos 种子，默认不挂。 */
 export default function UserLayout({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
     const spatialWorkbench = isSpatialWorkbenchPath(pathname);

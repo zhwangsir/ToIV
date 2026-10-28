@@ -1,10 +1,11 @@
-import { ArrowLeft, Clapperboard, Film, Images, Loader2, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Clapperboard, Film, Images, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { ToolButton } from "@/components/ui/base/buttons";
 import { StatusBadge } from "@/components/ui/base/badges";
-import { EmptyState } from "@/components/ui/product/empty-state";
+import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
+import { ToivSkeletonGrid } from "@/components/toiv/toiv-skeleton";
 import { formatDateTime } from "@/lib/time-format";
 import { createStudioProject, fetchDramaProjects, seedRainNightSample, type ToivDramaProject } from "@/services/toiv/client";
 import { FromImageDialog } from "./from-image-dialog";
@@ -151,54 +152,63 @@ export default function DramaPage() {
                 />
             )}
 
-            {loading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="加载中" /></div>
-                : error ? <EmptyState description="读取失败，请刷新重试" />
-                : projects.length === 0 ? (
-                    <EmptyState
-                        description={actionNote || "还没有短剧项目。可新建空白短剧，或打开雨夜示例对照学习；也可对智能体描述需求。"}
-                        action={
-                            <div className="flex flex-wrap items-center justify-center gap-2">
-                                <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
-                                <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="打开雨夜示例" onClick={() => void openRainNight()} />
-                                <Link to="/create"><ToolButton variant="default" label="去智能体对话" /></Link>
-                            </div>
-                        }
-                    />
-                )
-                : (
-                    <div className="fz-dense-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))"}}>
-                        {projects.map((p) => {
-                            const meta = STATUS_META[p.status] ?? { tone: "neutral" as const, text: p.status };
-                            return (
-                                // S4/W1.2:项目卡默认进 v2 工作区(经典详情仍有入口)
-                                <Link key={p.id} to={`/create?project=${p.id}`}
-                                    className="fz-card group">
-                                    <div className="fz-card-poster" aria-hidden />
-                                    <div className="flex items-center justify-between gap-2">
+            {loading ? (
+                <ToivSkeletonGrid count={8} className="fz-dense-grid" />
+            ) : error ? (
+                <ToivEmptyState
+                    className="fz-panel fz-auth-gap"
+                    icon={RefreshCw}
+                    title="短剧列表暂不可用"
+                    description={actionNote || "可能是会话失效或接口未就绪（含 401）。请刷新重试；不会显示占位假项目。"}
+                    action={<button type="button" className="toiv-empty-cta" onClick={() => void load()}>重试加载</button>}
+                />
+            ) : projects.length === 0 ? (
+                <ToivEmptyState
+                    className="fz-panel"
+                    icon={Clapperboard}
+                    title="还没有短剧项目"
+                    description="新建空白短剧，或打开雨夜示例；也可去创作台用对话开场。"
+                    action={
+                        <div className="fz-pill-row" style={{ justifyContent: "center" }}>
+                            <ToolButton variant="default" active icon={<Plus className="size-4" />} label="新建短剧" onClick={() => void createBlank()} loading={creating} />
+                            <ToolButton variant="default" icon={<Clapperboard className="size-4" />} label="雨夜示例" onClick={() => void openRainNight()} />
+                            <Link to="/create"><ToolButton variant="default" label="去创作" /></Link>
+                        </div>
+                    }
+                />
+            ) : (
+                <div className="fz-list" aria-label="短剧项目列表">
+                    {projects.map((proj) => {
+                        const meta = STATUS_META[proj.status] ?? { tone: "neutral" as const, text: proj.status };
+                        return (
+                            <Link key={proj.id} to={`/create?project=${proj.id}`} className="fz-list-row group">
+                                <div className="fz-list-row-main">
+                                    <div className="flex items-center gap-2 min-w-0">
                                         <StatusBadge variant="filled" tone={meta.tone} label={meta.text} size="sm" />
-                                        <span className="text-[11px] text-muted-foreground">{formatDateTime(p.updated_at)}</span>
+                                        <p className="fz-card-title" title={proj.title || proj.premise}>
+                                            {proj.title || proj.premise?.slice(0, 24) || "未命名项目"}
+                                        </p>
                                     </div>
-                                    <p className="fz-card-title" title={p.title || p.premise}>
-                                        {p.title || p.premise?.slice(0, 24) || "未命名项目"}
-                                    </p>
-                                    <p className="fz-card-meta line-clamp-2 min-h-8">{p.premise}</p>
-                                                                        <div className="fz-phase-row" aria-label="阶段">
+                                    {proj.premise ? <p className="fz-card-meta line-clamp-1">{proj.premise}</p> : null}
+                                    <div className="fz-phase-row" aria-label="阶段">
                                         {PHASES.map((label, idx) => (
-                                            <span key={label} className={`fz-phase-pip${idx < phaseDoneCount(p.status) ? " is-done" : ""}`}>{label}</span>
+                                            <span key={label} className={`fz-phase-pip${idx < phaseDoneCount(proj.status) ? " is-done" : ""}`}>{label}</span>
                                         ))}
-</div>
-                                    {p.pipeline && <ShotProgress p={p.pipeline} />}
-                                    <div className="mt-auto flex items-center justify-between pt-1">
-                                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Film className="h-3 w-3" />{p.width}×{p.height} · {p.render_mode_default ?? "video"}</span>
-                                        {p.final_url
-                                            ? <StatusBadge variant="filled" tone="success" label="有成片" size="sm" />
-                                            : <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clapperboard className="h-3 w-3" />打开工作台 →</span>}
                                     </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                )}
+                                    {proj.pipeline ? <ShotProgress p={proj.pipeline} /> : null}
+                                </div>
+                                <div className="fz-list-row-meta">
+                                    <span>{formatDateTime(proj.updated_at)}</span>
+                                    <span className="flex items-center gap-1"><Film className="h-3 w-3" />{proj.width}×{proj.height}</span>
+                                    {proj.final_url
+                                        ? <StatusBadge variant="filled" tone="success" label="有成片" size="sm" />
+                                        : <span className="flex items-center gap-1"><Clapperboard className="h-3 w-3" />打开</span>}
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
         </div>
         </WorkspacePage>
     );

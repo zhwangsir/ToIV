@@ -14,6 +14,7 @@ const (
 	ScopeCanvas        Scope = "canvas"
 	ScopeConversation  Scope = "conversation"
 	ScopeWorkspaceRead Scope = "workspace_read"
+	ScopeStudio        Scope = "studio"
 )
 
 // Context 是一次操作执行时可用的上下文。Domain 已经绑在当前事务上。
@@ -78,6 +79,9 @@ func (r *Registry) List(caller Caller) []Descriptor {
 	}
 	out := make([]Descriptor, 0, len(r.ops))
 	for _, op := range r.ops {
+		if op.Scope == ScopeStudio && (caller.Kind != CallerAssistant || caller.Scope == nil) {
+			continue
+		}
 		if caller.ReadOnly && !op.ReadOnly {
 			continue
 		}
@@ -156,6 +160,9 @@ func (r *Registry) Execute(req Request) (Result, error) {
 	}
 	if caller.assistantWithoutScope() {
 		return Result{}, PermissionDenied("missing_assistant_scope", "内置助手缺少可信范围，不能执行操作")
+	}
+	if op.Scope == ScopeStudio && (caller.Kind != CallerAssistant || caller.Scope == nil) {
+		return Result{}, PermissionDenied("scope_denied", "Studio 操作只允许显式授权的内置助手回合")
 	}
 	if caller.ReadOnly && !op.ReadOnly {
 		return Result{}, newError(CodeReadOnly, "read_only_client", "该客户端为只读模式，不能执行写操作: "+op.ID, nil)

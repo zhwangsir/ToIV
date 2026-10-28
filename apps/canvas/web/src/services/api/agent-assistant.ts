@@ -55,6 +55,26 @@ export type AssistantGenerationProposal = {
     source?: { canvasId: string; canvasRevision: number; modelConfigRevision: number };
 };
 
+export type StudioNextAction = {
+    kind: "stage_review" | "render_estimate" | "take_compare";
+    stage?: "script" | "assets" | "storyboard" | "generate" | "voice" | "timeline";
+    shotId?: string;
+    candidateId?: string;
+    label: string;
+    section: "script" | "assets" | "storyboard" | "shots" | "timeline" | "final";
+    requiresHuman: true;
+};
+
+export type AssistantStudioProposal = {
+    proposalId: string;
+    kind: "studio_production";
+    projectId: string;
+    summary: string;
+    warnings: string[];
+    source: { projectId: string; stageRevision: number; shotId?: string; candidatesDigest?: string };
+    nextActions: StudioNextAction[];
+};
+
 export type AgentTurnEnd = {
     type: "turn_end";
     turnId?: string;
@@ -62,6 +82,7 @@ export type AgentTurnEnd = {
     toolCalls: AgentToolCall[];
     change?: AssistantTurnChange | null;
     proposals?: AssistantGenerationProposal[];
+    studioProposals?: AssistantStudioProposal[];
     error: string | null;
     errorReason?: string | null;
     cancelled: boolean;
@@ -77,6 +98,7 @@ export type AssistantTurn = {
     toolCalls: AgentToolCall[];
     change: AssistantTurnChange | null;
     proposals: AssistantGenerationProposal[];
+    studioProposals?: AssistantStudioProposal[];
     error: string | null;
     errorReason?: string | null;
     cancelled: boolean;
@@ -241,7 +263,7 @@ export async function ensureAgentUiSession(): Promise<string> {
 async function issueAgentUiSession(scope: CapturedUserScope, generation: number): Promise<string> {
     let data: { token?: string; expiresAt?: string };
     try {
-        data = await http.post<{ token: string; expiresAt: string }>("/assistant/ui-session", {});
+        data = await http.post<{ token: string; expiresAt: string }>("/assistant/ui-session", {}, { headers: withToivAuth() });
     } catch (error) {
         const status = error instanceof ApiError ? error.status : undefined;
         if (status === 403) {

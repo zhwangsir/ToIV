@@ -16,7 +16,7 @@ import { AppProviders } from "@/components/layout/app-providers";
 import { PwaPrompts } from "@/components/pwa/pwa-prompts";
 import { router } from "@/router";
 
-document.body.style.fontFamily = '"SF Pro Display","SF Pro Text","PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif';
+document.body.style.fontFamily = '"Inter Variable","Inter","PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif';
 
 createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

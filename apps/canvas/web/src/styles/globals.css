@@ -134,9 +134,10 @@
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
     --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.12);
     --shadow-2xl: 0 24px 60px rgba(0, 0, 0, 0.16);
-    --shadow-glow-sm: 0 0 12px rgba(125, 162, 255, 0.2);
-    --shadow-glow-md: 0 0 24px rgba(125, 162, 255, 0.3);
-    --shadow-glow-lg: 0 0 40px rgba(125, 162, 255, 0.4);
+    /* B1: chrome must not steal with blue spatial glow; keep token names, neutralize */
+    --shadow-glow-sm: none;
+    --shadow-glow-md: none;
+    --shadow-glow-lg: none;
 
     /* --- 5b. 抬升（overlay / card）---
        --shadow-* 在暗色下会翻成白影，浮层用会发光刺眼。以下 token 两个主题都用黑影，
@@ -296,7 +297,7 @@
     --glass-border-alpha: 0.78;
 
     /* 站点皮肤对登录页的组件级入口；经典皮肤保持原始值。 */
-    --auth-page-bg: #0a0c12;
+    --auth-page-bg: #0b0c0f;
     --auth-panel-bg: #0b0c10;
     --auth-card-bg: rgba(18, 19, 24, 0.94);
     --auth-accent: rgba(147, 197, 253, 0.8);
@@ -467,7 +468,8 @@
     --color-toiv-border: var(--toiv-border);
     --color-toiv-text: var(--toiv-text);
     --color-toiv-accent: var(--toiv-accent);
-    --color-toiv-accent-cyan: var(--toiv-accent-cyan);
+    --color-toiv-accent-interactive: var(--toiv-accent-interactive);
+    --color-toiv-accent-cyan: var(--toiv-accent-interactive, var(--toiv-accent)); /* @deprecated A4.1 → prefer --color-toiv-accent-interactive */
     --color-toiv-danger: var(--toiv-danger);
     --color-toiv-nsfw-lock: var(--toiv-nsfw-lock);
     --color-toiv-director: var(--toiv-director);
@@ -652,8 +654,9 @@
     --cn-spatial-surface: var(--workspace-surface);
     --cn-spatial-surface-strong: var(--workspace-surface-strong);
     --cn-spatial-shadow: rgba(0, 0, 0, 0.12);
-    --cn-spatial-glow: rgba(125, 162, 255, 0.2);
-    --cn-spatial-glow-strong: rgba(125, 162, 255, 0.35);
+    /* B1 BeefTV primary: no blue spatial glow on chrome */
+    --cn-spatial-glow: transparent;
+    --cn-spatial-glow-strong: transparent;
     --cn-spatial-elevated: var(--color-neutral-0);
     --cn-spatial-toolbar-border: var(--color-neutral-200);
 
@@ -671,7 +674,7 @@
 
     /* 编辑器工作台：圆角浮卡舞台底色 + 常亮强调色（明暗两主题同值，避免 workspace-accent 黑白反转）*/
     --director-workspace-bg: #0b0d0f;
-    --director-accent: #4f8cff;
+    --director-accent: #6B7280;
     --director-accent-hover: #6ba0ff;
     --director-on-accent: #ffffff;
     --director-success: #34d399;
@@ -822,8 +825,9 @@
     --cn-spatial-surface: var(--workspace-surface);
     --cn-spatial-surface-strong: var(--workspace-surface-strong);
     --cn-spatial-shadow: rgba(0, 0, 0, 0.4);
-    --cn-spatial-glow: rgba(125, 162, 255, 0.15);
-    --cn-spatial-glow-strong: rgba(125, 162, 255, 0.25);
+    /* B1 BeefTV primary: no blue spatial glow on chrome */
+    --cn-spatial-glow: transparent;
+    --cn-spatial-glow-strong: transparent;
     --cn-spatial-elevated: var(--color-neutral-900);
     --cn-spatial-toolbar-border: rgba(255, 255, 255, 0.1);
 
@@ -841,7 +845,7 @@
 
     /* 编辑器工作台：圆角浮卡舞台底色 + 常亮强调色（明暗两主题同值，避免 workspace-accent 黑白反转）*/
     --director-workspace-bg: #0b0d0f;
-    --director-accent: #4f8cff;
+    --director-accent: #6B7280;
     --director-accent-hover: #6ba0ff;
     --director-on-accent: #ffffff;
     --director-success: #34d399;
@@ -1631,12 +1635,13 @@
         --workspace-accent-soft: rgba(17, 17, 17, 0.06);
         --workspace-nav-active-bg: rgba(17, 17, 17, 0.075);
         --workspace-nav-active-hover-bg: rgba(17, 17, 17, 0.11);
-        --workspace-sidebar-width: 312px;
-        --workspace-sidebar-nav-width: 312px;
-        --workspace-sidebar-collapsed-width: 86px;
+        /* B1: nail BeefTV dense one gear; kill 312/86 historical backflow */
+        --workspace-sidebar-width: var(--toiv-shell-sidebar, 250px);
+        --workspace-sidebar-nav-width: var(--toiv-shell-sidebar, 250px);
+        --workspace-sidebar-collapsed-width: var(--toiv-shell-sidebar-collapsed, 67px);
         --workspace-shell-gutter: 0px;
         --workspace-card-gap: 0px;
-        --workspace-topbar-height: 56px;
+        --workspace-topbar-height: var(--toiv-shell-topbar, 56px);
         background-color: var(--workspace-page);
     }
 
@@ -6280,17 +6285,17 @@ html:not(.dark) .creation-studio-control:hover,
 
     /* 任务列表：整屏几十条长 prompt 极易糊成一片，靠三件事拉开密度——
        行距（min-height + gap）、标题只给一行且宽度封顶、次要信息降到 42% 前景色。 */
-    .task-record-list { display: grid; gap: 2px; margin-top: 10px; }
-    .task-record-row { position: relative; display: grid; min-width: 0; grid-template-columns: 84px minmax(0, 1fr) 120px 104px; align-items: center; gap: 18px; min-height: 92px; border-radius: var(--r-md); background: transparent; padding: 12px 14px; transition: background-color var(--motion-state) ease-out; }
-    .task-record-row:hover, .task-record-row:focus-within { background: color-mix(in srgb, var(--foreground) 4%, transparent); }
+    .task-record-list { display: grid; gap: var(--toiv-job-row-list-gap, 8px); margin-top: 10px; }
+    .task-record-row { position: relative; display: grid; min-width: 0; grid-template-columns: var(--toiv-job-row-cols, 84px minmax(0, 1fr) 120px 104px); align-items: center; gap: var(--toiv-job-row-gap, 18px); min-height: var(--toiv-job-row-min-h, 92px); border-radius: var(--toiv-job-row-radius, var(--r-md)); background: transparent; padding: var(--toiv-job-row-pad-y, 12px) var(--toiv-job-row-pad-x, 14px); transition: background-color var(--motion-state) ease-out; }
+    .task-record-row:hover, .task-record-row:focus-within { background: var(--toiv-job-row-hover-bg, color-mix(in srgb, var(--foreground) 4%, transparent)); }
     .task-record-row.is-attention { background: color-mix(in srgb, var(--palette-status-error) 4%, transparent); }
     .task-record-main { min-width: 0; }
     .task-record-heading { display: flex; min-width: 0; align-items: baseline; gap: 10px; overflow: hidden; }
     /* 标题封顶 68ch：超宽屏下一行能塞 200+ 汉字，读者反而找不到落点。 */
-    .task-record-title { display: block; min-width: 0; max-width: 68ch; flex: 0 1 auto; overflow: hidden; border: 0; background: transparent; padding: 0; color: color-mix(in srgb, var(--foreground) 92%, transparent); text-align: left; font-size: var(--fs-body); font-weight: 560; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+    .task-record-title { display: block; min-width: 0; max-width: var(--toiv-job-title-max, 68ch); flex: 0 1 auto; overflow: hidden; border: 0; background: transparent; padding: 0; color: color-mix(in srgb, var(--foreground) 92%, transparent); text-align: left; font-size: var(--toiv-job-title-fs, var(--fs-body)); font-weight: var(--toiv-job-title-fw, 560); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
     .task-record-title:hover { color: var(--foreground); }
-    .task-record-status { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; color: color-mix(in srgb, var(--foreground) 52%, transparent); font-size: var(--fs-tiny); line-height: 1.4; white-space: nowrap; }
-    .task-record-dot { position: relative; display: block; width: 7px; height: 7px; flex: 0 0 auto; border-radius: var(--r-full); }
+    .task-record-status { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; color: color-mix(in srgb, var(--foreground) 52%, transparent); font-size: var(--toiv-job-status-fs, var(--fs-tiny)); line-height: 1.4; white-space: nowrap; }
+    .task-record-dot { position: relative; display: block; width: var(--toiv-job-dot-d, 7px); height: var(--toiv-job-dot-d, 7px); flex: 0 0 auto; border-radius: var(--r-full); }
     .task-record-dot.is-pulsing::after { position: absolute; inset: -4px; border-radius: var(--r-full); background: inherit; opacity: 0.45; content: ""; animation: task-record-dot-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
     @keyframes task-record-dot-ping { 75%, 100% { transform: scale(2.1); opacity: 0; } }
     @media (prefers-reduced-motion: reduce) { .task-record-dot.is-pulsing::after { animation: none; } }
@@ -6307,7 +6312,7 @@ html:not(.dark) .creation-studio-control:hover,
     .task-record-error.is-cancelled, .task-grid-error.is-cancelled { color: color-mix(in srgb, var(--foreground) 52%, transparent); }
     .task-record-row.is-cancelled { background: transparent; }
     .task-record-dot.is-idle { background: color-mix(in srgb, var(--foreground) 30%, transparent); }
-    .task-record-thumb { position: relative; display: grid; width: 84px; height: 60px; flex: 0 0 auto; place-items: center; overflow: hidden; border: 0; border-radius: var(--r-md); background: color-mix(in srgb, var(--foreground) 4%, transparent); padding: 0; color: color-mix(in srgb, var(--foreground) 28%, transparent); }
+    .task-record-thumb { position: relative; display: grid; width: var(--toiv-job-thumb-w, 84px); height: var(--toiv-job-thumb-h, 60px); flex: 0 0 auto; place-items: center; overflow: hidden; border: 0; border-radius: var(--toiv-job-row-radius, var(--r-md)); background: color-mix(in srgb, var(--foreground) 4%, transparent); padding: 0; color: color-mix(in srgb, var(--foreground) 28%, transparent); }
     /* 媒体脱离 Grid 固有尺寸计算，避免竖图按原始宽高比把固定缩略图撑出任务行。 */
     .task-record-thumb img, .task-record-thumb video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
     .task-video-poster-placeholder { display: grid; width: 100%; height: 100%; place-content: center; justify-items: center; gap: 4px; background: color-mix(in srgb, var(--foreground) 3%, transparent); color: color-mix(in srgb, var(--foreground) 42%, transparent); }
@@ -6320,16 +6325,16 @@ html:not(.dark) .creation-studio-control:hover,
     .task-record-meta { display: flex; min-width: 0; align-items: center; gap: 8px; margin-top: 7px; overflow: hidden; color: color-mix(in srgb, var(--foreground) 40%, transparent); font-size: var(--fs-label); white-space: nowrap; }
     .task-record-meta-canvas { display: inline-flex; min-width: 0; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; }
     .task-record-meta-canvas svg { flex: 0 0 auto; opacity: .7; }
-    .task-record-progress { display: grid; max-width: 420px; grid-template-columns: minmax(80px, 1fr) 42px; align-items: center; gap: 10px; margin-top: 8px; color: color-mix(in srgb, var(--foreground) 45%, transparent); font-size: var(--fs-label); }
+    .task-record-progress { display: grid; max-width: var(--toiv-job-progress-max-w, 420px); grid-template-columns: minmax(80px, 1fr) 42px; align-items: center; gap: 10px; margin-top: 8px; color: color-mix(in srgb, var(--foreground) 45%, transparent); font-size: var(--toiv-job-meta-fs, var(--fs-label)); }
     .task-record-progress span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .task-record-progress span:nth-child(2) { text-align: right; }
-    .task-record-progress i { grid-column: 1 / -1; display: block; height: 3px; margin-top: -4px; overflow: hidden; border-radius: var(--r-full); background: color-mix(in srgb, var(--foreground) 9%, transparent); }
-    .task-record-progress b { display: block; height: 100%; border-radius: inherit; background: var(--workspace-accent); transition: width 420ms var(--motion-ease-out); }
+    .task-record-progress i { grid-column: 1 / -1; display: block; height: var(--toiv-job-progress-h, 3px); margin-top: -4px; overflow: hidden; border-radius: var(--toiv-job-progress-radius, var(--r-full)); background: var(--toiv-job-progress-track, color-mix(in srgb, var(--foreground) 9%, transparent)); }
+    .task-record-progress b { display: block; height: 100%; border-radius: inherit; background: var(--toiv-job-progress-fill, var(--toiv-accent, #4A7FC1)); transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease, var(--motion-ease-out)); }
     .task-record-error { display: -webkit-box; max-width: 68ch; margin: 7px 0 0; overflow: hidden; color: color-mix(in srgb, var(--palette-status-error) 72%, var(--foreground)); font-size: var(--fs-label); line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
     .task-record-date { min-width: 0; color: color-mix(in srgb, var(--foreground) 38%, transparent); }
     .task-record-date-value { display: block; overflow: hidden; font-size: var(--fs-label); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
     .task-record-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; opacity: 0; transform: translateX(4px); transition: opacity 220ms ease-out, transform 320ms var(--motion-ease-out); }
-    .task-record-actions .ant-btn { width: 32px; height: 32px; padding: 0; border-radius: var(--r-md); }
+    .task-record-actions .ant-btn { width: var(--toiv-job-retry-hit, 32px); height: var(--toiv-job-retry-hit, 32px); padding: 0; border-radius: var(--toiv-job-row-radius, var(--r-md)); }
     .task-record-row:hover .task-record-actions, .task-record-row:focus-within .task-record-actions { opacity: 1; transform: translateX(0); }
 
     .task-status-filter { display: inline-flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 10px; }
@@ -6379,8 +6384,8 @@ html:not(.dark) .creation-studio-control:hover,
     .task-grid-progress { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; margin-top: 10px; color: color-mix(in srgb, var(--foreground) 46%, transparent); font-size: var(--fs-label); }
     .task-grid-progress span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .task-grid-progress strong { color: color-mix(in srgb, var(--foreground) 68%, transparent); font-size: var(--fs-tiny); font-weight: 620; font-variant-numeric: tabular-nums; }
-    .task-grid-progress i { grid-column: 1 / -1; display: block; height: 3px; overflow: hidden; border-radius: var(--r-full); background: color-mix(in srgb, var(--foreground) 9%, transparent); }
-    .task-grid-progress b { display: block; height: 100%; border-radius: inherit; background: var(--workspace-accent); transition: width 420ms var(--motion-ease-out); }
+    .task-grid-progress i { grid-column: 1 / -1; display: block; height: var(--toiv-job-progress-h, 3px); overflow: hidden; border-radius: var(--toiv-job-progress-radius, var(--r-full)); background: var(--toiv-job-progress-track, color-mix(in srgb, var(--foreground) 9%, transparent)); }
+    .task-grid-progress b { display: block; height: 100%; border-radius: inherit; background: var(--toiv-job-progress-fill, var(--toiv-accent, #4A7FC1)); transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease, var(--motion-ease-out)); }
     .task-grid-error { display: -webkit-box; margin: 8px 0 0; overflow: hidden; color: color-mix(in srgb, var(--palette-status-error) 72%, var(--foreground)); font-size: var(--fs-label); line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     @media (max-width: 640px) {
         .task-group-name { flex-wrap: wrap; }
@@ -6899,7 +6904,7 @@ html:not(.dark) .creation-studio-control:hover,
     @media (max-width: 639px) {
         .project-library-grid, .project-assets-grid, .assets-library-grid, .skill-library-grid, .library-loading-grid { grid-template-columns: 1fr; gap: 22px; }
         .library-create-title, .project-library-heading strong, .skill-library-card h3 { font-size: var(--fs-body); }
-        .task-record-row { grid-template-columns: 60px minmax(0, 1fr) 36px; align-items: start; gap: 10px; min-height: 0; padding: 12px 8px; }
+        .task-record-row { grid-template-columns: var(--toiv-job-row-cols-narrow, 60px minmax(0, 1fr) 36px); align-items: start; gap: 10px; min-height: 0; padding: 12px 8px; }
         .task-record-row > .task-record-thumb { width: 60px; height: 44px; }
         .task-record-heading { flex-wrap: wrap; gap: 6px 8px; }
         .task-record-title { max-width: none; flex: 1 1 100%; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -17991,9 +17996,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 /* ===== 2026-09 user workspace alignment =====
    这一组规则只作用于真实用户端壳层和首页，后台与画布编辑器保持原有职责和交互。
-   几何基准：侧栏 216px、顶部 64px、导航行 44px、首页内容最大宽度 1180px。 */
+   几何基准：侧栏 250px（B1 BeefTV）、顶部 56px、导航行跟 --toiv-shell-nav-row、首页内容最大宽度 1180px。 */
 .app-user-workspace {
-    --workspace-reference-sidebar: 216px;
+    --workspace-reference-sidebar: var(--toiv-shell-sidebar, 250px);
     --workspace-reference-collapsed: 70px;
     --workspace-reference-topbar: 64px;
     --workspace-reference-row: 44px;
@@ -19129,7 +19134,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .dark .app-user-workspace .creation-home-heading h1 { color: #f5f5f5; }
 .dark .app-user-workspace .creation-home-heading p,
 .dark .app-user-workspace .app-workspace-topbar-breadcrumb > span:not(.truncate) {
-    color: rgba(255, 255, 255, 0.28) !important;
+    color: var(--user-ink-muted) !important;
 }
 
 .dark .app-user-workspace .app-workspace-sidebar-collapse-button {
@@ -20682,7 +20687,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace .task-record-row {
-    min-height: 88px;
+    min-height: var(--toiv-job-row-min-h, 92px);
     border-bottom: 1px solid rgba(25, 25, 30, .07);
     border-radius: 0;
     background: var(--user-surface);
@@ -20978,15 +20983,16 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     overflow-x: hidden !important;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    padding: 28px 0 56px !important;
+    padding: 24px 0 40px !important;
 }
 .app-user-workspace .creation-home > .creation-empty-workspace::-webkit-scrollbar { display: none; width: 0; }
 
 /* Reference page order: title → mode tabs → large composer → quick actions → works. */
 .app-user-workspace .creation-home-heading {
-    width: 100% !important;
-    margin: 0 auto 24px !important;
-    text-align: center !important;
+    width: min(960px, 100%) !important;
+    align-items: flex-start;
+    margin: 0 auto 20px !important;
+    text-align: left !important;
 }
 .app-user-workspace .creation-home-heading-mark {
     width: 48px !important;
@@ -21000,15 +21006,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-home-heading h1 {
     margin: 0 !important;
     color: var(--user-ink) !important;
-    font-size: clamp(26px, 2vw, 32px) !important;
+    font-size: 20px !important;
     font-weight: 600 !important;
-    letter-spacing: -.04em !important;
-    line-height: 1.12 !important;
+    letter-spacing: -.02em !important;
+    line-height: 1.3 !important;
 }
 .app-user-workspace .creation-home-heading p {
-    margin: 12px 0 0 !important;
+    margin: 6px 0 0 !important;
     color: var(--user-ink-muted) !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     line-height: 1.5 !important;
 }
 .creation-launchpad {
@@ -21199,7 +21205,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     display: grid !important;
     width: 100% !important;
     margin: 0 0 0 !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 8px !important;
 }
 .app-user-workspace .creation-empty-suggest .creation-hero-prompt,
@@ -21209,8 +21215,8 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     min-height: 80px !important;
     margin: 0 !important;
     padding: 12px !important;
-    border: 1px solid transparent !important;
-    border-radius: var(--user-radius-card) !important;
+    border: 1px solid var(--user-border) !important;
+    border-radius: 12px !important;
     background: transparent !important;
     box-shadow: none !important;
     color: var(--user-ink) !important;
@@ -21230,7 +21236,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-empty-suggest .creation-hero-prompt:hover,
 .app-user-workspace .creation-empty-suggest .suggest-card:hover,
 .app-user-workspace .creation-empty-suggest .creation-hero-prompt:focus-visible,
-.app-user-workspace .creation-empty-suggest .suggest-card:focus-visible { transform: none !important; border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+.app-user-workspace .creation-empty-suggest .suggest-card:focus-visible { transform: none !important; border-color: var(--user-border-strong) !important; background: var(--user-surface-hover) !important; box-shadow: none !important; }
+@media (max-width: 720px) {
+    .app-user-workspace .creation-empty-suggest { grid-template-columns: minmax(0, 1fr) !important; }
+}
 .app-user-workspace .creation-empty-suggest .suggest-icon { width: 32px !important; height: 32px !important; margin-bottom: 0 !important; flex-shrink: 0; border: 0 !important; border-radius: 12px !important; background: var(--user-surface-muted) !important; color: var(--user-ink-muted) !important; }
 .app-user-workspace .creation-empty-suggest .suggest-copy,
 .app-user-workspace .creation-empty-suggest .creation-hero-prompt-copy { gap: 4px !important; }
@@ -21478,8 +21487,8 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     .app-user-workspace .app-workspace-topbar-breadcrumb { min-width: 0; white-space: nowrap; }
     .app-user-workspace .app-workspace-sidebar { width: 180px !important; }
     .app-user-workspace .creation-home > .creation-empty-workspace { width: calc(100% - 24px) !important; padding-top: 28px !important; padding-bottom: 40px !important; }
-    .app-user-workspace .creation-home-heading h1 { font-size: 28px !important; }
-    .app-user-workspace .creation-home-heading p { font-size: 14px !important; }
+    .app-user-workspace .creation-home-heading h1 { font-size: 20px !important; }
+    .app-user-workspace .creation-home-heading p { font-size: 12px !important; }
     .app-user-workspace .creation-launchpad > .creation-mode-capsule .creation-chat-control { min-width: 0 !important; padding-inline: 16px !important; }
     .app-user-workspace .creation-chat-writing-surface,
     .app-user-workspace .creation-chat-composer.is-empty .creation-chat-writing-surface { min-height: 250px !important; padding: 22px 18px 12px !important; }

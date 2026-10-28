@@ -21,7 +21,8 @@ describe("model-slot-table user-driven mix", () => {
         }).config;
         const markup = renderToStaticMarkup(<ModelSlotTable config={config} onChange={() => {}} />);
         expect(markup).toContain('data-testid="model-slot-table"');
-        expect(markup).toContain("自己选候选");
+        expect(markup).toContain("对话 / 剧本");
+        expect(markup).toContain("剧本 / Agent / 画布对话");
         expect(markup).toContain("出视频 · 主（H3）");
         expect(markup).toContain("出视频 · 运动");
         expect(markup).toContain("识图 VLM");
@@ -31,7 +32,7 @@ describe("model-slot-table user-driven mix", () => {
         expect(markup).toContain('data-testid="slot-lora-image"');
         expect(markup).toContain('data-testid="slot-lora-video-primary"');
         expect(markup).toContain('data-testid="slot-lora-video-motion"');
-        expect(markup).toContain("LoRA 挂件");
+        expect(markup.match(/class="settings-lora-chip"/g)).toHaveLength(3);
         expect(markup).not.toMatch(/>:\d{3,5}</);
         const banner = renderToStaticMarkup(<LlmMutexBanner config={config} />);
         expect(banner).toContain("同卡互斥");

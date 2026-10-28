@@ -48,6 +48,73 @@ paths:
           description: 项目不存在或不属于当前用户
         "500":
           description: 回执无法读取，不推断结果已应用
+  /projects/{id}/asset-reconciliation:
+    get:
+      tags: [projects, assets]
+      summary: 跨集资产对账台账（逐集引用版本清单 + 漂移点 + 候选归并建议）
+      description: |
+        信封 data 含 units（每集角色/场景/道具等引用到的资产版本清单）、
+        drifts（可解释漂移：shot_missing_reference / reference_version_behind_primary /
+        asset_multi_version_reference / stale_artifact / character_reference_missing_representation /
+        reference_asset_unlinked，每条带 reason）、candidateIdentities（跨集候选按实体归组——
+        同分类且名称/别名传递相交，别名链归同一组——含出现记录与确定性的 merge/create 建议；
+        resolved 建议同样校验资产分类）。只读，不推断 ref_epoch，无 AI 语义匹配或置信度。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 信封 data 为对账台账
+        "404":
+          description: 项目不存在或不属于当前用户
+  /projects/{id}/asset-reconciliation/apply:
+    post:
+      tags: [projects, assets]
+      summary: 应用候选合并/新建决策（幂等回执）
+      description: |
+        请求 decisions 每项为 {candidateId, action: merge|create, assetId?}；merge 必须给 assetId，
+        create 不能给，且 merge 目标资产必须与候选同分类。决策按实体组（与 GET 相同的别名传递闭包）
+        整体校验：同组混用 create 与 merge、merge 到不同资产、已归并实体改到其他资产都在任何写入前
+        整批拒绝（400，不留下部分写入）。同组一致决策只执行一次落点写入（组内 ID 最小的待确认显式决策，
+        复用候选确认：角色合并只补空字段与别名并加新版本，乐观锁保护人工设定），其余出现（含仅别名链
+        相连的）自动落到同一资产（outcome=auto_linked，只翻候选状态、不加版本），组内已确认出现保持原资产不动。
+        同一决策集合重放只回读回执（replayed=true），不新建版本或资产。回执 action 是实际生效动作：
+        applied 按落点写入回显 create|merge；already_confirmed 与 auto_linked 一律回显 merge 与当前
+        assetId，不回显请求动作。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decisions]
+              properties:
+                decisions:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [candidateId, action]
+                    properties:
+                      candidateId: { type: string }
+                      action: { type: string, enum: [merge, create] }
+                      assetId: { type: string }
+      responses:
+        "200":
+          description: 信封 data 为 {replayed, results[]}；results 含 candidateId、action（实际生效动作）、assetId、outcome（applied|already_confirmed|auto_linked）、candidateStatus
+        "400":
+          description: 决策集合无效（空/重复/动作与 assetId 不匹配）
+        "409":
+          description: 同一操作已按另一份内容写入，不能覆盖
+        "404":
+          description: 项目或候选不存在
   /creation-conversations:
     get:
       tags: [creation-conversations]

@@ -1,7 +1,7 @@
 """账号设置路由 —— 内容模式 / 默认智能体偏好。
 
 `GET|PATCH /me/mode` + `GET|PUT /account/content-mode`:账号全局成人态(ordinary|adult)读写。
-后端 403 / nsfw_allowed 以本字段为唯一判据;切换只写库,不 cancel 在途任务。
+content_mode 供前端同步与快照;切换只写库,不 cancel 在途任务(后端不加闸)。
 多设备:写后更新 content_mode_updated_at,客户端 ≤30s 轮询本端点或 /auth/me。
 
 [DEPRECATED] `POST /account/nsfw` 遗留软开关:仍落库 nsfw_enabled,但若 enabled=True
@@ -22,10 +22,9 @@ from app.redline import (
     CONTENT_MODE_ADULT,
     CONTENT_MODE_ORDINARY,
     CONTENT_MODES,
-    UNDERAGE_BLOCK_DETAIL,
     account_content_mode,
-    is_underage,
     normalize_content_mode,
+    require_not_underage,
 )
 
 router = APIRouter()
@@ -59,8 +58,9 @@ def _mode_payload(user: User) -> dict:
 
 def _set_content_mode(user: User, mode: str, session: Session) -> User:
     mode = normalize_content_mode(mode)
-    if mode == CONTENT_MODE_ADULT and is_underage(user):
-        raise HTTPException(status_code=403, detail=UNDERAGE_BLOCK_DETAIL)
+    if mode == CONTENT_MODE_ADULT:
+        # P0-5 R5:require_not_underage 已 no-op;切 adult 不得 403
+        require_not_underage(user)
     prev = account_content_mode(user)
     user.content_mode = mode
     # 兼容遗留列:成人态时标记曾经开启
@@ -108,7 +108,7 @@ def set_nsfw(
 ) -> dict:
     """[DEPRECATED] 遗留开关:enabled=True → content_mode=adult;False → ordinary。
 
-    仍写 nsfw_enabled;判定真源为 content_mode。未成年硬阻断保留。
+    仍写 nsfw_enabled;判定真源为 content_mode。未成年硬关只前端(R5)。
     """
     mode = CONTENT_MODE_ADULT if body.enabled else CONTENT_MODE_ORDINARY
     user = _set_content_mode(user, mode, session)

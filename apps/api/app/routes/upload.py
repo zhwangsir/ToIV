@@ -11,13 +11,16 @@ from app.capabilities import required_models, required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.deps import get_current_user, get_pool, resolve_worker
+from app.limits import IMAGE_MAX_BYTES, VIDEO_MAX_BYTES
 from app.models import User
 from app.ratelimit import enforce_rate_limit
 
 router = APIRouter()
 
-_MAX_BYTES = 20 * 1024 * 1024  # 20MB(图/音频)
-_MAX_VIDEO_BYTES = 200 * 1024 * 1024  # 200MB(驱动视频,Animate/VACE 链路)
+# 字节上限唯一事实源在 app.limits(注册表 limits 声明与这里同源);
+# 保留模块内别名,避免触碰既有引用/测试。
+_MAX_BYTES = IMAGE_MAX_BYTES  # 20MB(图/音频)
+_MAX_VIDEO_BYTES = VIDEO_MAX_BYTES  # 200MB(驱动视频,Animate/VACE 链路)
 
 # ---- 上传内容安全校验:扩展名 + Content-Type + 魔数三重白名单 ----
 # 仅放行参考图/驱动音频实际需要的格式;魔数与扩展名不符即 415,杜绝

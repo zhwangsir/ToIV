@@ -119,7 +119,7 @@ def test_expression_feather_mask_edge_alpha_and_same_size():
 
 
 def test_resolute_and_gentle_prompt_semantics():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     # 果断：抿嘴 / 压低眉 / 禁止张嘴
     assert "果断" in src
     assert ("抿紧" in src or "抿嘴" in src) and ("压低" in src or "眉压低" in src)
@@ -154,7 +154,7 @@ def test_wrist_cuff_matches_1552_path():
 
 
 def test_source_has_1653_rules():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "tighten_side_square_to_face_frac" in src
     assert "16:53" in src
     assert "GaussianBlur" in src

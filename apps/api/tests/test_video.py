@@ -37,7 +37,7 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 
 
-def _seed_user(session: Session, email: str) -> str:
+def _seed_user(session: Session, email: str, content_mode: str = "adult") -> str:
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
@@ -46,6 +46,7 @@ def _seed_user(session: Session, email: str) -> str:
         email=email,
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
+        content_mode=content_mode,
     )
     session.add(user)
     session.commit()
@@ -309,7 +310,7 @@ def test_ltx_t2v_blocked_without_nsfw_header(client):
     """LTX 视频仅限 /nsfw 专区:主站(无 X-NSFW 头)一律 403。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "ltx-gate")
+        uid = _seed_user(s, "ltx-gate", content_mode="ordinary")
     r = c.post(
         "/api/generate/ltx-t2v",
         headers={"Authorization": f"Bearer {create_token(uid)}"},
@@ -403,7 +404,7 @@ def test_ltx_i2v_requires_auth(client):
 def test_ltx_i2v_blocked_without_nsfw_header(client):
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "ltx-i2v-gate")
+        uid = _seed_user(s, "ltx-i2v-gate", content_mode="ordinary")
     r = c.post(
         "/api/generate/ltx-i2v",
         headers={"Authorization": f"Bearer {create_token(uid)}"},
@@ -474,7 +475,7 @@ def test_ltx_lipsync_requires_auth(client):
 def test_ltx_lipsync_blocked_without_nsfw_header(client):
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "ltx-lip-gate")
+        uid = _seed_user(s, "ltx-lip-gate", content_mode="ordinary")
     r = c.post(
         "/api/generate/ltx-lipsync",
         headers={"Authorization": f"Bearer {create_token(uid)}"},

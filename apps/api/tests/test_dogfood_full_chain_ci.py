@@ -91,6 +91,29 @@ def _h(ctx):
     return ctx["H"]
 
 
+def _gate_stages_for_batch(client, H, pid):
+    """C1c 门禁:批量渲染前显式完成 storyboard 阶段(测试夹具,非放宽生产门禁)。
+    空项目(无分镜)不设防——生产门禁对空批次/空项目本就不拦。"""
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    if not detail.get("shots"):
+        return
+    states = detail["stage_states"]
+    script_action = "confirm" if states["script"]["ready"] else "skip"
+    for stage, action in (("script", script_action), ("assets", "skip"), ("storyboard", "confirm")):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": action, "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
+def _gate_stages_for_assemble(client, H, pid):
+    """C1c 门禁:合成前显式完成 storyboard/generate/voice 阶段。"""
+    _gate_stages_for_batch(client, H, pid)
+    for stage in ("generate", "voice"):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": "skip", "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
 def test_dogfood_source_contracts_lock_dogfood_fixes():
     """源码契约:studio 回写尾须 emit 总线(3b410558);不靠 mock 假装。"""
     from app.services.studio import orchestrator as o
@@ -247,6 +270,15 @@ def test_dogfood_full_chain_mocked(ctx, monkeypatch):
         return shot
 
     monkeypatch.setattr(orch, "render_shot", fake_render)
+    keyframe_name = f"{sid}-keyframe.png"
+    (root / "studio" / keyframe_name).write_bytes(b"fake-keyframe")
+    adopted = client.post(
+        f"/api/studio/shots/{sid}/adopt-keyframe",
+        headers=H,
+        json={"url": f"/api/studio/files/{keyframe_name}"},
+    )
+    assert adopted.status_code == 200, adopted.text
+    _gate_stages_for_batch(client, H, pid)
     r = client.post(
         f"/api/studio/projects/{pid}/render",
         headers=H,
@@ -305,7 +337,7 @@ def test_dogfood_full_chain_mocked(ctx, monkeypatch):
     final_url = f"/api/studio/files/{final_name}"
     (root / "studio" / final_name).write_bytes(b"fake-final")
 
-    async def fake_assemble(session, project, shots):
+    async def fake_assemble(session, project, shots, **kw):
         project.final_url = final_url
         project.status = "done"
         session.add(project)
@@ -315,6 +347,7 @@ def test_dogfood_full_chain_mocked(ctx, monkeypatch):
     monkeypatch.setattr(
         "app.services.studio.assemble.assemble_project", fake_assemble
     )
+    _gate_stages_for_assemble(client, H, pid)
     ar = client.post(f"/api/studio/projects/{pid}/assemble", headers=H)
     assert ar.status_code == 200, ar.text
     assert final_url in (ar.json().get("final_url") or ar.text)

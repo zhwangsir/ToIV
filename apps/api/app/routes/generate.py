@@ -18,8 +18,13 @@ from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
 from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
+from app.limits import (
+    DEFAULT_NEGATIVE_MAX_CHARS,
+    DEFAULT_PROMPT_MAX_CHARS,
+    GENERATE_MAX_LORAS,
+)
 from app.models import Job, User
-from app.redline import nsfw_allowed, adult_at_submit
+from app.redline import adult_at_submit, nsfw_allowed, require_not_underage
 from app.ratelimit import enforce_generation_rate_limit
 # ComfyUI 错误码统一语义(2026-08-30 P2-7):worker 4xx 透传、5xx/无状态 → 502,
 # 消除与 routes/video.py 同场景 4xx/502 不一致;pool.pick 无可用 worker 仍 503。
@@ -79,7 +84,8 @@ class LoraInput(BaseModel):
 
 
 # 单次最多叠加的 LoRA 数(防滥用 + 控制图规模)
-_MAX_LORAS = 8
+# LoRA 叠加上限(唯一事实源在 app.limits 的 GENERATE_MAX_LORAS;市场/H3 链路为 3,不混用)
+_MAX_LORAS = GENERATE_MAX_LORAS
 
 
 def _to_lora_specs(loras: list[LoraInput]) -> tuple[LoraSpec, ...]:
@@ -105,19 +111,19 @@ def _apply_lora_tags(req: Txt2ImgRequest | Img2ImgRequest) -> None:
 
 
 def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
-    """R18 硬门槛:成人底模须用户已开 R18 才放行,否则 403(防绕过 UI 直调 API)。
+    """R18 底模打标:返回是否成人向(Job.nsfw)。
 
-    返回该作品是否成人向(供建档打标 Job.nsfw)。
+    P0-5 R3:成人 UX 403 退役;仅未成年硬关。普通态可提交,由前端灰化。
     """
     nsfw = is_nsfw(ckpt_name)
-    if nsfw and not nsfw_allowed(user):
-         raise HTTPException(status_code=403, detail="该底模属 R18 分区,须切换到成人模式")
+    if nsfw:
+        require_not_underage(user)
     return nsfw
 
 
 class Txt2ImgRequest(BaseModel):
-    positive: str = Field(min_length=1, max_length=2000)
-    negative: str = Field(default="", max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     ckpt_name: str | None = None
     style_preset: str | None = Field(default=None, max_length=64, description="风格预设ID,设置后自动选择模型+采样参数")
     width: int = Field(default=512, ge=64, le=2048)
@@ -451,8 +457,8 @@ def _wan_t2v_required() -> set[str]:
 
 
 class Txt2VideoRequest(BaseModel):
-    positive: str = Field(min_length=1, max_length=2000)
-    negative: str = Field(default="", max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     width: int = Field(default=480, ge=128, le=1280)
     height: int = Field(default=480, ge=128, le=1280)
     length: int = Field(default=49, ge=9, le=121)  # 帧数,4n+1
@@ -542,10 +548,10 @@ async def generate_txt2video(
 class HunyuanVideoI2VRequest(BaseModel):
     """用户只需提供提示词、反向提示词和图片，模型参数全部预设。"""
 
-    positive: str = Field(min_length=1, max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)
     image: str = Field(min_length=1, max_length=512)
     worker: str  # 图片上传到的 worker
-    negative: str = Field(default="", max_length=2000)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
@@ -601,10 +607,10 @@ async def generate_hunyuan_video_i2v(
 
 
 class Img2ImgRequest(BaseModel):
-    positive: str = Field(min_length=1, max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的文件名
     worker: str  # 图片上传到的 worker
-    negative: str = Field(default="", max_length=2000)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     ckpt_name: str | None = None
     style_preset: str | None = Field(default=None, max_length=64, description="风格预设ID")
     denoise: float = Field(default=0.6, ge=0.1, le=1.0)
@@ -756,11 +762,11 @@ async def generate_img2img(
 
 
 class ControlNetRequest(BaseModel):
-    positive: str = Field(min_length=1, max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的控制图文件名
     worker: str  # 控制图上传到的 worker(同 img2img,须用图片所在 worker)
     control_type: str = Field(default="canny", max_length=32)
-    negative: str = Field(default="", max_length=2000)
+    negative: str = Field(default="", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     ckpt_name: str | None = None
     strength: float = Field(default=0.8, ge=0.0, le=2.0)
     start_percent: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -916,8 +922,8 @@ async def generate_upscale(
 class FaceDetailerRequest(BaseModel):
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
     worker: str  # 源图所在 worker(同 img2img)
-    positive: str = Field(default="detailed face, sharp focus, high quality", max_length=2000)
-    negative: str = Field(default="blurry, lowres, deformed, bad anatomy", max_length=2000)
+    positive: str = Field(default="detailed face, sharp focus, high quality", max_length=DEFAULT_PROMPT_MAX_CHARS)
+    negative: str = Field(default="blurry, lowres, deformed, bad anatomy", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     ckpt_name: str | None = None
     denoise: float = Field(default=0.5, ge=0.1, le=1.0)
     steps: int = Field(default=20, ge=1, le=150)
@@ -1020,7 +1026,7 @@ def _is_nsfw_model_ref(name: str) -> bool:
 
 def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
     """扫描任意工作流图中的模型引用(ckpt/unet/lora/vae 等全部 inputs 字符串),
-    对 R18 模型套用与其它端点一致的硬门槛。
+    对 R18 模型套用未成年硬关(成人 UX 403 已退役)。
 
     返回该图是否含成人向模型(供建档打标 Job.nsfw)。
     """
@@ -1035,11 +1041,9 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
               for s in _iter_input_strings(value):
                    if s.lower().endswith(_MODEL_REF_EXTS) and _is_nsfw_model_ref(s):
                         any_nsfw = True
-    # 账号 content_mode 语义:与 _gate_nsfw_ckpt 同一信号(redline.nsfw_allowed)
-    if any_nsfw and not nsfw_allowed(user):
-         raise HTTPException(
-              status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
-         )
+    # P0-5 R3:成人 UX 403 退役;含 R18 模型时仅未成年硬关
+    if any_nsfw:
+        require_not_underage(user)
     return any_nsfw
 
 
@@ -1165,8 +1169,8 @@ class InpaintRequest(BaseModel):
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
     worker: str  # 源图所在 worker(同 img2img)
     target: str = Field(min_length=1, max_length=500)  # 要替换区域的文字描述
-    positive: str = Field(min_length=1, max_length=2000)  # 该区域重绘成什么
-    negative: str = Field(default="blurry, lowres, deformed, watermark, text", max_length=2000)
+    positive: str = Field(min_length=1, max_length=DEFAULT_PROMPT_MAX_CHARS)  # 该区域重绘成什么
+    negative: str = Field(default="blurry, lowres, deformed, watermark, text", max_length=DEFAULT_NEGATIVE_MAX_CHARS)
     ckpt_name: str | None = None
     denoise: float = Field(default=0.85, ge=0.1, le=1.0)
     grow_mask: int = Field(default=6, ge=0, le=64)
@@ -1235,7 +1239,7 @@ async def generate_inpaint(
 class QwenEditRequest(BaseModel):
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
     worker: str  # 源图所在 worker(同 img2img)
-    positive: str = Field(default="", max_length=2000)  # 编辑指令(纯相机操作时可空)
+    positive: str = Field(default="", max_length=DEFAULT_PROMPT_MAX_CHARS)  # 编辑指令(纯相机操作时可空)
     camera: str | None = Field(default=None, max_length=32)  # CAMERA_PRESETS 的 key
     # 3D 相机(2511 底模,96 机位):三项同时给出才生效,与 camera 互斥
     azimuth: int | None = None  # 0/45/90/135/180/225/270/315(0=正面,顺时针)

@@ -3,7 +3,7 @@
 覆盖:
   · GET /api/ltx2/models:白名单底模 available 标记 + loras/ltx2.3/ 目录枚举
   · POST /api/ltx2/t2v:unet 白名单 422 / LoRA 沙箱与上限 422
-  · NSFW 门槛:10eros 无 X-NSFW 头 → 403;带头 → 200 且 Job.nsfw=True
+  · NSFW:10eros t2v 仍 422(无首帧质量锁);成人 UX 403 退役(P0-5 R3)
   · SFW 底模无门槛 → 200 且 Job.nsfw=False
   · LoRA 注入:图含 LoraLoader 链、KSampler.model/CLIP.clip 接链末端、pool.pick required 含 LoRA
   · POST /api/ltx2/i2v:图片 worker 缺模型 → 503;齐全 → 200
@@ -219,7 +219,10 @@ def test_t2v_rejects_lora_outside_sandbox(client, bad_name):
 # --------------------------------------------------------------------------- #
 
 
-def test_t2v_10eros_gated_without_nsfw_header(client):
+def test_t2v_10eros_ordinary_hits_quality_lock_not_ux_403(client):
+    """P0-5 R3:普通态不再成人 UX 403;10eros t2v 仍走无首帧质量锁 422。"""
+    from app.workflows.ltx_video import NSFW_LTX_T2V_BLOCKED
+
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx2gate")
@@ -229,7 +232,8 @@ def test_t2v_10eros_gated_without_nsfw_header(client):
         headers={"Authorization": f"Bearer {create_token(uid)}"},
         json={"positive": "a cat", "unet_name": "10eros_v14.safetensors"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 422
+    assert r.json()["detail"] == NSFW_LTX_T2V_BLOCKED
 
 
 def test_t2v_10eros_rejected_even_with_header(client, monkeypatch):
@@ -239,6 +243,8 @@ def test_t2v_10eros_rejected_even_with_header(client, monkeypatch):
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx2nsfwok")
+        s.get(User, uid).content_mode = "adult"  # D-U1=B:R18 放行按账号成人态
+        s.commit()
     fake = _FakeClient(_ltx_models("10eros_v14.safetensors"))
     _install_pool(_FakePool(fake))
     monkeypatch.setattr(ltx_studio_route, "spawn_tracker", lambda client, prompt_id: None)

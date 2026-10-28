@@ -61,6 +61,29 @@ def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _gate_stages_for_batch(client, H, pid):
+    """C1c 门禁:批量渲染前显式完成 storyboard 阶段(测试夹具,非放宽生产门禁)。
+    空项目(无分镜)不设防——生产门禁对空批次/空项目本就不拦。"""
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    if not detail.get("shots"):
+        return
+    states = detail["stage_states"]
+    script_action = "confirm" if states["script"]["ready"] else "skip"
+    for stage, action in (("script", script_action), ("assets", "skip"), ("storyboard", "confirm")):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": action, "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
+def _gate_stages_for_assemble(client, H, pid):
+    """C1c 门禁:合成前显式完成 storyboard/generate/voice 阶段。"""
+    _gate_stages_for_batch(client, H, pid)
+    for stage in ("generate", "voice"):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": "skip", "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
 def _mk_studio(client: TestClient, H: dict) -> str:
     r = client.post("/api/studio/projects", headers=H, json={"title": "Batch4"})
     assert r.status_code == 200, r.text
@@ -323,6 +346,7 @@ def test_batch4_assemble_partial_missing_422(ctx):
         db.status = "lipsynced"
         s.add(db)
         s.commit()
+    _gate_stages_for_assemble(client, H, pid)
     r = client.post(f"/api/studio/projects/{pid}/assemble", headers=H)
     assert r.status_code == 422, r.text
     detail = r.json()["detail"]
@@ -334,6 +358,7 @@ def test_batch4_assemble_no_shots_422(ctx):
     client, token, _ = ctx
     H = _h(token)
     pid = _mk_studio(client, H)
+    _gate_stages_for_assemble(client, H, pid)
     r = client.post(f"/api/studio/projects/{pid}/assemble", headers=H)
     assert r.status_code == 422
     assert "无分镜" in r.json()["detail"]
@@ -359,7 +384,7 @@ def test_batch4_assemble_success_mock(ctx, monkeypatch):
         s.add(db)
         s.commit()
 
-    async def fake_assemble(session, project, shots):
+    async def fake_assemble(session, project, shots, **kw):
         project.final_url = "/api/studio/files/final-batch4.mp4"
         project.status = "ready"
         session.add(project)
@@ -369,6 +394,7 @@ def test_batch4_assemble_success_mock(ctx, monkeypatch):
     monkeypatch.setattr(
         "app.services.studio.assemble.assemble_project", fake_assemble
     )
+    _gate_stages_for_assemble(client, H, pid)
     r = client.post(f"/api/studio/projects/{pid}/assemble", headers=H)
     assert r.status_code == 200, r.text
     assert r.json()["final_url"].endswith("final-batch4.mp4")

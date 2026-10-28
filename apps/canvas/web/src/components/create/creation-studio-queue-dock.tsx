@@ -6,7 +6,11 @@ import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { ToivSkeletonList } from "@/components/toiv/toiv-skeleton";
 import { cn } from "@/lib/utils";
-import { formatTaskKind, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel } from "@/lib/generation-task-display";
+import {
+    generationSourceNsfwLike,
+    mergeGenerationSourceProjections,
+    type GenerationSourceProjection,
+} from "@/lib/generation-task-display";
 import {
     COPY_MODE_ADULT,
     COPY_MODE_NORMAL,
@@ -15,7 +19,6 @@ import {
     getServerR18ModeSnapshot,
     isNsfwAssetSelectable,
     subscribeR18Mode,
-    type NsfwAssetLike,
 } from "@/redline";
 import {
     cancelGenerationTask,
@@ -26,18 +29,11 @@ import {
     type GenerationTask,
     type TaskLog,
 } from "@/services/api/task-center";
+import { cancelJob, fetchJobs, rerunToivWork, type ToivJob } from "@/services/toiv/client";
 import { TOIV_TASKS_PATH } from "@/services/toiv/client-timeout";
+import { toivMediaUrl } from "@/services/toiv/cover-url";
 
 import "@/components/create/creation-studio-queue-dock.css";
-
-function taskAsNsfwLike(task: GenerationTask): NsfwAssetLike {
-    return {
-        id: task.id,
-        label: task.prompt,
-        basename: task.model || task.type,
-        value: [task.prompt, task.model, task.type, task.operation, task.error].filter(Boolean).join("\n"),
-    };
-}
 
 function statusClass(status: GenerationTask["status"]) {
     if (status === "running") return "is-running";
@@ -47,14 +43,10 @@ function statusClass(status: GenerationTask["status"]) {
     return "is-cancelled";
 }
 
-function progressPct(task: GenerationTask): number | undefined {
-    if (!generationTaskShowsProgress(task)) return undefined;
-    // Only trust server progress — never invent a full bar.
-    if (typeof task.progress === "number" && Number.isFinite(task.progress)) {
-        return Math.max(0, Math.min(100, Math.round(task.progress)));
-    }
-    if (task.status === "queued") return 0;
-    return undefined; // running without % → indeterminate shimmer
+function sourceNsfwLike(item: GenerationSourceProjection) {
+    return generationSourceNsfwLike(item.source === "toiv-job"
+        ? { source: "toiv-job", task: item.task as ToivJob }
+        : { source: "canvas-task", task: item.task as GenerationTask });
 }
 
 /** Topbar-adjacent generation queue + optional /create bottom drawer. */
@@ -65,13 +57,19 @@ export function CreationStudioQueueDock() {
     const [open, setOpen] = useState(false);
     const [bottomOpen, setBottomOpen] = useState(false);
     const [tasks, setTasks] = useState<GenerationTask[]>([]);
-    const [error, setError] = useState<string | null>(null);
+    const [jobs, setJobs] = useState<ToivJob[]>([]);
+    const [canvasError, setCanvasError] = useState<string | null>(null);
+    const [toivError, setToivError] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [logTaskId, setLogTaskId] = useState<string | null>(null);
     const [logs, setLogs] = useState<TaskLog[]>([]);
+    const [logError, setLogError] = useState<string | null>(null);
     const [logBusy, setLogBusy] = useState(false);
-    const [booted, setBooted] = useState(false);
+    const [canvasBooted, setCanvasBooted] = useState(false);
+    const [toivBooted, setToivBooted] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
+    const refreshRoundRef = useRef(0);
 
     const projectId = useMemo(() => {
         const q = new URLSearchParams(search);
@@ -79,21 +77,41 @@ export function CreationStudioQueueDock() {
     }, [search]);
 
     const refresh = useCallback(async () => {
-        try {
-            const next = await listGenerationTasks(40, { projectId, activeOnly: false });
-            setTasks(Array.isArray(next) ? next.slice(0, 40) : []);
-            setError(null);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "队列加载失败");
-        } finally {
-            setBooted(true);
-        }
+        const round = ++refreshRoundRef.current;
+        const isLatestRound = () => refreshRoundRef.current === round;
+        await Promise.all([
+            (async () => {
+                try {
+                    const next = await listGenerationTasks(40, { projectId, activeOnly: false });
+                    if (!isLatestRound()) return;
+                    setTasks(Array.isArray(next) ? next.slice(0, 40) : []);
+                    setCanvasError(null);
+                } catch (error) {
+                    if (!isLatestRound()) return;
+                    setCanvasError(error instanceof Error ? error.message : "画布任务加载失败");
+                } finally {
+                    if (isLatestRound()) setCanvasBooted(true);
+                }
+            })(),
+            (async () => {
+                try {
+                    const next = await fetchJobs(100);
+                    if (!isLatestRound()) return;
+                    setJobs(Array.isArray(next) ? next : []);
+                    setToivError(null);
+                } catch (error) {
+                    if (!isLatestRound()) return;
+                    setToivError(error instanceof Error ? error.message : "ToIV 作业加载失败");
+                } finally {
+                    if (isLatestRound()) setToivBooted(true);
+                }
+            })(),
+        ]);
     }, [projectId]);
 
     useEffect(() => {
         void refresh();
-        const ms = 4000;
-        const t = window.setInterval(() => void refresh(), ms);
+        const t = window.setInterval(() => void refresh(), 4000);
         return () => window.clearInterval(t);
     }, [refresh]);
 
@@ -113,55 +131,67 @@ export function CreationStudioQueueDock() {
         };
     }, [open]);
 
-    const activeCount = useMemo(
-        () => tasks.filter((t) => t.status === "queued" || t.status === "running").length,
-        [tasks],
+    const visibleTasks = useMemo(
+        () => mergeGenerationSourceProjections(tasks, jobs, { projectId, limit: 40 }),
+        [tasks, jobs, projectId, adultOn],
     );
+    const activeCount = useMemo(() => visibleTasks.filter((item) => item.isActive).length, [visibleTasks]);
+    const booted = canvasBooted && toivBooted;
+    const hasSourceError = Boolean(canvasError || toivError);
 
-    const visibleTasks = useMemo(() => {
-        // Always show known NSFW (locked in ordinary); unknown hidden via classify on string blob → marker only
-        return tasks.filter((task) => {
-            const like = taskAsNsfwLike(task);
-            // unknown string-only classification: if no nsfw marker, keep
-            if (!assetLooksNsfw(like)) return true;
-            return true; // known nsfw always listable; lock handled in row
-        });
-    }, [tasks, adultOn]);
-
-    const openLogs = async (taskId: string) => {
-        if (logTaskId === taskId) {
+    const openLogs = async (item: GenerationSourceProjection) => {
+        if (logTaskId === item.sourceId) {
             setLogTaskId(null);
             setLogs([]);
+            setLogError(null);
             return;
         }
-        setLogTaskId(taskId);
+        setLogTaskId(item.sourceId);
+        setLogError(null);
         setLogBusy(true);
         try {
-            setLogs(await listTaskLogs(taskId));
-        } catch {
+            setLogs(await listTaskLogs(item.id));
+        } catch (error) {
             setLogs([]);
+            setLogError(error instanceof Error ? error.message : "日志加载失败");
         } finally {
             setLogBusy(false);
         }
     };
 
-    const onRetry = async (task: GenerationTask) => {
-        if (!isNsfwAssetSelectable(taskAsNsfwLike(task))) return;
-        setBusyId(task.id);
+    const onRetry = async (item: GenerationSourceProjection) => {
+        if (!isNsfwAssetSelectable(sourceNsfwLike(item))) return;
+        setBusyId(item.sourceId);
+        setActionError(null);
         try {
-            await retryGenerationTask(task.id);
+            if (item.source === "toiv-job") {
+                const ok = await rerunToivWork(item.id);
+                if (!ok) throw new Error("重试失败，请稍后重试");
+            } else {
+                await retryGenerationTask(item.id);
+            }
             await refresh();
+        } catch (error) {
+            setActionError(error instanceof Error ? error.message : "重试失败");
         } finally {
             setBusyId(null);
         }
     };
 
-    const onCancel = async (task: GenerationTask) => {
-        if (!isNsfwAssetSelectable(taskAsNsfwLike(task))) return;
-        setBusyId(task.id);
+    const onCancel = async (item: GenerationSourceProjection) => {
+        if (!isNsfwAssetSelectable(sourceNsfwLike(item))) return;
+        setBusyId(item.sourceId);
+        setActionError(null);
         try {
-            await cancelGenerationTask(task.id);
+            if (item.source === "toiv-job") {
+                const ok = await cancelJob(item.id);
+                if (!ok) throw new Error("取消失败，请稍后重试");
+            } else {
+                await cancelGenerationTask(item.id);
+            }
             await refresh();
+        } catch (error) {
+            setActionError(error instanceof Error ? error.message : "取消失败");
         } finally {
             setBusyId(null);
         }
@@ -169,11 +199,11 @@ export function CreationStudioQueueDock() {
 
     const listBody = (
         <>
-            {error ? (
-                <ToivEmptyState compact className="toiv-queue-empty" title="队列暂时不可用" description={error} />
-            ) : null}
-            {!error && !booted ? <ToivSkeletonList rows={3} className="toiv-queue-empty" /> : null}
-            {!error && booted && visibleTasks.length === 0 ? (
+            {canvasError ? <ToivEmptyState compact className="toiv-queue-empty toiv-queue-source-error" title="画布任务读取失败" description={canvasError} /> : null}
+            {toivError ? <ToivEmptyState compact className="toiv-queue-empty toiv-queue-source-error" title="ToIV 作业读取失败" description={toivError} /> : null}
+            {actionError ? <ToivEmptyState compact className="toiv-queue-empty toiv-queue-action-error" title="操作未完成" description={actionError} /> : null}
+            {!hasSourceError && !booted ? <ToivSkeletonList rows={3} className="toiv-queue-empty" /> : null}
+            {!hasSourceError && booted && visibleTasks.length === 0 ? (
                 <ToivEmptyState
                     compact
                     className="toiv-queue-empty"
@@ -184,42 +214,48 @@ export function CreationStudioQueueDock() {
             ) : null}
             <div className="toiv-queue-list" role="list">
                 {visibleTasks.map((task) => {
-                    const like = taskAsNsfwLike(task);
+                    const like = sourceNsfwLike(task);
                     const nsfw = assetLooksNsfw(like);
                     const locked = nsfw && !isNsfwAssetSelectable(like);
-                    const pct = progressPct(task);
-                    const indeterminate = generationTaskShowsProgress(task) && pct === undefined && task.status === "running";
+                    const pct = task.progressPct;
+                    const indeterminate = task.showsProgress && pct === undefined && task.status === "running";
+                    const previewUrl = task.source === "toiv-job" ? toivMediaUrl(task.previewUrl) : task.previewUrl;
                     return (
                         <article
-                            key={task.id}
+                            key={task.sourceId}
                             role="listitem"
                             className={cn("toiv-queue-row", locked && "is-nsfw-locked", task.status === "failed" && "is-failed")}
-                            data-task-id={task.id}
+                            data-task-id={task.sourceId}
+                            data-source-id={task.sourceId}
+                            data-health-label={task.health.label}
+                            data-health-reason={task.health.reason}
+                            data-active={String(task.isActive)}
                             data-nsfw={nsfw ? "1" : "0"}
                             data-locked={locked ? "1" : "0"}
                         >
                             <div className="toiv-queue-thumb" aria-hidden>
-                                {task.previewUrl ? (
+                                {previewUrl ? (
                                     task.previewKind === "video" ? (
-                                        <video src={task.previewUrl} muted playsInline preload="metadata" poster={task.previewPosterUrl || undefined} />
+                                        <video src={previewUrl} muted playsInline preload="metadata" poster={task.source === "canvas-task" ? (task.task as GenerationTask).previewPosterUrl || undefined : undefined} />
                                     ) : (
-                                        <img src={task.previewUrl} alt="" loading="lazy" />
+                                        <img src={previewUrl} alt="" loading="lazy" />
                                     )
                                 ) : (
                                     <ListTodo className="size-4 opacity-40" />
                                 )}
                             </div>
                             <div className="toiv-queue-row-main">
-                                <p className="toiv-queue-row-title" title={formatTaskKind(task)}>
-                                    {formatTaskKind(task)}
-                                </p>
+                                <p className="toiv-queue-row-title" title={task.kindLabel}>{task.kindLabel}</p>
+                                <p className="toiv-queue-row-prompt" title={task.title}>{task.title}</p>
                                 <div className="toiv-queue-row-statusline">
                                     <span className={cn("toiv-queue-dot", task.status === "running" && "is-running")} aria-hidden />
-                                    <span className={cn("toiv-queue-badge", statusClass(task.status))}>{generationTaskStatusLabel(task)}</span>
+                                    <span className={cn("toiv-queue-badge", statusClass(task.status))}>{task.statusLabel}</span>
+                                    <span className={cn("toiv-queue-health", `is-${task.health.state}`)}>{task.health.label}</span>
                                     {locked ? <NsfwLockBadge compact /> : null}
                                 </div>
-                                <p className="toiv-queue-row-meta">{generationTaskStageLabel(task)}</p>
-                                {generationTaskShowsProgress(task) ? (
+                                <p className="toiv-queue-row-meta">{task.stageLabel} · {task.artifactLabel} · {task.nextLabel}</p>
+                                <p className="toiv-queue-row-meta toiv-queue-health-reason">{task.health.reason}</p>
+                                {task.showsProgress ? (
                                     <>
                                         <div
                                             className={cn("toiv-queue-progress", indeterminate && "is-indeterminate")}
@@ -229,63 +265,60 @@ export function CreationStudioQueueDock() {
                                             aria-valuenow={pct ?? undefined}
                                             aria-label="生成进度"
                                         >
-                                            {/* Determinate only when server sends % — never fake a full bar. */}
                                             <span style={pct === undefined ? undefined : { width: `${pct}%` }} />
                                         </div>
                                         <div className="toiv-queue-progress-meta">
-                                            <span>{indeterminate ? "进行中…" : generationTaskStageLabel(task)}</span>
+                                            <span>{indeterminate ? "进行中…" : task.stageLabel}</span>
                                             <span>{pct === undefined ? "—" : `${pct}%`}</span>
                                         </div>
                                     </>
                                 ) : null}
-                                {task.error && task.status === "failed" ? (
-                                    <p className="toiv-queue-row-meta" style={{ color: "var(--toiv-danger)" }}>
-                                        {task.error}
-                                    </p>
-                                ) : null}
+                                {task.status === "failed" ? <p className="toiv-queue-row-meta toiv-queue-row-error">{task.nextReason}</p> : null}
                                 {locked ? (
                                     <p className="toiv-queue-row-meta">
-                                        当前为{COPY_MODE_NORMAL}：NSFW 任务已锁定。切到顶栏「{COPY_MODE_ADULT}」后可重试/取消。
+                                        当前为{COPY_MODE_NORMAL}：成人任务已锁定。切换到「{COPY_MODE_ADULT}」后可重试/取消。
                                     </p>
                                 ) : null}
-                                {logTaskId === task.id ? (
+                                {task.source === "canvas-task" && logTaskId === task.sourceId ? (
                                     <pre className="toiv-queue-log" aria-live="polite">
-                                        {logBusy
-                                            ? "加载日志…"
-                                            : logs.length
-                                              ? logs.map((log) => formatTaskLog(log)).join("\n")
-                                              : "暂无日志"}
+                                        {logBusy ? "加载日志…" : logError || (logs.length ? logs.map((log) => formatTaskLog(log)).join("\n") : "暂无日志")}
                                     </pre>
                                 ) : null}
                             </div>
                             <div className="toiv-queue-row-actions">
-                                <button
-                                    type="button"
-                                    className="toiv-queue-action"
-                                    disabled={locked || logBusy}
-                                    title={logTaskId === task.id ? "收起日志" : "查看日志"}
-                                    aria-label={logTaskId === task.id ? "收起日志" : "查看日志"}
-                                    onClick={() => void openLogs(task.id)}
-                                >
-                                    <FileText aria-hidden />
-                                </button>
-                                {task.status === "failed" ? (
+                                {task.source === "canvas-task" ? (
                                     <button
                                         type="button"
                                         className="toiv-queue-action"
-                                        disabled={locked || busyId === task.id}
-                                        title={locked ? "NSFW 已锁定" : "重试"}
+                                        disabled={locked || logBusy}
+                                        title={logTaskId === task.sourceId ? "收起日志" : "查看日志"}
+                                        aria-label={logTaskId === task.sourceId ? "收起日志" : "查看日志"}
+                                        onClick={() => void openLogs(task)}
+                                    >
+                                        <FileText aria-hidden />
+                                    </button>
+                                ) : (
+                                    <Link to={`/tasks?job=${encodeURIComponent(task.id)}`} className="toiv-queue-action" title="查看日志" aria-label="查看日志">
+                                        <FileText aria-hidden />
+                                    </Link>
+                                )}
+                                {task.canRetry ? (
+                                    <button
+                                        type="button"
+                                        className="toiv-queue-action"
+                                        disabled={locked || busyId === task.sourceId}
+                                        title={locked ? "成人内容已锁定" : "重试"}
                                         aria-label="重试"
                                         onClick={() => void onRetry(task)}
                                     >
-                                        {busyId === task.id ? <LoaderCircle className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}
+                                        {busyId === task.sourceId ? <LoaderCircle className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}
                                     </button>
                                 ) : null}
-                                {task.status === "queued" || task.status === "running" ? (
+                                {task.canCancel ? (
                                     <button
                                         type="button"
                                         className="toiv-queue-action is-danger"
-                                        disabled={locked || busyId === task.id}
+                                        disabled={locked || busyId === task.sourceId}
                                         title="取消"
                                         aria-label="取消"
                                         onClick={() => void onCancel(task)}

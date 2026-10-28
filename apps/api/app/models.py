@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import BigInteger, Column, JSON, TEXT
+from sqlalchemy import BigInteger, Column, JSON, TEXT, UniqueConstraint
 
 
 def _uid() -> str:
@@ -716,6 +716,12 @@ class StudioProject(SQLModel, table=True):
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""
+    # C1c 阶段状态机:stage_states_json 只存人工态(confirmed/skipped/needs_review/
+    # pending_confirmation);ready/blockers/draft 由 shots/characters/project 与
+    # C1a media_status 现算,persist 不代替产物时效。stage_revision 每次人工态
+    # 写入递增,供 expected_stage_revision 乐观并发。
+    stage_states_json: str = "{}"
+    stage_revision: int = 0
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 
@@ -773,8 +779,115 @@ class StudioShot(SQLModel, table=True):
     beats_json: str = Field(default="[]")
     # P4 scene_asset(dramaclaw 设计采纳):冻结锚点绑定 {scene_id,anchor_id,anchor_image,anchor_sha256}
     scene_ref_json: str = Field(default="")
+    # C1a 修订/stale 指针:current=当前内容修订;rendered=当前视频/图媒体归属的生成输入修订;
+    # voiced=当前配音归属的输入修订。旧行为空串 → 媒体状态投影为 unknown(不伪造已同步)。
+    current_revision_id: str = ""
+    rendered_revision_id: str = ""
+    voiced_revision_id: str = ""
+    # C1a M3:最终合成(final_clip)来源指针(提交时快照);重配音/重渲染不改文件,
+    # 只让 final 投影 stale 提示可重对口型
+    final_visual_revision_id: str = ""
+    final_voice_revision_id: str = ""
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+
+# C1a:source 取值——内容修订(manual-edit/rollback/imported)记完整内容快照;
+# 生成输入快照(render)=渲染/配音发起时的实际输入(内容字段+解析后生成参数)。
+REVISION_SOURCES = ("manual-edit", "rollback", "imported", "render")
+
+
+# C1b 用户配方默认选优策略
+RECIPE_PICK_STRATEGIES = ("auto_best", "manual")
+
+
+class StudioRecipe(SQLModel, table=True):
+    """用户生成配方(C1b):可复用的镜头生成输入快照(不含剧情字段)。
+
+    snapshot_json 只存真实生成输入(prompt/camera/duration/参考/引擎/管线/
+    候选数/seed/加速档/项目规格/选优策略),剥离 worker_url/context_latent/
+    父链作业/URL query;scene/dialogue/speaker/idx/beats/角色 roster 永不入配方。
+    source_revision_id 记录快照出处(render 修订优先,旧 shot 可空=live 快照,
+    不虚构渲染历史)。is_default 每 (user_id, engine) 唯一(部分唯一索引兜底)。
+    """
+
+    __tablename__ = "studiorecipe"
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(index=True)  # 属主隔离:他人不可见/不可改/不可导
+    name: str = ""
+    description: str = ""
+    engine: str = "h3"  # h3 | ltx(=视频模型)
+    render_mode: str = "video"  # video | image_motion
+    pipeline: str = "ref2va"
+    pick_strategy: str = "auto_best"  # RECIPE_PICK_STRATEGIES
+    snapshot_json: str = "{}"
+    source_revision_id: str = ""
+    source_shot_id: str = ""
+    is_default: bool = False
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# C1c:阶段集合/状态(人工态持久化;ready/blockers 由产物现算)
+STUDIO_STAGES = ("script", "assets", "storyboard", "generate", "voice", "timeline")
+STUDIO_STAGE_STATES = (
+    "draft", "pending_confirmation", "confirmed", "generating",
+    "failed", "needs_review", "skipped",
+)
+
+
+class StudioStageConfirmation(SQLModel, table=True):
+    """阶段确认审计(C1c):不可变历史行;归属经 project 租户校验。
+
+    source=manual(用户 transition)/system(上游失效自动标记)。from/to 记人工态
+    跃迁;ready 类计算态不落历史(无可确认产物时不写行)。
+    """
+
+    __tablename__ = "studiostageconfirmation"
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(index=True)
+    stage: str = ""
+    from_state: str = ""
+    to_state: str = ""
+    source: str = "manual"  # manual | system
+    note: str = ""
+    created_by: str = ""  # user_id;system 标记="system"
+    created_at: datetime = Field(default_factory=_now)
+
+
+class StudioShotRevision(SQLModel, table=True):
+    """分镜不可变修订:内容历史 + 生成输入快照(含可比较指纹)。
+
+    version 每镜单调递增(内容修订与 render 快照共用序列);parent_id 对内容修订
+    是上一内容修订、对 render 修订是发起时的当前内容修订。行不可变,回滚也
+    只追加新行,绝不改写历史。project_id 冗余隔离,防跨项目泄露。
+    """
+
+    __tablename__ = "studioshotrevision"
+
+    # (shot_id, version) 唯一:并发建版冲突由 revisions._add_revision 重试/转 409,
+    # 不产生重复版本或 500
+    __table_args__ = (
+        UniqueConstraint("shot_id", "version", name="uq_studioshotrevision_shot_version"),
+    )
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    shot_id: str = Field(index=True)
+    project_id: str = Field(index=True)
+    version: int = 0
+    source: str = "manual-edit"  # REVISION_SOURCES
+    parent_id: str = ""  # 空=无已知上游(旧行首修)
+    # 完整快照:内容修订=内容字段全量;render 修订=内容字段+render_params
+    # (实际 body/解析后参数)+媒体 URL(image/video/final/voice,仅存档可解释)
+    content_json: str = "{}"
+    visual_fingerprint: str = ""  # 视觉输入 sha256(含 ref_images/video_model/duration_sec 等)
+    # 音频输入 sha256(dialogue+speaker+voice_ref_url+character_id;音色来源按说话人
+    # 角色卡现查,降级事实另存 render_params.voice_ref_degraded,不掺入指纹)
+    audio_fingerprint: str = ""
+    created_by: str = ""  # user_id;系统发起="system"
+    created_at: datetime = Field(default_factory=_now)
 
 
 # ---------------------------------------------------------------------------

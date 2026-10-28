@@ -21,6 +21,10 @@ beforeAll(async () => {
                         </MemoryRouter>);
                 `,
             }));
+            // Vite owns icon glob expansion（import.meta.glob 是编译期 API）；Bun.build harness 用 stub 隔离，
+            // 与 assistant-model-picker.browser.test.ts 同款处理。
+            builder.onResolve({ filter: /^@\/components\/model-logo$/ }, () => ({ path: "model-logo", namespace: "test-icons" }));
+            builder.onLoad({ filter: /.*/, namespace: "test-icons" }, () => ({ contents: "export function ModelLogo() { return null; }", loader: "js" }));
             builder.onResolve({ filter: /^@\// }, (args) => ({ path: Bun.resolveSync(resolve(import.meta.dir, "../src", args.path.slice(2)), import.meta.dir) }));
         } }],
     });

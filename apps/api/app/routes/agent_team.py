@@ -35,7 +35,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent import llm
@@ -906,30 +906,43 @@ async def _plan_run(run_id: str, bind) -> None:
         _fail_planning(bind, run_id, "规划拆解失败,请重新创建任务")
         return
 
-    # ③ 任务落库 + 状态推进(仅仍 planning 时;取消/打回不覆盖)
+    # ③ 任务落库 + 状态推进(原子 claim:仅仍为 planning 才推进,不覆盖用户取消)
     tasks = _build_tasks(shots)
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
         if not run or run.status != "planning":
             return
         plan = _loads(run.plan_json, {})
+        level = run.level
         if classify_meta:
             # LLM 证据始终落 meta(R5 回流校准);level 仅 L1↔L2 校准生效,
             # LLM 判 L0 时保留启发式入口裁决(run 已建,不打断用户流程)
             plan.setdefault("meta", {})["classify"] = classify_meta
             if classify_meta["level"] in ("L1", "L2"):
-                run.level = classify_meta["level"]
+                level = classify_meta["level"]
         plan["tasks"] = [_task_brief(t) for t in tasks]
         plan["characters"] = [c.model_dump() for c in characters]
-        run.plan_json = json.dumps(plan, ensure_ascii=False)
-        run.status = "awaiting_confirm"
-        run.updated_at = _utcnow()
-        s.add(run)
+        # 原子 claim:上面的 planning 检查与推进之间存在窗口,期间用户可取消。
+        # 必须一条条件 UPDATE 抢状态并看影响行数——rowcount=0 = 已被抢占
+        # (取消/打回),整段放弃:不落任务、不发事件;绝不先写 ORM 再决定冲突。
+        res = s.exec(
+            update(AgentRun)
+            .where(AgentRun.id == run_id, AgentRun.status == "planning")
+            .values(
+                status="awaiting_confirm",
+                level=level,
+                plan_json=json.dumps(plan, ensure_ascii=False),
+                updated_at=_utcnow(),
+            )
+        )
+        if getattr(res, "rowcount", 0) == 0:
+            s.rollback()
+            return
         for t in tasks:
             t.run_id = run.id
             s.add(t)
         ack = f"已拆成 {len(tasks)} 步,后台执行,关键节点会找你"
-        _emit(s, run_id, "ack", {"message": ack, "level": run.level})
+        _emit(s, run_id, "ack", {"message": ack, "level": level})
         _emit(s, run_id, "plan", {"tasks": plan["tasks"]})
         _emit(
             s, run_id, "confirm_required",
@@ -939,15 +952,19 @@ async def _plan_run(run_id: str, bind) -> None:
 
 
 def _fail_planning(bind, run_id: str, message: str) -> None:
-    """规划失败落 error 终态(仅仍 planning 时,不覆盖用户取消)+ error 事件。"""
+    """规划失败落 error 终态(原子 claim:仅仍 planning 时,不覆盖用户取消)。"""
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
         if not run or run.status != "planning":
             return
-        run.status = "error"
-        run.error = message
-        run.updated_at = _utcnow()
-        s.add(run)
+        res = s.exec(
+            update(AgentRun)
+            .where(AgentRun.id == run_id, AgentRun.status == "planning")
+            .values(status="error", error=message, updated_at=_utcnow())
+        )
+        if getattr(res, "rowcount", 0) == 0:
+            s.rollback()
+            return
         _emit(s, run_id, "error", {"message": message})
         s.commit()
 

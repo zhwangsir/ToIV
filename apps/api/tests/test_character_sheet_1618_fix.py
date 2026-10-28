@@ -139,7 +139,7 @@ def test_costume_real_portrait_1618_rois():
 
 
 def test_source_has_1618_rules():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "relative_only" in src
     assert "forced body-side" in src
     assert "def _collar_box" in src

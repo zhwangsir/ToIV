@@ -27,6 +27,8 @@ Wails 和浏览器开发模式共用同一套 `127.0.0.1` HTTP 合同。路由�
 
 `canvas.generation.propose` 是只读操作，返回的 `source` 包含 `canvasId`、`canvasRevision`、`modelConfigRevision`；模型键与配置版本来自同一次配置读取。提案不创建生成任务。
 
+Studio 引用使用 `references: [{kind:"studio_project",id}]`，对话入口必须用当前 UI 会话中仅内存保存的短期 delegated token 实际读取项目详情并校验归属；该 token 只在验证过的 ToIV Bearer 签发路径保存，随 UI 会话 30 分钟过期，不进入响应、bootstrap 或工具日志。`studio.project.get`、`studio.estimate.preview`、`studio.review.propose` 均为 `ScopeStudio` 只读操作，只对回合显式授权的项目开放；单镜预估还需该项目 detail 证明镜头归属。review 提案只含人工阶段复核、成本预估和候选比较动作，`turn_end.studioProposals` 独立于 Canvas `proposals`，不会确认阶段、启动渲染或选择候选。
+
 首次确认同时核对这两个持久版本、未保存的编辑和确认期间的变化。旧历史中没有 `source` 的提案需要重新提出。通过核对后，生成沿用已有模型解析规则，并使用确认时复制的提示词、节点、连线和全局参数。此版本合同不包含素材库独立更新、hydrate 时解析的动态角色版本或任意远端 URL 的内容字节变化。
 
 | 路由组 | 用途 |
@@ -143,6 +145,23 @@ NewAPI Channel 2 与 BeefAPI 视频的暂时下载断连会保留原任务 ID �
 诊断字段在本地 schema v3 中以可空文本列保存，旧任务不补写原始错误，重试会清除上一轮诊断。任务列表、详情和画布的“复制排查信息”使用同一份诊断；复制内容不包含请求正文、提示词、凭据、素材 URL 或本地文件路径。`providerRequestId` 可能是供应商任务标识，在复制内容中标作“服务端关联 ID”，与 HTTP 请求 ID 分开。
 
 `failureDiagnostics` 同时保留本轮执行证据：运行版本和平台、任务配置中的模型/尺寸/质量/数量、提示词长度、参考素材数量与图片大小、本地参考图限制，以及最多 8 次请求（首次及最近 7 次，省略数量另计）的发起状态、HTTP 状态、请求 ID、开始时间、耗时和字节数。任务配置不等于最终出站参数；协议可能转换或省略字段，核对实际发送值须凭请求 ID 关联请求日志。HTTP 200 仅表示收到响应；`executionResult=completed` 才表示生成处理完成。转后台回查时状态为 `pending`，同一次任务继续累积有界轨迹并保留首次请求。成功任务也保存这些证据，以便区分后续本地保存失败或画布应用失败（复制内容来源为 `client_result`）。请求轨迹覆盖统一 Provider HTTP 客户端；旧记录、未经过该客户端的插件请求或上游未提供的 ID 仍可能缺失，不能仅凭空轨迹推断未发送。
+
+## 跨集资产对账
+
+`GET /projects/:id/asset-reconciliation` 返回只读对账台账（信封 `data`），供跨集资产核对页面消费：
+
+- `units[]` 是逐集引用版本清单：`unitId`、`unitTitle`、`kind`（`chapter|episode`）与 `entries[]`。每个 entry 是该集镜头真实引用到的资产（`assetId`、`title`、`category`、`primaryVersionId`）及 `versions[]`（`versionId`、`version`、`isPrimary`、`shotIds`、`roles`）。
+- `drifts[]` 是可解释漂移点：`kind` 供机器分支，`reason` 说明成因。当前类别为 `shot_missing_reference`（镜头缺引用）、`reference_version_behind_primary`（引用版本落后资产主版本，旧集未按新设定重渲）、`asset_multi_version_reference`（同一资产被多个版本引用）、`stale_artifact`（产物已标记失效待重渲，带 `shotId` 与 `artifactId`）、`character_reference_missing_representation`（角色引用版本缺定妆表现）、`reference_asset_unlinked`（引用的资产版本已不在项目素材）。不使用也不推断未持久化的版本锚点。
+- `candidateIdentities[]` 把抽取候选按实体归组（同分类且名称/别名传递相交，别名链归同一组）：`appearances[]` 记录跨集出现（`candidateId`、`unitId`、`status`、`resolvedAssetId`），`suggestion` 给确定性的名称/别名匹配建议（`action: merge|create`、`match: resolved|asset_name|asset_alias|none`；`resolved` 建议同样校验资产分类）。没有 AI 语义匹配或置信度，界面可按行内改判后再确认。
+
+`POST /projects/:id/asset-reconciliation/apply` 应用候选合并/新建决策：
+
+- 请求 `decisions[]` 每项为 `{candidateId, action, assetId?}`，1–50 条且同一候选只能出现一次；`merge` 必须带已有 `assetId`，`create` 不能带。违规返回 400。
+- 决策按实体组（与 GET 相同的别名传递闭包）整体校验，冲突在任何写入前整批拒绝：同组混用 `create` 与 `merge`、`merge` 到不同资产、已归并实体改到其他资产都返回 400，不留下部分写入。`merge` 目标资产必须与候选同分类。
+- 同组一致决策（全部 `create`，或全部 `merge` 同一资产）只执行一次落点写入：由组内 ID 最小的待确认显式决策执行，其余出现（含仅别名链相连的）自动落到同一资产（`outcome: auto_linked`，只翻候选状态、不加版本）。组内已确认的出现保持在原资产上，不会被改到别的资产。
+- 显式落点复用候选确认写入：角色合并只补空字段与别名并加新版本（主版本乐观锁保护人工设定，不覆盖已有内容）；新建创建资产与首版本；非角色并入只做项目链接与候选归并，不改设定。
+- 同一决策集合（按候选 ID 归一后）重放返回原回执（`replayed: true`），不新建版本或资产。回执 `results[]` 的 `action` 是实际生效动作：`applied` 按落点写入回显 `create|merge`；未写入的 `already_confirmed` 与 `auto_linked` 一律回显 `merge` 与当前 `assetId`，不回显请求动作。`outcome` 为 `applied|already_confirmed|auto_linked`，并带 `candidateStatus`。
+- 操作回执与写入在同一事务持久化；同一操作标识换成不同内容返回 409 `operation_id_reused_with_different_payload`，不覆盖后来的人工编辑。项目或候选不存在、不属于当前用户返回 404。
 
 ## 明确不存在的端点
 

@@ -8,8 +8,8 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
 from sqlmodel import Session, select
@@ -18,9 +18,9 @@ from app.db import get_session
 from app.deps import get_current_admin, get_current_user, get_pool
 from app.ratelimit import enforce_generation_rate_limit
 from app.models import StudioCharacter, StudioProject, StudioShot, User
-from app.redline import account_content_mode, nsfw_allowed
+from app.redline import account_content_mode
 from app.services.media_nsfw_gate import (
-    assert_studio_file_content_mode_allows,
+    assert_studio_file_content_mode_allows,  # no-op(P0-5 R1);保留调用兼容
     shot_urls_nsfw,
 )
 from app.services.drama_pipeline import compute_studio_next_step
@@ -30,6 +30,7 @@ from app.services.studio import assemble as assemble_svc
 from app.services.studio import lipsync as lipsync_svc
 from app.services.studio import orchestrator, storyboard
 from app.services.studio import voice as voice_svc
+from app.services.studio.candidates_json import candidates_digest
 from app.services.studio.renderers.base import RenderError
 import uuid
 
@@ -194,8 +195,84 @@ def _project_detail(session: Session, p: StudioProject) -> dict:
     return {
         **_project_out(p),
         "characters": [_character_out(c) for c in chars],
-        "shots": [_shot_out(s) for s in shots],
+        "shots": [_shot_out(s, session) for s in shots],
+        "stage_states": _stage_states(session, p),
+        "stage_revision": int(getattr(p, "stage_revision", 0) or 0),
     }
+
+
+def _stage_states(session: Session, p: StudioProject) -> dict:
+    """C1c 阶段投影(人工态 + 产物现算 ready/blockers);列缺失时优雅降级。"""
+    try:
+        from app.services.studio import stages as stages_svc
+
+        return stages_svc.compute_stage_states(session, p)
+    except Exception:  # noqa: BLE001 — 阶段投影故障不拖垮项目详情
+        logger.warning("stage_states 计算失败 pid=%s", str(p.id)[:12], exc_info=True)
+        return {}
+
+
+# ── C1c 阶段状态机:transition(confirm/skip/reopen)/历史 ────────────────────
+
+
+class StageTransitionRequest(BaseModel):
+    stage: str = Field(..., min_length=2, max_length=20)
+    action: str = Field(..., min_length=2, max_length=20)  # confirm | skip | reopen
+    note: str = Field(default="", max_length=500)
+    expected_stage_revision: int | None = Field(default=None, ge=0)
+
+
+@router.post("/studio/projects/{pid}/stage-transition")
+def stage_transition(
+    pid: str,
+    body: StageTransitionRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """统一阶段跃迁:confirm(需就绪+前序)/skip(须说明)/reopen。重复调用幂等。"""
+    from app.services.studio import stages as stages_svc
+
+    project = _get_project(session, pid, user)
+    if body.expected_stage_revision is not None and int(
+        getattr(project, "stage_revision", 0) or 0
+    ) != body.expected_stage_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "阶段已被其他修改更新"
+                f"(stage_revision={int(getattr(project, 'stage_revision', 0) or 0)})"
+            ),
+        )
+    try:
+        states = stages_svc.transition(
+            session, project,
+            stage=body.stage, action=body.action,
+            note=body.note, user_id=user.id,
+            expected_stage_revision=body.expected_stage_revision,
+        )
+    except stages_svc.StageError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return {
+        "project_id": pid,
+        "stage": body.stage,
+        "stage_states": states,
+        "stage_revision": int(getattr(project, "stage_revision", 0) or 0),
+    }
+
+
+@router.get("/studio/projects/{pid}/stages/history")
+def stage_history(
+    pid: str,
+    stage: str | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """阶段确认审计(新→旧);可按 stage 过滤;归属经项目租户校验。"""
+    from app.services.studio import stages as stages_svc
+
+    _get_project(session, pid, user)
+    rows = stages_svc.list_history(session, pid, stage=stage)
+    return {"history": [stages_svc.history_out(r) for r in rows]}
 
 
 # ── 项目 CRUD ─────────────────────────────────────────────────────────────
@@ -317,14 +394,14 @@ def timeline_preview(
 ) -> dict:
     """预览时间线只读聚合(Wave8 P0):按 shot.idx 输出可播条目。
 
-    ordinary 响应中不出现 NSFW 条(服务端过滤,勿依赖前端藏)。
+    P0-5 R1:不再按 content_mode 过滤 NSFW 条(限制只前端);仍标注 ``nsfw``
+    并透出 ``content_mode`` 供前端读。
     nsfw 判定:分镜媒体 URL 命中任一 ``Job.nsfw=True`` 的 result。
     """
     p = _get_project(session, pid, user)
     shots = session.exec(
         select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
     ).all()
-    allow = nsfw_allowed(user)
     items: list[dict] = []
     for s in shots:
         urls: list[str] = []
@@ -342,8 +419,6 @@ def timeline_preview(
                     if isinstance(cu, str) and cu.strip():
                         urls.append(cu.strip())
         is_nsfw = shot_urls_nsfw(session, urls)
-        if is_nsfw and not allow:
-            continue
         media = (s.final_clip_url or s.video_url or "").strip()
         keyframe = (s.image_url or "").strip()
         voice = (s.voice_url or "").strip()
@@ -390,6 +465,8 @@ def patch_project(
 ):
     p = _get_project(session, pid, user)
     data = body.model_dump(exclude_none=True)
+    # C1c:真实变更判定基线(排除无变化提交误标下游)
+    _before = {k: getattr(p, k) for k in ("premise", "style", "ckpt_name")}
     # Batch3:scene_images list → DB JSON 字符串列
     if "scene_images" in data:
         scenes = data.pop("scene_images") or []
@@ -422,6 +499,25 @@ def patch_project(
     session.add(p)
     session.commit()
     session.refresh(p)
+    # C1c:项目级上游(premise/style/ckpt)真实变更 → 对应下游确认失效(有差才标)
+    changed_stages: list[str] = []
+    if "premise" in data and data.get("premise") != _before["premise"]:
+        changed_stages += ["script", "storyboard"]
+    if "style" in data and data.get("style") != _before["style"]:
+        changed_stages += ["storyboard", "generate"]
+    if "ckpt_name" in data and data.get("ckpt_name") != _before["ckpt_name"]:
+        changed_stages += ["generate", "timeline"]
+    if changed_stages:
+        from app.services.studio import stages as stages_svc
+
+        try:
+            stages_svc.invalidate_stages(
+                session, p, stages=changed_stages,
+                source="system", note="项目设置变更(premise/style/ckpt),下游确认失效",
+                created_by=user.id,
+            )
+        except stages_svc.StageConflictError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
     return _project_out(p)
 
 
@@ -450,6 +546,24 @@ def delete_project(
 # ── 角色 CRUD ─────────────────────────────────────────────────────────────
 
 
+def _invalidate_character_stages(
+    session: Session, project_id: str, stages: list[str], *, note: str, user_id: str
+) -> None:
+    if not stages:
+        return
+    from app.services.studio import stages as stages_svc
+
+    project = session.get(StudioProject, project_id)
+    if project is None:
+        return
+    try:
+        stages_svc.invalidate_stages(
+            session, project, stages=stages, source="system", note=note, created_by=user_id,
+        )
+    except stages_svc.StageConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+
 @router.post("/studio/projects/{pid}/characters")
 def create_character(
     pid: str,
@@ -467,6 +581,9 @@ def create_character(
     session.add(c)
     session.commit()
     session.refresh(c)
+    _invalidate_character_stages(
+        session, pid, ["assets"], note="新增角色改变资产跳过假设", user_id=user.id,
+    )
     return _character_out(c)
 
 
@@ -481,6 +598,9 @@ def patch_character(
     if not c:
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)  # 租户校验
+    # C1c 真实变更判定基线:视觉(影响生成)与音色(影响配音)分别对应下游
+    _vis_before = (c.visual_prompt, c.reference_images, c.reference_images_by_style)
+    _voice_before = c.voice_ref_url
     data = body.model_dump(exclude_none=True)
     # 非 ORM 字段:风格匹配白名单(仅守卫用)
     allowed_panel_styles = data.pop("allowed_panel_styles", None)
@@ -524,6 +644,25 @@ def patch_character(
     session.add(c)
     session.commit()
     session.refresh(c)
+    # C1c:角色视觉/音色改变 → 定向下游失效(不盲目全站标 stale)
+    changed: list[str] = []
+    if (c.visual_prompt, c.reference_images, c.reference_images_by_style) != _vis_before:
+        changed.append("generate")
+    if c.voice_ref_url != _voice_before:
+        changed.append("voice")
+    if changed:
+        from app.services.studio import stages as stages_svc
+
+        project = session.get(StudioProject, c.project_id)
+        if project is not None:
+            try:
+                stages_svc.invalidate_stages(
+                    session, project, stages=changed,
+                    source="system", note="角色卡视觉/音色变更,下游确认失效",
+                    created_by=user.id,
+                )
+            except stages_svc.StageConflictError as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
     return _character_out(c)
 
 
@@ -537,6 +676,20 @@ def delete_character(
     if not c:
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)
+    affected = {"assets"}
+    for shot in session.exec(select(StudioShot).where(StudioShot.project_id == c.project_id)).all():
+        try:
+            cast = json.loads(shot.characters or "[]")
+        except (ValueError, TypeError):
+            cast = []
+        visual = isinstance(cast, list) and c.name in cast
+        voice = shot.speaker == c.name or (visual and bool((shot.dialogue or "").strip()))
+        if visual:
+            affected.add("generate")
+        if voice:
+            affected.add("voice")
+        if visual or voice:
+            affected.add("timeline")
     session.delete(c)
     from app import audit as _audit
 
@@ -546,6 +699,9 @@ def delete_character(
         detail={"name": c.name, "project_id": c.project_id},
     )
     session.commit()
+    _invalidate_character_stages(
+        session, c.project_id, sorted(affected), note="删除角色使资产及关联下游确认失效", user_id=user.id,
+    )
     return {"ok": True}
 
 
@@ -655,6 +811,10 @@ async def _generate_sheet_core(
         session.add(c)
         session.commit()
         session.refresh(c)
+        _invalidate_character_stages(
+            session, c.project_id, ["generate"],
+            note="角色设定卡写入视频参考,生成确认失效", user_id="system",
+        )
     _note_asset_regeneration(
         c.id, body.style, reason="character-sheet 整卡生成"
     )
@@ -1215,6 +1375,10 @@ async def regenerate_character_sheet_panels_route(
         session.add(c)
         session.commit()
         session.refresh(c)
+        _invalidate_character_stages(
+            session, c.project_id, ["generate"],
+            note="角色面板重生成写入视频参考,生成确认失效", user_id="system",
+        )
         refs_out = [u for u in existing if isinstance(u, str)]
         by_style_out = by_style
     _note_asset_regeneration(
@@ -1778,11 +1942,14 @@ def adopt_shot_keyframe(
     if "/api/studio/files/" in url:
         url = "/api/studio/files/" + url.rsplit("/api/studio/files/", 1)[-1]
     shot.image_url = url
+    # C1a F5:外部采用的关键帧非本链生成产物——清 rendered 归属,投影 unknown,
+    # 不沿用旧生成修订的错误归属
+    shot.rendered_revision_id = ""
     shot.updated_at = datetime.utcnow()
     session.add(shot)
     session.commit()
     session.refresh(shot)
-    return _shot_out(shot)
+    return _shot_out(shot, session)
 
 
 # ── 分镜批量保存 ───────────────────────────────────────────────────────────
@@ -1796,7 +1963,26 @@ def save_shots(
     session: Session = Depends(get_session),
 ):
     _get_project(session, pid, user)
+    from app.services.studio import revisions as rev_svc
+
+    # C1a 乐观并发预检:expected_revision CAS 全量前置——任何冲突 409,本请求
+    # 不落地任何变更(内容修订与历史保持一致的事务语义)
+    for item in body.shots:
+        if item.id and item.expected_revision is not None:
+            shot = session.get(StudioShot, item.id)
+            if not shot or shot.project_id != pid:
+                raise HTTPException(status_code=404, detail=f"分镜不存在:{item.id}")
+            if (shot.current_revision_id or "") != item.expected_revision:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "分镜已被其他修改更新"
+                        f"(current={shot.current_revision_id or 'unknown'})"
+                    ),
+                )
+
     out: list[StudioShot] = []
+    revision_created = False
     for i, item in enumerate(body.shots):
         if item.id:
             shot = session.get(StudioShot, item.id)
@@ -1804,6 +1990,7 @@ def save_shots(
                 raise HTTPException(status_code=404, detail=f"分镜不存在:{item.id}")
         else:
             shot = StudioShot(project_id=pid)
+        is_new = not item.id
         shot.idx = i
         shot.scene = item.scene
         shot.prompt = item.prompt
@@ -1835,23 +2022,74 @@ def save_shots(
             if all(b.get("kind") in ("v", "d") for b in declarations):
                 for field, text in beat_text_fields(declarations).items():
                     setattr(shot, field, text)
-        # 生成方式变化 → 旧媒体失效,回到草稿
+        # 生成方式变化 → 旧媒体失效,回到草稿(C1a:视觉归属指针清零,投影回 none;
+        # 在途 queued 候选本地标 superseded——不谎称 upstream canceled、不动上游
+        # Job(不杀在途)、不删文件;reconcile 不会再回写。旧 URL 以 render 修订
+        # 快照存档,文件仍在盘上;rollback 只恢复内容并重估 stale,不恢复媒体)
         if shot.render_mode != item.render_mode:
             shot.render_mode = item.render_mode
             shot.image_url = shot.video_url = shot.final_clip_url = ""
             shot.status = "draft"
+            shot.rendered_revision_id = ""
+            shot.final_visual_revision_id = shot.final_voice_revision_id = ""
+            try:
+                cands = json.loads(shot.candidates_json or "[]")
+            except (ValueError, TypeError):
+                cands = []
+            superseded = False
+            for c in cands:
+                if isinstance(c, dict) and c.get("status") == "queued":
+                    c["status"] = "superseded"
+                    c["error"] = "render_mode 已切换,本次在途生成被放弃(本地产物不回写)"
+                    superseded = True
+            if superseded:
+                shot.candidates_json = json.dumps(cands, ensure_ascii=False)
+        # C1a 修订:真实内容变化才追加(新分镜=imported;旧行编辑=manual-edit;
+        # 重复 PUT 内容一致 → 不造版本)。编辑去重只看 CONTENT_FIELDS,
+        # ref_images/video_model 回写与 render_params 存档不算用户编辑。
+        # 内容先独立提交:建版并发冲突回滚只丢未提交修订,绝不丢内容。
+        session.add(shot)
+        session.commit()
+        source = "imported" if is_new else "manual-edit"
+        try:
+            rev = rev_svc.ensure_content_revision(
+                session, shot, source=source, created_by=user.id
+            )
+        except rev_svc.RevisionConflictError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        if rev is not None:
+            revision_created = True
         session.add(shot)
         out.append(shot)
-    # 全量替换语义:请求未包含的旧分镜删除(前端拆解剧本/删镜依赖此契约)
+    # 全量替换语义:请求未包含的旧分镜删除(前端拆解剧本/删镜依赖此契约);
+    # 其修订行保留(不可变审计,revision 带 project_id 隔离,不泄露他项目)。
+    # 删除本身不建内容修订,但同属上游真实修改:删镜(尤其删空)也须触发下游失效。
     keep = {s.id for s in out}
+    deleted_shots = 0
     for s in session.exec(select(StudioShot).where(StudioShot.project_id == pid)).all():
         if s.id not in keep:
             session.delete(s)
-    # 统一提交:循环内逐个 commit 会 expire 已产出的 shot 对象,导致 model_dump 丢字段
+            deleted_shots += 1
     session.commit()
     for shot in out:
         session.refresh(shot)
-    return {"shots": [_shot_out(s) for s in out]}
+    # C1c:真实内容变化(含删镜)→ 下游 confirmed/skipped 标 needs_review + 审计;
+    # 无变化保存不误标;不触碰在途渲染/配音。
+    if revision_created or deleted_shots:
+        from app.services.studio import stages as stages_svc
+
+        project = session.get(StudioProject, pid)
+        if project is not None:
+            try:
+                stages_svc.invalidate_stages(
+                    session, project,
+                    stages=["storyboard", "generate", "voice", "timeline"],
+                    source="system", note="分镜内容变更(含删镜),下游确认失效",
+                    created_by=user.id,
+                )
+            except stages_svc.StageConflictError as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
+    return {"shots": [_shot_out(s, session) for s in out]}
 
 
 class ShotReflowRequest(BaseModel):
@@ -1896,11 +2134,37 @@ def reflow_shot_beats(
         for field, text in fields.items():
             setattr(shot, field, text)
         shot.updated_at = datetime.utcnow()
+        # C1a:改词重排与手工编辑同一修订规则(真实变化才追加,不绕过)
+        from app.services.studio import revisions as rev_svc
+
+        session.add(shot)
+        session.commit()
+        try:
+            rev = rev_svc.ensure_content_revision(
+                session, shot, source="manual-edit", created_by=user.id
+            )
+        except rev_svc.RevisionConflictError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
         session.add(shot)
         session.commit()
         session.refresh(shot)
-        return _shot_out(shot)
-    return {**_shot_out(shot), **result, **fields, "persisted": False}
+        # C1c:重排改词/时长属上游真实修改 → 下游确认失效(同 save_shots 口径)
+        if rev is not None:
+            from app.services.studio import stages as stages_svc
+
+            project = session.get(StudioProject, shot.project_id)
+            if project is not None:
+                try:
+                    stages_svc.invalidate_stages(
+                        session, project,
+                        stages=["storyboard", "generate", "voice", "timeline"],
+                        source="system", note="词锚重排变更,下游确认失效",
+                        created_by=user.id,
+                    )
+                except stages_svc.StageConflictError as e:
+                    raise HTTPException(status_code=409, detail=str(e)) from e
+        return _shot_out(shot, session)
+    return {**_shot_out(shot, session), **result, **fields, "persisted": False}
 
 
 # ── 剧本拆解 ───────────────────────────────────────────────────────────────
@@ -2394,13 +2658,13 @@ async def optimize_shot_endpoint(
     system_prompt = _SHOT_OPTIMIZE_SYSTEM
     if body.skill_id:
         from app.models import Agent
-        from app.redline import nsfw_allowed
+        from app.redline import require_not_underage
 
         skill = session.get(Agent, body.skill_id)
         if not skill or (skill.user_id and skill.user_id != user.id):
             raise HTTPException(status_code=404, detail="技能不存在")
-        if skill.is_nsfw and not nsfw_allowed(user):
-            raise HTTPException(status_code=403, detail="该技能需要 R18 鉴权")
+        if skill.is_nsfw:
+            require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
         system_prompt = f"{skill.system_prompt}\n\n{_SHOT_OPTIMIZE_SYSTEM}"
 
     try:
@@ -2457,10 +2721,11 @@ def _get_shot(session: Session, sid: str, user: User) -> StudioShot:
     return shot
 
 
-def _shot_out(s: StudioShot) -> dict:
-    """分镜响应:characters/candidates/ref_images 解析为 list。"""
+def _shot_out(s: StudioShot, session: Session | None = None) -> dict:
+    """分镜响应:characters/candidates/ref_images 解析为 list + C1a stale 投影。"""
+    raw_candidates = s.candidates_json or "[]"
     try:
-        candidates = json.loads(s.candidates_json or "[]")
+        candidates = json.loads(raw_candidates)
     except (ValueError, TypeError):
         candidates = []
     try:
@@ -2472,8 +2737,12 @@ def _shot_out(s: StudioShot) -> dict:
     data.pop("ref_images_json", None)
     data["characters"] = json.loads(s.characters or "[]")
     data["candidates"] = candidates if isinstance(candidates, list) else []
+    data["candidates_digest"] = candidates_digest(raw_candidates)
     data["ref_images"] = ref_images if isinstance(ref_images, list) else []
     data.setdefault("video_model", getattr(s, "video_model", None) or "h3")
+    from app.services.studio import revisions as rev_svc
+
+    data.update(rev_svc.media_status(session, s))
     from app.services.svml_timeline import parse_beats_json, project_timeline
 
     data.pop("beats_json", None)
@@ -2484,10 +2753,107 @@ def _shot_out(s: StudioShot) -> dict:
     return data
 
 
+# ── C1a 修订历史 / diff / 回滚 ──────────────────────────────────────────────
+
+
+class ShotRollbackRequest(BaseModel):
+    revision_id: str = Field(..., min_length=1, max_length=64)
+    # C1a F2 乐观并发:与 shot.current_revision_id 不符 → 409(回滚基线已被他人移动)
+    expected_revision: str | None = Field(default=None, max_length=64)
+
+
+@router.get("/studio/shots/{sid}/revisions")
+def shot_revisions(
+    sid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """修订历史(新→旧):内容修订 + 生成输入快照(source=render),含可比较指纹。"""
+    from app.services.studio import revisions as rev_svc
+
+    shot = _get_shot(session, sid, user)
+    rows = rev_svc.list_revisions(session, shot.id)
+    return {"shot_id": shot.id, "revisions": [rev_svc.revision_out(r) for r in rows]}
+
+
+@router.get("/studio/shots/{sid}/revisions/{rid}/diff")
+def shot_revision_diff(
+    sid: str,
+    rid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """单修订与上游(内容链)的逐字段 diff;无上游(旧行首修)→ from_unknown。"""
+    from app.services.studio import revisions as rev_svc
+
+    shot = _get_shot(session, sid, user)
+    diff = rev_svc.diff_revision(session, rid)
+    if diff is None or diff.get("revision_id") not in {
+        r.id for r in rev_svc.list_revisions(session, shot.id)
+    }:
+        raise HTTPException(status_code=404, detail="修订不存在")
+    return diff
+
+
+@router.post("/studio/shots/{sid}/rollback")
+def shot_rollback(
+    sid: str,
+    body: ShotRollbackRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """回滚到指定修订的内容:追加 source=rollback 新修订,不删历史;媒体归属不动,
+    stale 由同一指纹规则重估(回滚到与媒体输入一致的内容即恢复 current)。"""
+    from app.services.studio import revisions as rev_svc
+
+    shot = _get_shot(session, sid, user)
+    if body.expected_revision is not None and (
+        shot.current_revision_id or ""
+    ) != body.expected_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "分镜已被其他修改更新"
+                f"(current={shot.current_revision_id or 'unknown'})"
+            ),
+        )
+    try:
+        rolled = rev_svc.rollback_to_revision(
+            session, shot, body.revision_id, created_by=user.id
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except rev_svc.RevisionConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    from datetime import datetime
+
+    shot.updated_at = datetime.utcnow()
+    session.add(shot)
+    session.commit()
+    session.refresh(shot)
+    if rolled is not None:
+        from app.services.studio import stages as stages_svc
+
+        project = session.get(StudioProject, shot.project_id)
+        if project is not None:
+            try:
+                stages_svc.invalidate_stages(
+                    session, project, stages=["storyboard", "generate", "voice", "timeline"],
+                    source="system", note="分镜回滚改变内容,下游确认失效", created_by=user.id,
+                )
+            except stages_svc.StageConflictError as e:
+                raise HTTPException(status_code=409, detail=str(e)) from e
+    return _shot_out(shot, session)
+
+
 class RenderShotBody(BaseModel):
     """Batch6 视频步:引擎 / 管线 C / 多候选 / 多参考(均可选;缺省兼容旧客户端)。"""
 
-    video_model: str = Field(default="h3", max_length=16)
+    # C1b:缺省 None=保持分镜已选引擎(shot.video_model,如 ltx);显式传 h3/ltx 才覆盖。
+    # 旧默认 "h3" 会覆盖 shot 已选 ltx(video_model 回落见 orchestrator.render_shot)。
+    video_model: str | None = Field(
+        default=None, max_length=16, description="None=保持分镜已选引擎;显式 h3/ltx 才覆盖"
+    )
     pipeline: str = Field(default="ref2va", max_length=16)  # ref2va(默认) | c | c_hybrid | legacy
     worker_url: str | None = Field(
         default=None,
@@ -2512,6 +2878,11 @@ class RenderShotBody(BaseModel):
     accel: str = Field(default="off", max_length=16)
     # F1：专家旁路关键帧软闸（项目 preferred_drive_mode=keyframe 时仍可单次强制直出）
     force_direct: bool = Field(default=False, description="True=跳过关键帧驱动软闸")
+    # C1b:选优策略;None=维持既有默认(自动选优)。False=manual 候选自选
+    # (配方 pick_strategy=manual 时由 apply 返回的 render_params 带入)
+    auto_pick: bool | None = Field(
+        default=None, description="True=自动选优(默认);False=出候选由用户自选"
+    )
 
     @field_validator("accel")
     @classmethod
@@ -2560,6 +2931,56 @@ class RenderProjectBody(BaseModel):
         return p
 
 
+def _assert_estimate_allowed(estimate: dict) -> None:
+    if estimate["allowed"]:
+        return
+    blocker = estimate["blockers"][0]
+    if blocker["code"] == "KEYFRAME_REQUIRED":
+        from app.services.studio.keyframe_drive import KEYFRAME_REQUIRED_DETAIL
+
+        raise HTTPException(status_code=422, detail=dict(KEYFRAME_REQUIRED_DETAIL))
+    raise HTTPException(status_code=409, detail=blocker["message"])
+
+
+@router.post("/studio/shots/{sid}/render-estimate")
+def render_shot_estimate(
+    sid: str,
+    body: RenderShotBody | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from app.services.studio import estimates
+
+    shot = _get_shot(session, sid, user)
+    project = session.get(StudioProject, shot.project_id)
+    try:
+        return estimates.estimate_shot(
+            session, project, shot,
+            options=body.model_dump() if body is not None else {},
+            body_present=body is not None,
+        )
+    except estimates.EstimateConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.post("/studio/projects/{pid}/render-estimate")
+def render_project_estimate(
+    pid: str,
+    body: RenderProjectBody | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from app.services.studio import estimates
+
+    project = _get_project(session, pid, user)
+    try:
+        return estimates.estimate_batch(
+            session, project, options=body.model_dump() if body is not None else {}
+        )
+    except estimates.EstimateConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
 @router.post("/studio/shots/{sid}/render")
 async def render_one(
     sid: str,
@@ -2570,21 +2991,27 @@ async def render_one(
 ):
     """渲染单镜。默认同步等待；body.wait=false 时登记 Job 后立即返回 job_id。
 
-    body 缺省(旧客户端/批量):video_model=h3、num_candidates=1、wait=true。
+    body 缺省(旧客户端/批量):num_candidates=1、wait=true;引擎保持分镜已选
+    (shot.video_model,缺省 h3),不再强制覆盖——显式传 video_model 才切换。
     视频步 UI 显式传 num_candidates(默认 2)与 ref_images。
     """
     shot = _get_shot(session, sid, user)
-    # F1 关键帧驱动软闸：项目默认 keyframe 且本镜无 image_url → 422 + 失败码
-    from app.services.studio.keyframe_drive import keyframe_gate_blocks
+    from app.services.studio import estimates
 
     _proj = session.get(StudioProject, shot.project_id)
-    _drive = getattr(_proj, "preferred_drive_mode", None) if _proj is not None else "keyframe"
-    _force = bool(body.force_direct) if body is not None else False
-    _blocked = keyframe_gate_blocks(drive_mode=_drive, shot=shot, force_direct=_force)
-    if _blocked is not None:
-        raise HTTPException(status_code=422, detail=_blocked)
+    try:
+        estimate = estimates.estimate_shot(
+            session, _proj, shot,
+            options=body.model_dump() if body is not None else {},
+            body_present=body is not None,
+        )
+    except estimates.EstimateConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    _assert_estimate_allowed(estimate)
     # 无 body → 单候选(兼容 renderStudioShot 旧调用与批量路径语义)
-    vm = (body.video_model if body else None) or "h3"
+    # C1b:video_model 缺省(None)保持 shot.video_model(如 ltx),不强制 h3;
+    # 显式传值才覆盖。回落链:video_model → shot.video_model → "h3"(orchestrator)。
+    vm: str | None = body.video_model if body is not None else None
     n = body.num_candidates if body is not None else 1
     refs = body.ref_images if body is not None else None
     scenes = body.scene_images if body is not None else None
@@ -2592,6 +3019,8 @@ async def render_one(
     rstyle = body.ref_style if body is not None else None
     fixed_seed = body.seed if body is not None else None
     accel = (body.accel if body is not None else "off") or "off"
+    # C1b:显式 auto_pick(配方 manual 策略)覆盖 orchestrator 默认的自动选优
+    auto_pick = True if body is None or body.auto_pick is None else bool(body.auto_pick)
     accel_echo: dict = {}
     do_wait = True if body is None else bool(body.wait)
     worker_url = None
@@ -2623,8 +3052,10 @@ async def render_one(
                 seed=fixed_seed,
                 worker_url=worker_url,
                 accel=accel,
+                auto_pick=auto_pick,
                 accel_echo=accel_echo,
                 wait=do_wait,
+                estimate=estimates.estimate_snapshot(estimate),
             )
         except RenderError as e:
             raise HTTPException(status_code=502, detail=str(e)) from e
@@ -2652,7 +3083,7 @@ async def render_one(
                 )
                 fixed_seed = None  # 换 seed
                 continue
-            data = _shot_out(out_shot)
+            data = _shot_out(out_shot, session)
             data["acceleration"] = accel
             data["acceleration_applied"] = bool(accel_echo.get("applied"))
             return data
@@ -2679,21 +3110,38 @@ async def render_one(
             "shot_id": out_shot.id,
             "acceleration": accel,
             "acceleration_applied": bool(accel_echo.get("applied")),
-            "shot": _shot_out(out_shot),
+            "shot": _shot_out(out_shot, session),
         }
+
+
+class CandidatePickRequest(BaseModel):
+    expected_candidates_digest: str | None = Field(default=None, max_length=64)
 
 
 @router.post("/studio/shots/{sid}/candidates/{cid}/pick")
 def pick_shot_candidate(
     sid: str,
     cid: str,
+    body: CandidatePickRequest | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     """选用某个候选视频为当前分镜成片。"""
     shot = _get_shot(session, sid, user)
     try:
-        return _shot_out(orchestrator.pick_candidate(session, shot, cid))
+        return _shot_out(
+            orchestrator.pick_candidate(
+                session,
+                shot,
+                cid,
+                expected_candidates_digest=(
+                    body.expected_candidates_digest if body is not None else None
+                ),
+            ),
+            session,
+        )
+    except orchestrator.CandidateConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except RenderError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -2707,8 +3155,11 @@ async def _run_batch_render(job_id: str, pid: str, accel: str, pipeline: str = "
     客户端断连只取消等待方,不取消本任务;进度写入 Job.progress / 终态写 result。
     pipeline 默认 ref2va(Wave P2 管线选择器);seam=continue 单镜仍由 orchestrator 内部切 C。
     """
+    import time
+
     from app.db import engine as _engine
     from app.models import Job
+    from app.services.job_phase import enrich_progress_snap
 
     done, failed = 0, 0
     applied_any = False
@@ -2726,7 +3177,10 @@ async def _run_batch_render(job_id: str, pid: str, accel: str, pipeline: str = "
             if result is not None:
                 job.result = json.dumps(result, ensure_ascii=False)
             if progress is not None:
-                job.progress = json.dumps(progress, ensure_ascii=False)
+                snap = enrich_progress_snap(
+                    {**progress, "updated_at": time.time()}, status=status or job.status
+                )
+                job.progress = json.dumps(snap, ensure_ascii=False)
             s.add(job)
             s.commit()
             return True
@@ -2836,6 +3290,17 @@ async def render_batch(
     pipe = (body.pipeline if body is not None else "ref2va") or "ref2va"
     do_wait = True if body is None else bool(body.wait)
 
+    # D0/C1c 同源准入:实际待渲染镜的 storyboard/keyframe/费率/预算统一由纯服务复算。
+    from app.services.studio import estimates
+
+    try:
+        estimate = estimates.estimate_batch(
+            session, project, options=body.model_dump() if body is not None else {}
+        )
+    except estimates.EstimateConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    _assert_estimate_allowed(estimate)
+
     job = Job(
         tenant_id=user.tenant_id,
         user_id=user.id,
@@ -2849,6 +3314,7 @@ async def render_batch(
             project_id=pid,
             accel=accel,
             pipeline=pipe,
+            estimate=estimates.estimate_snapshot(estimate),
         ),
     )
     session.add(job)
@@ -3137,7 +3603,7 @@ async def voice_one(
         await voice_svc.synth_for_shot(session, shot, character)
     except voice_svc.VoiceError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
-    return _shot_out(shot)
+    return _shot_out(shot, session)
 
 
 @router.post("/studio/shots/{sid}/lipsync/skip")
@@ -3157,7 +3623,7 @@ async def lipsync_skip(
         await lipsync_svc.skip_lipsync_for_shot(session, shot)
     except lipsync_svc.LipsyncError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    return _shot_out(shot)
+    return _shot_out(shot, session)
 
 
 @router.post("/studio/shots/{sid}/lipsync")
@@ -3176,7 +3642,7 @@ async def lipsync_one(
         await lipsync_svc.lipsync_for_shot(session, shot)
     except lipsync_svc.LipsyncError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
-    return _shot_out(shot)
+    return _shot_out(shot, session)
 
 
 
@@ -3226,11 +3692,35 @@ async def assemble_project_endpoint(
     """拼接全部就绪分镜 → 项目成片;任一镜缺 final_clip_url → 422。
 
     F3:可选 body 覆盖声床；成功/失败写北向 KPI episode_assembled。
+    C1c 门禁:有分镜时要求 voice 阶段已确认/显式跳过,且所有镜
+    final_media_status 不得 stale(缺片/无镜原有 422 语义保留,先行判定)。
     """
     project = _get_project(session, pid, user)
     shots = session.exec(
         select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
     ).all()
+    if shots:
+        from app.services.studio import revisions as rev_svc
+        from app.services.studio import stages as stages_svc
+
+        _voice_state = stages_svc.stage_state_of(session, project, "voice")["state"]
+        if _voice_state not in ("confirmed", "skipped"):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"配音(stage)尚未确认(当前 {_voice_state});"
+                    "请先确认/跳过 voice 阶段再合成"
+                ),
+            )
+        _stale = [
+            f"镜{s.idx}" for s in shots
+            if rev_svc.final_media_status(session, s) == "stale"
+        ]
+        if _stale:
+            raise HTTPException(
+                status_code=409,
+                detail="最终片段已过期,请重渲染/重对口型后再合成:" + ",".join(_stale[:5]),
+            )
     opts = body or AssembleOptions()
     ok = False
     err_msg = ""
@@ -3388,6 +3878,181 @@ def export_jianying_draft(
         "X-Toiv-Media-Copied": str(media_copied_hdr),
     }
     return StreamingResponse(io.BytesIO(data), media_type="application/zip", headers=headers)
+
+
+# ── P2-9:全量多轨导出(EDL/FCPXML/分轨 ZIP) ──────────────────────────────────
+
+
+def _export_basename(project: StudioProject) -> str:
+    title = (project.title or "toiv-multitrack").strip() or "toiv-multitrack"
+    out = []
+    for ch in title:
+        if ch.isalnum() or ch in "-_." or ("\u4e00" <= ch <= "\u9fff"):
+            out.append(ch)
+        elif ch.isspace():
+            out.append("_")
+    return "".join(out).strip("._")[:48] or "toiv-multitrack"
+
+
+def _attachment_headers(fname: str, extra: dict[str, str]) -> dict[str, str]:
+    # latin-1 header safe: ASCII fallback + RFC5987 UTF-8 filename*
+    from urllib.parse import quote
+
+    ascii_name = "".join(ch if ord(ch) < 128 else "_" for ch in fname) or "toiv-export"
+    headers = {
+        "Content-Disposition": (
+            f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(fname)}'
+        ),
+    }
+    headers.update(extra)
+    return headers
+
+
+def _multitrack_export_context(session: Session, pid: str, user: User):
+    """P2-9 导出前投影:多轨时间线 + 缺素材/时长超限清单(不改动剪映主链)。"""
+    from app.services.studio import export_timeline as et
+
+    project = _get_project(session, pid, user)
+    shots = session.exec(
+        select(StudioShot).where(StudioShot.project_id == pid).order_by(StudioShot.idx)
+    ).all()
+    if not shots:
+        raise HTTPException(status_code=422, detail="项目无分镜")
+
+    from app.storage import drama_output_root
+
+    files_prefix = "/api/studio/files/"
+    root = drama_output_root() / "studio"
+
+    def _resolve(url: str) -> Path | None:
+        u = (url or "").strip()
+        if not u:
+            return None
+        path_part = u
+        if u.startswith("http://") or u.startswith("https://"):
+            try:
+                from urllib.parse import urlparse
+
+                path_part = urlparse(u).path or ""
+            except Exception:  # noqa: BLE001
+                return None
+        if path_part.startswith(files_prefix):
+            name = Path(path_part[len(files_prefix):]).name
+            if not name or name in {".", ".."}:
+                return None
+            cand = root / name
+            return cand if cand.is_file() else None
+        # 站内其它前缀(声床等)尽力解析,解析不到按缺素材列出
+        try:
+            from app.services.studio.assemble import resolve_bgm_path
+
+            cand = resolve_bgm_path(u)
+            if cand is not None:
+                return cand
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+    bgm_url = (getattr(project, "bgm_url", None) or "").strip()
+    timeline, checklist = et.project_studio_shots(
+        shots,
+        resolve_path=_resolve,
+        bgm_url=bgm_url,
+        title=_export_basename(project),
+        fps=int(getattr(project, "fps", 0) or 0) or et.DEFAULT_FPS,
+        width=int(getattr(project, "width", 0) or 0) or et.DEFAULT_WIDTH,
+        height=int(getattr(project, "height", 0) or 0) or et.DEFAULT_HEIGHT,
+    )
+    try:
+        et.require_video_clips(timeline)
+    except et.ExportTimelineError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return project, timeline, checklist
+
+
+@router.get("/studio/projects/{pid}/export/edl")
+def export_edl(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """P2-9：导出原创 CMX3600 EDL（视频 V + 台词 A + BGM A2；字幕随镜注释）。
+
+    切点与 `/export/jianying` 同一批 shots 完全一致；缺素材/时长问题不阻断,
+    以 X-Toiv-* 头与多轨 ZIP 内清单回执。
+    """
+    from app.services.studio import export_timeline as et
+
+    project, timeline, checklist = _multitrack_export_context(session, pid, user)
+    try:
+        text = et.build_edl(timeline)
+    except et.ExportTimelineError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    fname = _export_basename(project) + ".edl"
+    headers = _attachment_headers(
+        fname,
+        {
+            "X-Toiv-Export-Format": et.EXPORT_FORMAT_VERSION,
+            "X-Toiv-Missing-Assets": str(len(checklist.missing_assets)),
+            "X-Toiv-Duration-Issues": str(len(checklist.duration_issues)),
+        },
+    )
+    return Response(content=text, media_type="text/plain; charset=utf-8", headers=headers)
+
+
+@router.get("/studio/projects/{pid}/export/fcpxml")
+def export_fcpxml(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """P2-9：导出原创 FCPXML（spine 视频 + 台词 lane=1 + BGM lane=-1 + 字幕 lane=2）。"""
+    from app.services.studio import export_timeline as et
+
+    project, timeline, checklist = _multitrack_export_context(session, pid, user)
+    try:
+        text = et.build_fcpxml(timeline)
+    except et.ExportTimelineError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    fname = _export_basename(project) + ".fcpxml"
+    headers = _attachment_headers(
+        fname,
+        {
+            "X-Toiv-Export-Format": et.EXPORT_FORMAT_VERSION,
+            "X-Toiv-Missing-Assets": str(len(checklist.missing_assets)),
+            "X-Toiv-Duration-Issues": str(len(checklist.duration_issues)),
+        },
+    )
+    return Response(content=text, media_type="application/x-fcpxml", headers=headers)
+
+
+@router.get("/studio/projects/{pid}/export/multitrack")
+def export_multitrack(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """P2-9：全量多轨导出 ZIP（EDL + FCPXML + manifest/切点清单 + 缺素材/时长超限清单）。"""
+    import io as _io
+
+    from app.services.studio import export_timeline as et
+
+    project, timeline, checklist = _multitrack_export_context(session, pid, user)
+    try:
+        data = et.build_multitrack_zip(timeline, checklist)
+    except et.ExportTimelineError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    fname = _export_basename(project) + "_multitrack.zip"
+    headers = _attachment_headers(
+        fname,
+        {
+            "X-Toiv-Export-Format": et.EXPORT_FORMAT_VERSION,
+            "X-Toiv-Missing-Assets": str(len(checklist.missing_assets)),
+            "X-Toiv-Duration-Issues": str(len(checklist.duration_issues)),
+            "X-Toiv-Video-Clips": str(len(timeline.of(et.TRACK_VIDEO))),
+        },
+    )
+    return StreamingResponse(_io.BytesIO(data), media_type="application/zip", headers=headers)
 
 
 # ── Batch5:样片种子 + 步骤整组重跑 ─────────────────────────────────────────

@@ -13,8 +13,7 @@
 守卫管线(对齐 dsh tools/* 域):
 - 执行前 waterfall TOOLS_PRE_EXECUTE:监听器收到 (payload, next);调 next(可改写
   payload.args)放行,不调 next 直接返回 (text, events) 即阻断 —— 该文本作为工具
-  结果回给 LLM,不抛异常、不断 SSE 流。内建守卫按序:R18 门(nsfw=True 工具且
-  请求上下文不放行 → 403 语义文本)→ 限流(按 spec.rate_scope 记配额,超额 →
+  结果回给 LLM,不抛异常、不断 SSE 流。内建守卫按序:R18 门(P0-5 R5 no-op)→ 限流(按 spec.rate_scope 记配额,超额 →
   429 语义文本)。
 - 执行后 emit TOOLS_POST_EXECUTE:审计负载(name/args/结果文本/媒体事件/用户 id)。
 """
@@ -28,7 +27,7 @@ from fastapi import HTTPException
 
 from app.harness import events as ev
 from app.harness.context import HarnessContext
-from app.redline import nsfw_allowed
+# P0-5 R5: _nsfw_guard no-op;不再依赖 is_underage/nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ class ToolSpec:
     schema: dict
     executor: ToolExecutor
     summary: str
-    nsfw: bool = False  # True=仅 R18 上下文可执行(守卫拦,返回 403 语义文本)
+    nsfw: bool = False  # True=R18 工具;P0-5 R3 仅未成年硬拦
     rate_scope: str = "generation"  # 限流配额维度(空串=不记配额)
 
 
@@ -126,10 +125,7 @@ class ToolRegistry:
 
 
 async def _nsfw_guard(payload: dict, nxt: ev.WaterfallNext) -> tuple[str, list[dict]]:
-    """R18 门:nsfw=True 工具且请求上下文不放行 → 403 语义文本回给 LLM(不抛异常)。"""
-    spec: ToolSpec = payload["spec"]
-    if spec.nsfw and not nsfw_allowed(payload["ctx"].get("user")):
-        return "该工具仅 R18 模式可用(403),本轮请改用常规工具或提示用户切换模式。", []
+    """R18 门:P0-5 R5 no-op(未成年/成人 UX 硬关均改前端 redline.ts)。"""
     return await nxt(payload)
 
 

@@ -32,6 +32,7 @@ class LLMProvider(Protocol):
         tools: list[dict] | None = None,
         max_tokens: int | None = None,
         temperature: float = 0.4,
+        user: Any = None,
     ) -> dict: ...
 
     async def chat_layered(
@@ -41,6 +42,7 @@ class LLMProvider(Protocol):
         max_tokens: int | None = None,
         temperature: float = 0.5,
         enable_thinking: bool | None = None,
+        user: Any = None,
     ) -> dict: ...
 
     async def embed(self, texts: list[str]) -> list[list[float]] | None: ...
@@ -62,10 +64,12 @@ class LayeredLLMProvider:
         tools: list[dict] | None = None,
         max_tokens: int | None = None,
         temperature: float = 0.4,
+        user: Any = None,
     ) -> dict:
         # 调用时动态查找:monkeypatch llm.chat 后仍命中 mock(兼容性铁律)
+        kwargs = {"user": user} if user is not None else {}
         return await getattr(_llm_module, "chat")(
-            messages, tools=tools, max_tokens=max_tokens, temperature=temperature
+            messages, tools=tools, max_tokens=max_tokens, temperature=temperature, **kwargs
         )
 
     async def chat_layered(
@@ -75,10 +79,12 @@ class LayeredLLMProvider:
         max_tokens: int | None = None,
         temperature: float = 0.5,
         enable_thinking: bool | None = None,
+        user: Any = None,
     ) -> dict:
+        kwargs = {"user": user} if user is not None else {}
         return await getattr(_llm_module, "chat_layered")(
             messages, layer=layer, max_tokens=max_tokens, temperature=temperature,
-            enable_thinking=enable_thinking,
+            enable_thinking=enable_thinking, **kwargs,
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]] | None:

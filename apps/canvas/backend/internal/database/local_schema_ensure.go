@@ -206,6 +206,7 @@ func ensureAssistantTurnsTable(tx *gorm.DB) error {
 			{"selected_node_ids", "TEXT"},
 			{"referenced_asset_ids", "TEXT"},
 			{"referenced_canvas_ids", "TEXT"},
+			{"referenced_studio_project_ids", "TEXT"},
 			{"associated_asset_ids", "TEXT"},
 			{"associated_task_ids", "TEXT"},
 			{"undone", "NUMERIC"},
@@ -229,6 +230,7 @@ func ensureAssistantTurnsTable(tx *gorm.DB) error {
 		selected_node_ids TEXT,
 		referenced_asset_ids TEXT,
 		referenced_canvas_ids TEXT,
+		referenced_studio_project_ids TEXT,
 		associated_asset_ids TEXT,
 		associated_task_ids TEXT,
 		undone NUMERIC NOT NULL DEFAULT 0,
@@ -352,7 +354,7 @@ func requireAssistantTurnsSchema(db *gorm.DB) error {
 	}
 	for _, column := range []string{
 		"turn_id", "user_id", "canvas_id", "revision_before", "created_at", "updated_at",
-		"state", "selected_node_ids", "referenced_asset_ids", "referenced_canvas_ids",
+		"state", "selected_node_ids", "referenced_asset_ids", "referenced_canvas_ids", "referenced_studio_project_ids",
 		"associated_asset_ids", "associated_task_ids", "undone", "change_json", "document",
 	} {
 		has, err := sqliteHasColumn(db, "assistant_turns", column)

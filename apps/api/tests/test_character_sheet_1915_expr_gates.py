@@ -177,7 +177,7 @@ def test_semantic_gentle_fails_frown_no_smile():
 
 
 def test_expr_prompts_have_1915_negatives_and_eye_lock():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "heart pupils" in src or "heart-shaped pupils" in src
     assert "blue-violet" in src or "蓝紫" in src
     assert "assert_expression_semantic" in src

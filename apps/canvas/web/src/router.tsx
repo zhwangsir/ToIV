@@ -11,6 +11,9 @@ import { isLocalWorkspaceMode } from "@/services/workspace-mode";
 const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
 const HomePage = lazy(loadHomePage);
+/** COSMOS_SEED：Desktop 路由页保留源码，默认入口不进；再挂见 docs/COSMOS_APP_SHELL_SEED.md */
+const DesktopAppStorePage = lazy(() => import("@/pages/desktop/app-store-page"));
+const DesktopHomePage = lazy(() => import("@/pages/desktop/desktop-home-page"));
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
 const CreatePage = lazy(loadCreatePage);
@@ -79,10 +82,11 @@ function ToivLibraryDetailRedirect() {
 
 /** R11: 孤面 → 内链 /create（对外等价 /studio/create，由 studio 壳承载） */
 function ToivWsToCreateRedirect() {
-    const { id } = useParams();
+    const { id, section } = useParams();
     const [searchParams] = useSearchParams();
     const next = new URLSearchParams(searchParams);
     if (id) next.set("project", id);
+    if (section) next.set("section", section);
     const qs = next.toString();
     return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
 }
@@ -132,13 +136,13 @@ export const router = createWorkspaceRouter([
         errorElement: <RouteErrorPage />,
         children: [
             { path: "/", element: deferred(<HomePage />) },
+            // COSMOS_SEED：/desktop/* 非默认落地；登录后根 = 工作室 Home（AppWorkspaceShell）
+            { path: "/desktop", element: deferred(<DesktopHomePage />) },
+            { path: "/desktop/store", element: deferred(<DesktopAppStorePage />) },
+            { path: "/desktop/legacy-home", element: deferred(<HomePage />) },
             { path: "/create", element: deferred(<CreationWorkbenchPage />) },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
-            {
-                path: "/tasks",
-                // 任务页暂不开放，保留路由以避免旧链接进入半成品界面。
-                element: <Navigate to="/" replace />,
-            },
+            { path: "/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/library", element: deferred(<MediaLibraryPage />) },
             { path: "/library/works/:id", element: deferred(<ToivLibraryDetailPage />) },
             { path: "/assets", element: <AssetsLegacyRedirect /> },
@@ -159,18 +163,19 @@ export const router = createWorkspaceRouter([
             { path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
-            { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/agent", element: <Navigate to="/create?view=agent" replace /> },
             { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },
-            { path: "/toiv/audio", element: <Navigate to="/create" replace /> },
-            { path: "/toiv/image-tools", element: <Navigate to="/create" replace /> },
-            { path: "/toiv/video-tools", element: <Navigate to="/create" replace /> },
-            { path: "/toiv/dub-tools", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/audio", element: <Navigate to="/toiv/market" replace /> },
+            { path: "/toiv/image-tools", element: <Navigate to="/toiv/market" replace /> },
+            { path: "/toiv/video-tools", element: <Navigate to="/toiv/market" replace /> },
+            { path: "/toiv/dub-tools", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
             { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
             { path: "/toiv/drama/:id", element: deferred(<ToivDramaDetailPage />) },
-            // v2 六段工作区骨架(S2/W1.1):独立路由并行于经典详情,迁移齐后对调
-            // 永久重定向：旧 /toiv/ws/:id → /create?project=:id（单一创作台）
+            // 永久重定向：旧六段工作区保留 project/section，进入单一创作台。
+            { path: "/toiv/ws/:id/:section", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws/:id", element: <ToivWsToCreateRedirect /> },
+            { path: "/toiv/ws", element: <ToivWsToCreateRedirect /> },
             { path: "/test-voice-recording", element: deferred(<TestVoiceRecording />) },
             {
                 path: "/projects",

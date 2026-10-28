@@ -18,8 +18,8 @@ import {
     isUnderage,
     setR18Mode,
     subscribeR18Mode,
+    CLASSIC_NSFW_TO_MARKET,
 } from "@/redline";
-import { CLASSIC_NSFW_TO_MARKET } from "@/services/toiv/content-mode";
 import { ContentModeFallbackTip } from "@/components/toiv/content-mode-fallback-tip";
 
 export function R18SettingsPane() {
@@ -54,9 +54,9 @@ export function R18SettingsPane() {
             <div className="settings-r18-row">
                 <div className="flex min-w-0 items-start gap-2">
                     {enabled ? (
-                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--cm-adult,#8b7cff)]" aria-hidden />
+                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--cm-adult,#6B7280)]" aria-hidden />
                     ) : (
-                        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--cm-primary,#00bdcf)]" aria-hidden />
+                        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--cm-primary,#4A7FC1)]" aria-hidden />
                     )}
                     <div className="min-w-0">
                         <h3>内容模式</h3>

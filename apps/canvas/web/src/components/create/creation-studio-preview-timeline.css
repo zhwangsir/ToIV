@@ -1,6 +1,6 @@
 /* R8 Preview timeline — hard table from VISUAL_PREVIEW_TIMELINE_R8_20261026.md
    A: Toonflow-app / LumenX (sizes cited; Freezone rewrite). B: BeefTV mode only. No AGPL paste.
-   Playhead #5ba0ff — never danger red. Adult geometry unchanged. */
+   Playhead #4A7FC1 — never danger red. Adult geometry unchanged. */
 
 .toiv-creation-workbench {
   display: flex;
@@ -22,9 +22,9 @@
   height: var(--toiv-timeline-dock-h, 260px);
   min-height: var(--toiv-timeline-dock-h-min, 180px);
   max-height: var(--toiv-timeline-dock-h-max, min(45vh, 360px));
-  border-top: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
-  background: var(--toiv-timeline-surface, var(--toiv-surface, #15161d));
-  color: var(--toiv-text, #e8eaf0);
+  border-top: 1px solid var(--toiv-timeline-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
+  background: var(--toiv-timeline-surface, var(--toiv-surface, #14151a));
+  color: var(--toiv-text, #f4f6f7);
   z-index: var(--toiv-z-timeline, 20);
   animation: toiv-timeline-enter var(--toiv-timeline-enter-ms, 220ms) var(--toiv-timeline-ease) both;
 }
@@ -52,7 +52,7 @@
   gap: var(--toiv-player-control-gap, 6px);
   height: var(--toiv-timeline-toolbar-h, 40px);
   padding: 0 12px;
-  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
 }
 
 .toiv-timeline-transport {
@@ -70,15 +70,16 @@
   border: 1px solid transparent;
   border-radius: 999px;
   background: color-mix(in srgb, var(--toiv-text) 6%, transparent);
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
   cursor: pointer;
 }
 
 .toiv-timeline-btn.is-primary {
-  width: var(--toiv-player-control-size, 36px);
-  height: var(--toiv-player-control-size, 36px);
-  background: var(--toiv-accent, #5ba0ff);
-  color: #0a0c12;
+  /* A2: accent only, denser 32 (token); never cyan */
+  width: var(--toiv-player-control-size, 32px);
+  height: var(--toiv-player-control-size, 32px);
+  background: var(--toiv-accent, #4A7FC1);
+  color: #0b0c0f;
 }
 
 .toiv-timeline-btn.is-frame {
@@ -87,7 +88,7 @@
 }
 
 .toiv-timeline-btn:hover {
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 18%, transparent);
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 18%, transparent);
 }
 
 .toiv-timeline-btn.is-primary:hover {
@@ -95,7 +96,7 @@
 }
 
 .toiv-timeline-btn:focus-visible {
-  outline: 2px solid var(--toiv-accent, #5ba0ff);
+  outline: 2px solid var(--toiv-accent, #4A7FC1);
   outline-offset: 2px;
 }
 
@@ -115,11 +116,11 @@
   font-weight: var(--toiv-timeline-timecode-fw, 600);
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--toiv-accent, #5ba0ff);
+  color: var(--toiv-accent, #4A7FC1);
 }
 
 .toiv-timeline-timecode-sep {
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   margin: 0 4px;
 }
 
@@ -129,15 +130,15 @@
   align-items: center;
   gap: 8px;
   font-size: var(--toiv-timeline-timecode-fs-sm, 11px);
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-timeline-zoom {
   width: 96px;
-  accent-color: var(--toiv-accent, #5ba0ff);
+  accent-color: var(--toiv-accent, #4A7FC1);
 }
 
-/* Seek / progress — 3px R7 nail; fill #5ba0ff — never danger red */
+/* Seek / progress — 3px R7 nail; fill #4A7FC1 — never danger red */
 .toiv-timeline-progress {
   height: var(--toiv-player-seek-h, 3px);
   background: color-mix(in srgb, var(--toiv-text) 9%, transparent);
@@ -147,7 +148,7 @@
 .toiv-timeline-progress > span {
   display: block;
   height: 100%;
-  background: var(--toiv-player-seek-fill, #5ba0ff);
+  background: var(--toiv-player-seek-fill, #4A7FC1);
   transition: width 420ms var(--toiv-timeline-ease);
 }
 
@@ -158,17 +159,76 @@
   grid-template-columns: var(--toiv-timeline-track-label-w, 160px) minmax(0, 1fr);
   overflow: hidden;
 }
+.toiv-timeline-body.has-preview {
+  grid-template-columns: 240px 120px minmax(0, 1fr);
+}
+.toiv-timeline-preview-monitor {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid var(--toiv-timeline-border, var(--toiv-border));
+  background: var(--toiv-timeline-surface, var(--toiv-surface));
+}
+.toiv-timeline-preview-monitor > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 28px;
+  color: var(--toiv-text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.toiv-timeline-preview-media {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  border-radius: 8px;
+  background: #050505;
+  color: #f8fafc;
+}
+.toiv-timeline-preview-media video,
+.toiv-timeline-preview-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.toiv-timeline-preview-empty {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--toiv-text-muted);
+  font-size: 11px;
+}
+.toiv-timeline-preview-empty svg { width: 24px; height: 24px; }
+.toiv-timeline-preview-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(5 5 5 / 0.76);
+  font-size: 11px;
+}
+@media (max-width: 1200px) {
+  .toiv-timeline-body.has-preview { grid-template-columns: 200px 104px minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .toiv-timeline-body.has-preview { grid-template-columns: 96px minmax(0, 1fr); }
+  .toiv-timeline-preview-monitor { display: none; }
+}
 
 .toiv-timeline-labels {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
-  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
+  border-right: 1px solid var(--toiv-timeline-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
+  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 55%, transparent);
 }
 
 .toiv-timeline-label-ruler {
   height: var(--toiv-timeline-ruler-h, 32px);
-  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
 }
 
 .toiv-timeline-label-row {
@@ -179,7 +239,7 @@
   height: var(--toiv-timeline-track-h, 56px);
   margin-top: var(--toiv-timeline-track-gap, 4px);
   font-size: 11px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-timeline-label-row[data-kind="audio"] {
@@ -205,7 +265,7 @@
 .toiv-timeline-ruler {
   position: relative;
   height: var(--toiv-timeline-ruler-h, 32px);
-  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, #22232c));
+  border-bottom: 1px solid var(--toiv-timeline-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
   cursor: ew-resize;
   touch-action: none;
   user-select: none;
@@ -218,7 +278,7 @@
   font-size: var(--toiv-timeline-ruler-label-fs, 10px);
   opacity: 0.6;
   font-variant-numeric: tabular-nums;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   pointer-events: none;
 }
 
@@ -277,7 +337,7 @@
 }
 
 .toiv-timeline-clip.is-selected {
-  box-shadow: 0 0 0 1px var(--toiv-accent, #5ba0ff);
+  box-shadow: 0 0 0 1px var(--toiv-accent, #4A7FC1);
 }
 
 .toiv-timeline-clip.is-nsfw-locked {
@@ -296,7 +356,7 @@
 
 .toiv-timeline-clip-meta {
   font-size: var(--toiv-timeline-clip-fs-meta, 10px);
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 /* Playhead: 2px + 10px cap, accent only — never danger red */
@@ -305,7 +365,7 @@
   top: 0;
   bottom: 0;
   width: var(--toiv-timeline-playhead-w, 2px);
-  background: var(--toiv-timeline-playhead-color, #5ba0ff);
+  background: var(--toiv-timeline-playhead-color, #4A7FC1);
   pointer-events: none;
   z-index: calc(var(--toiv-z-timeline, 20) + 1);
 }
@@ -318,14 +378,14 @@
   width: var(--toiv-timeline-playhead-cap, 10px);
   height: var(--toiv-timeline-playhead-cap, 10px);
   transform: translateX(-50%);
-  background: var(--toiv-timeline-playhead-color, #5ba0ff);
+  background: var(--toiv-timeline-playhead-color, #4A7FC1);
   clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
 }
 
 .toiv-timeline-empty {
   padding: 16px;
   font-size: 12px;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 @media (prefers-reduced-motion: reduce) {

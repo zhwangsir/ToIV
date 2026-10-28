@@ -643,7 +643,8 @@ def test_clear_stale_post_status_on_startup(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _seed_user(session: Session, email: str) -> str:
+def _seed_user(session: Session, email: str, content_mode: str = "adult") -> str:
+    """本文件仅涉引擎时长路由;R18 路由用例需账号成人态(D-U1=B),默认 adult。"""
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
@@ -652,6 +653,7 @@ def _seed_user(session: Session, email: str) -> str:
         email=email,
         hashed_password=hash_password("password1"),
         tenant_id=tenant.id,
+        content_mode=content_mode,
     )
     session.add(user)
     session.commit()

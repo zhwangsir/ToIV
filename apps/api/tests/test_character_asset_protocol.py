@@ -405,6 +405,6 @@ def test_asset_invalid_style_422(ctx):
     r = client.get(
         f"/api/studio/characters/{cid}/character-asset",
         headers=H,
-        params={"style": "cyberpunk"},
+        params={"style": "no_such_style"},
     )
     assert r.status_code == 422

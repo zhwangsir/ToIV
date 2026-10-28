@@ -154,9 +154,8 @@ export async function retryAssistantRead<T>(read: () => Promise<T>, superseded: 
  */
 export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     const [open, setOpenState] = useState(() => scopedLocalStorage.getItem(OPEN_STORAGE_KEY) !== "0");
-    const [presentation, setPresentationState] = useState<AssistantPresentation>(() =>
-        scopedLocalStorage.getItem(PRESENTATION_STORAGE_KEY) === "float" ? "float" : "dock",
-    );
+    /* B1 BeefTV primary: default chrome = dock only; ignore legacy Toonflow float storage */
+    const [presentation, setPresentationState] = useState<AssistantPresentation>("dock");
     const [width, setWidthState] = useState(() => clampAssistantWidth(Number(scopedLocalStorage.getItem(WIDTH_STORAGE_KEY)) || ASSISTANT_DEFAULT_WIDTH));
     const [status, setStatus] = useState<AgentHostStatus | null>(null);
     const [statusBusy, setStatusBusy] = useState(false);
@@ -187,8 +186,10 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
     }, []);
 
     const setPresentation = useCallback((next: AssistantPresentation) => {
-        setPresentationState(next);
-        scopedLocalStorage.setItem(PRESENTATION_STORAGE_KEY, next);
+        /* B1: product shell keeps dock; float path retained only for lab/dev callers */
+        const coerced: AssistantPresentation = next === "float" ? "dock" : next;
+        setPresentationState(coerced);
+        scopedLocalStorage.setItem(PRESENTATION_STORAGE_KEY, coerced);
     }, []);
 
     const setWidth = useCallback((next: number) => {
@@ -323,6 +324,7 @@ export function useCanvasAssistant({ canvasId, onCanvasChanged }: Options) {
                         toolCalls: end.toolCalls || [],
                         change: end.change ?? null,
                         proposals: end.proposals || [],
+                        studioProposals: end.studioProposals,
                         error: end.error ? agentAssistantFailureText(end.errorReason ?? undefined, "这一轮没有全部完成，请核对已经落地的改动。") : null,
                         errorReason: end.errorReason,
                         cancelled: Boolean(end.cancelled),

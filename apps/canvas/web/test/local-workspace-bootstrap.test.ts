@@ -31,6 +31,8 @@ test("local workspace bootstrap is the product startup contract", () => {
     expect(router).toContain('path: "/project"');
     expect(router).toContain('path: "/project/:projectId"');
     expect(router).toContain('path: "/project/:projectId/*"');
+    expect(homeDashboard).toContain('to="/create"');
+    // BF0 BeefTV：查看全部 → /project（画布库）；去创作台 → /create
     expect(homeDashboard).toContain('to="/project"');
     expect(appTopNav).not.toContain("app-workspace-local-announcement");
     expect(appTopNav).not.toContain("BannerAnnouncementsSlider");

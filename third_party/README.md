@@ -42,3 +42,9 @@
 | 命名 BeFTV→ToIV | ✅ 文档/品牌口径已收；`beeftv-prod` 等**生产路径未翻**（部署耦合） |
 
 详细波次见 `docs/ops/UI_UNIFY_FUSION_PLAN_20261014.md`。
+
+## 13 仓调研（2026-10-27）
+
+- 完整报告：[`AI_STUDIO_REFERENCE_REPORT.md`](AI_STUDIO_REFERENCE_REPORT.md)，含逐仓优势、生成链、页面级 UI、许可证与 ToIV P0/P1/P2 映射。
+- 独立上游 clone：`reference-repos/`（整树由根 `.gitignore` 排除）；报告固定各仓 commit，许可冲突与未实机验证范围单独标明。
+- 此目录仅用于研究对照，不代表已吸收对应代码；任何移植仍须先核上游 LICENSE/NOTICE。

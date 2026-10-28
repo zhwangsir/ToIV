@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     cellStateToLampState,
     controlLampStateLabel,
+    controlLampTone,
     projectControlReadinessLamps,
 } from "../src/services/toiv/control-readiness";
 
@@ -24,6 +25,7 @@ describe("control-readiness F1", () => {
         expect(lamps.find((l) => l.id === "makeup")?.state).toBe("blocked");
         expect(lamps.find((l) => l.id === "frame")?.state).toBe("off");
         expect(controlLampStateLabel("ready")).toBe("亮");
+        expect(controlLampTone("failed")).toBe("error");
     });
 
     test("aggregates frame/video readiness from shots", () => {

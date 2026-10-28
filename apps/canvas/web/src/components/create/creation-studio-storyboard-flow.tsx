@@ -67,6 +67,7 @@ export type CreationStudioStoryboardFlowProps = {
     onFrameVariants?: (shotId: string) => void;
     onAdoptFrame?: (shotId: string, url: string) => void;
     emptyHint?: string;
+    onOpenScript?: () => void;
     className?: string;
     footer?: ReactNode;
 };
@@ -81,7 +82,8 @@ export function CreationStudioStoryboardFlow({
     frameError,
     onFrameVariants,
     onAdoptFrame,
-    emptyHint = "暂无分镜（在「剧本」段用 AI 拆解或导入词锚定脚本生成）",
+    emptyHint = "先完成剧本解析，再在这里检查镜头、配景与关键帧。",
+    onOpenScript,
     className,
     footer,
 }: CreationStudioStoryboardFlowProps) {
@@ -91,7 +93,11 @@ export function CreationStudioStoryboardFlow({
                 <header className="toiv-storyboard-flow-head">
                     <h2 className="toiv-storyboard-flow-title">分镜卡片</h2>
                 </header>
-                <ToivEmptyState title="还没有分镜" description={emptyHint} />
+                <ToivEmptyState
+                    title="还没有分镜"
+                    description={emptyHint}
+                    action={onOpenScript ? <button type="button" className="toiv-empty-cta" onClick={onOpenScript}>返回剧本解析</button> : null}
+                />
             </div>
         );
     }
@@ -100,7 +106,7 @@ export function CreationStudioStoryboardFlow({
         <div className={cn("toiv-storyboard-flow", className)} data-testid="creation-studio-storyboard-flow">
             <header className="toiv-storyboard-flow-head">
                 <h2 className="toiv-storyboard-flow-title">分镜卡片</h2>
-                <p className="toiv-storyboard-flow-meta">{shots.length} 镜 · PiP 双轨 · 阶段色条可见</p>
+                <p className="toiv-storyboard-flow-meta">{shots.length} 个镜头 · 点击卡片查看镜头参数</p>
             </header>
             {frameError ? <p className="toiv-storyboard-flow-error">{frameError}</p> : null}
             <div className="toiv-storyboard-flow-grid" role="list">
@@ -139,7 +145,7 @@ export function CreationStudioStoryboardFlow({
                             </div>
                             <div className="toiv-storyboard-card-body">
                                 <div className="toiv-storyboard-card-top">
-                                    <span className="toiv-storyboard-card-idx">#{shot.idx}</span>
+                                    <span className="toiv-storyboard-card-idx">SHOT {String(shot.idx).padStart(2, "0")}</span>
                                     <StatusBadge
                                         variant="filled"
                                         tone={STATUS_TONE[shot.status] ?? "neutral"}
@@ -168,6 +174,12 @@ export function CreationStudioStoryboardFlow({
                                 </div>
                                 <div className="toiv-storyboard-card-footer">
                                     <p className="toiv-storyboard-card-scene">{shot.scene || "未命名场景"}</p>
+                                    {shot.camera || shot.speaker ? (
+                                        <div className="toiv-storyboard-card-tags">
+                                            {shot.camera ? <span>{shot.camera}</span> : null}
+                                            {shot.speaker ? <span>{shot.speaker}</span> : null}
+                                        </div>
+                                    ) : null}
                                     <p className="toiv-storyboard-card-dialogue">{summary}</p>
                                     <div className="toiv-storyboard-card-meta">
                                         <span>{shot.duration_sec != null ? `${shot.duration_sec}s` : "—"}</span>
@@ -186,7 +198,7 @@ export function CreationStudioStoryboardFlow({
                                                 size="xs"
                                                 variant="ghost"
                                                 icon={<Camera />}
-                                                label={busy ? "配景中…" : "AI 配景"}
+                                                label={busy ? "配景中…" : "配景"}
                                                 loading={busy}
                                                 onClick={() => onFrameVariants(shot.id)}
                                             />

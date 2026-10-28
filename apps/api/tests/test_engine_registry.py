@@ -1295,3 +1295,172 @@ async def test_image_loras_param_schema(live_pool, user, h3_lora_stub):
     finally:
         user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
+
+
+# --------------------------------------------------------------------------- #
+# 引擎 limits 声明(提示词 max_chars / 媒体 max_bytes / LoRA max_items)
+# B1c:与提交路由同一常量源(app.limits),list_engines 原样透传
+# --------------------------------------------------------------------------- #
+
+_LIMIT_KEYS = {
+    "prompt_max_chars", "negative_max_chars",
+    "image_max_bytes", "audio_max_bytes", "video_max_bytes",
+    "lora_max_items",
+}
+
+
+async def test_limits_h3_engines_match_route_constraints(live_pool, user):
+    """H3 系(t2v/i2v/fl2v/r2v)limits:positive 4000 / negative 2000 / LoRA 3 / 字节上限;
+    数值与 routes/h3_studio 的 Pydantic 约束同源(app.limits)。"""
+    from app.limits import (
+        AUDIO_MAX_BYTES,
+        H3_MAX_LORAS,
+        H3_NEGATIVE_MAX_CHARS,
+        H3_PROMPT_MAX_CHARS,
+        IMAGE_MAX_BYTES,
+        VIDEO_MAX_BYTES,
+    )
+    from app.routes.h3_studio import H3T2VRequest
+
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("h3-t2v", "h3-i2v", "h3-fl2v", "h3-r2v"):
+        lim = ids[eid]["limits"]
+        assert set(lim) == _LIMIT_KEYS
+        assert lim["prompt_max_chars"] == H3_PROMPT_MAX_CHARS == 4000
+        assert lim["negative_max_chars"] == H3_NEGATIVE_MAX_CHARS == 2000
+        assert lim["lora_max_items"] == H3_MAX_LORAS == 3
+        assert lim["image_max_bytes"] == IMAGE_MAX_BYTES == 20 * 1024 * 1024
+        assert lim["audio_max_bytes"] == AUDIO_MAX_BYTES == 20 * 1024 * 1024
+        assert lim["video_max_bytes"] == VIDEO_MAX_BYTES == 200 * 1024 * 1024
+    # 与提交路由同源:路由 JSON schema 的 maxLength/maxItems 就是 limits 声明值
+    props = H3T2VRequest.model_json_schema()["properties"]
+
+    def _schema_cap(prop: dict, key: str) -> int:
+        if key in prop:
+            return prop[key]
+        for sub in prop.get("anyOf", []):
+            if key in sub:
+                return sub[key]
+        raise AssertionError(f"schema 缺少 {key}: {prop}")
+
+    assert _schema_cap(props["positive"], "maxLength") == 4000
+    assert _schema_cap(props["negative"], "maxLength") == 2000
+    assert _schema_cap(props["loras"], "maxItems") == 3
+
+
+async def test_limits_r18_h3_engines_match_sfw(live_pool, user):
+    """R18 H3 引擎(h3-nsfw-*)与 SFW 同链路(POST /api/h3/*),limits 一致。"""
+    from app.limits import H3_MAX_LORAS, H3_PROMPT_MAX_CHARS
+
+    user.content_mode = "adult"
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        user.content_mode = "ordinary"
+        nsfw_intent_var.reset(token)
+    for eid in ("h3-nsfw-t2v", "h3-nsfw-i2v", "h3-nsfw-fl2v", "h3-nsfw-r2v"):
+        lim = ids[eid]["limits"]
+        assert lim["prompt_max_chars"] == H3_PROMPT_MAX_CHARS == 4000
+        assert lim["lora_max_items"] == H3_MAX_LORAS == 3
+
+
+async def test_limits_defaults_explicit_for_undeclared_engines(live_pool, user):
+    """未显式声明的引擎:limits 仍有明确缺省语义——prompt 2000(普通 generate 既有语义)、
+    lora_max_items=null(未声明,前端不得据此猜测)、字节上限为 /api/upload 真实约束。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("txt2img", "img2img", "ace-music", "longcat-t2v", "wan-vace"):
+        lim = ids[eid]["limits"]
+        assert set(lim) == _LIMIT_KEYS
+        assert lim["prompt_max_chars"] == 2000
+        assert lim["negative_max_chars"] == 2000
+        assert lim["lora_max_items"] is None
+        assert lim["image_max_bytes"] == 20 * 1024 * 1024
+        assert lim["video_max_bytes"] == 200 * 1024 * 1024
+
+
+async def test_limits_r2v_ref_counts_match_route(live_pool, user):
+    """r2v params 的 images/videos/audios 数量上限与 H3R2VRequest max_length 同源(9/3/3);
+    数量/时长本就在 params 声明,limits 不得重复(只查 params 侧同源)。"""
+    from app.limits import H3_MAX_REF_AUDIOS, H3_MAX_REF_IMAGES, H3_MAX_REF_VIDEOS
+    from app.routes.h3_studio import H3R2VRequest
+
+    ids = _by_id(await list_engines(live_pool, user))
+    p = {q["key"]: q for q in ids["h3-r2v"]["params"]}
+    assert p["images"]["max"] == 9 == H3_MAX_REF_IMAGES
+    assert p["video"]["max"] == 3 == H3_MAX_REF_VIDEOS
+    assert p["audio"]["max"] == 3 == H3_MAX_REF_AUDIOS
+    props = H3R2VRequest.model_json_schema()["properties"]
+
+    def _max_items(prop: dict) -> int:
+        for sub in prop.get("anyOf", []):
+            if "maxItems" in sub:
+                return sub["maxItems"]
+        return prop["maxItems"]
+
+    assert _max_items(props["images"]) == 9
+    assert _max_items(props["videos"]) == 3
+    assert _max_items(props["audios"]) == 3
+
+
+async def test_limits_passthrough_via_endpoint(live_pool, user):
+    """TestClient GET /api/models/engines:limits 原样下发(JSON null 不丢)。"""
+    from fastapi.testclient import TestClient
+
+    from app.deps import get_current_user, get_pool
+    from app.main import app
+
+    app.dependency_overrides[get_pool] = lambda: live_pool
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        res = TestClient(app).get("/api/models/engines")
+    finally:
+        app.dependency_overrides.clear()
+    assert res.status_code == 200
+    ids = _by_id(res.json()["engines"])
+    assert ids["h3-t2v"]["limits"]["prompt_max_chars"] == 4000
+    assert ids["txt2img"]["limits"]["prompt_max_chars"] == 2000
+    assert ids["txt2img"]["limits"]["lora_max_items"] is None
+
+
+def test_h3_prompt_limits_pydantic_boundary():
+    """H3 请求模型边界:恰好 4000 通过、4001 拒绝;negative 2000 不变;与 limits 同源。"""
+    import pytest
+    from pydantic import ValidationError
+
+    from app.limits import H3_NEGATIVE_MAX_CHARS, H3_PROMPT_MAX_CHARS
+    from app.routes.h3_studio import H3T2VRequest
+
+    H3T2VRequest(positive="x" * H3_PROMPT_MAX_CHARS)
+    with pytest.raises(ValidationError):
+        H3T2VRequest(positive="x" * (H3_PROMPT_MAX_CHARS + 1))
+    H3T2VRequest(positive="ok", negative="x" * H3_NEGATIVE_MAX_CHARS)
+    with pytest.raises(ValidationError):
+        H3T2VRequest(positive="ok", negative="x" * (H3_NEGATIVE_MAX_CHARS + 1))
+
+
+def test_generate_prompt_2000_semantics_unchanged():
+    """普通 generate 链路 positive/negative 2000 既有语义不改。"""
+    import pytest
+    from pydantic import ValidationError
+
+    from app.routes.generate import Txt2ImgRequest
+
+    Txt2ImgRequest(positive="x" * 2000)
+    with pytest.raises(ValidationError):
+        Txt2ImgRequest(positive="x" * 2001)
+    with pytest.raises(ValidationError):
+        Txt2ImgRequest(positive="ok", negative="x" * 2001)
+
+
+async def test_multishot_limits_explicit_derived_cap(live_pool, user):
+    """h3-multishot spec 显式 limits:整段 prompt 上限 = 逐镜头 2000 × MAX_SHOTS(真实派生,
+    非缺省 2000 硬套);LoRA 同 H3 主路 3(H3MultiShotRequest.loras 同一 _MAX_LORAS)。"""
+    from app.limits import H3_MAX_LORAS
+    from app.services.multishot_protocol import MAX_SHOTS
+
+    ids = _by_id(await list_engines(live_pool, user))
+    lim = ids["h3-multishot"]["limits"]
+    assert lim["prompt_max_chars"] == MAX_SHOTS * 2000 == 8000
+    assert lim["negative_max_chars"] == 2000
+    assert lim["lora_max_items"] == H3_MAX_LORAS == 3

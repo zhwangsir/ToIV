@@ -41,6 +41,13 @@ func New(repo *repository.Repository, deps Dependencies) *Service {
 	return service
 }
 
+// withRepo 返回绑定到指定仓储视图（例如外层事务）的服务副本，批量子写入共用同一事务。
+func (s *Service) withRepo(repo *repository.Repository) *Service {
+	clone := *s
+	clone.repo = repo
+	return &clone
+}
+
 // Default workflow records belong to the project domain. The host need not
 // call back through app to obtain records from this same service.
 type builtinWorkflows struct{ service *Service }

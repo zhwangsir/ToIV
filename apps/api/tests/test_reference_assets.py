@@ -2,7 +2,7 @@
 
 覆盖:
   - 创建/列表/单查/更新/删除全流程
-  - kind 过滤 + NSFW 上下文过滤(SFW 上下文不含 nsfw 资产,带 X-NSFW 头可见)
+  - kind 过滤 + NSFW:P0-5 R4 ordinary 可见并透出 nsfw
   - 多用户隔离(用户 B 看不到/改不了/删不了用户 A 的资产,一律 404 防枚举)
   - 校验:kind 非法 422、images 0 张或 5 张 422、filename 含 ".." 422、name 空/超长 422
   - PATCH 部分更新不动其他字段
@@ -203,7 +203,7 @@ def test_create_requires_auth(ctx):
 
 
 # --------------------------------------------------------------------------- #
-# 列表 + kind 过滤 + NSFW 上下文过滤
+# 列表 + kind 过滤 + NSFW 透出(P0-5 R4)
 # --------------------------------------------------------------------------- #
 def test_list_kind_filter(ctx):
     c, alice, _ = ctx
@@ -224,28 +224,25 @@ def test_list_kind_filter(ctx):
 
 
 def test_list_nsfw_context_filter(ctx):
-    """SFW 上下文列表不含 nsfw 资产;带 X-NSFW 头可见。"""
+    """P0-5 R4:ordinary 列表含 nsfw 资产并透出 nsfw。"""
     c, alice, _ = ctx
     _create(c, alice, name="普通角色")
     _create(c, alice, name="成人角色", nsfw=True)
 
     r = c.get("/api/assets", headers=_auth(alice))
-    assert [a["name"] for a in r.json()] == ["普通角色"]
-
-    r18 = c.get("/api/assets", headers=_auth(alice, nsfw=True))
-    names = {a["name"] for a in r18.json()}
-    assert names == {"普通角色", "成人角色"}
+    by_name = {a["name"]: a for a in r.json()}
+    assert set(by_name) == {"普通角色", "成人角色"}
+    assert by_name["成人角色"]["nsfw"] is True
+    assert by_name["普通角色"]["nsfw"] is False
 
 
 def test_get_nsfw_asset_visibility(ctx):
-    """nsfw 资产单查:SFW 上下文 404(不泄露存在性),X-NSFW 头 200。"""
+    """P0-5 R4:nsfw 资产 ordinary 单查 200 并透出 nsfw。"""
     c, alice, _ = ctx
     a = _create(c, alice, name="成人角色", nsfw=True)
     r = c.get(f"/api/assets/{a['id']}", headers=_auth(alice))
-    assert r.status_code == 404
-    r18 = c.get(f"/api/assets/{a['id']}", headers=_auth(alice, nsfw=True))
-    assert r18.status_code == 200
-    assert r18.json()["nsfw"] is True
+    assert r.status_code == 200
+    assert r.json()["nsfw"] is True
 
 
 # --------------------------------------------------------------------------- #
@@ -353,17 +350,12 @@ def test_patch_validation(ctx):
 
 
 def test_patch_nsfw_asset_in_sfw_context_404(ctx):
-    """nsfw 资产在 SFW 上下文不可改(与单查一致,404 不泄露)。"""
+    """P0-5 R4:nsfw 资产 ordinary 可改(对齐单查可见性)。"""
     c, alice, _ = ctx
     a = _create(c, alice, name="成人角色", nsfw=True)
     r = c.patch(f"/api/assets/{a['id']}", headers=_auth(alice), json={"name": "改"})
-    assert r.status_code == 404
-    r18 = c.patch(
-        f"/api/assets/{a['id']}",
-        headers=_auth(alice, nsfw=True),
-        json={"name": "改"},
-    )
-    assert r18.status_code == 200
+    assert r.status_code == 200
+    assert r.json()["name"] == "改"
 
 
 # --------------------------------------------------------------------------- #
@@ -458,11 +450,10 @@ def test_asset_image_other_user_404(ctx_img):
 
 
 def test_asset_image_nsfw_context(ctx_img):
-    """nsfw 资产图片:SFW 上下文 404,X-NSFW 头 200。"""
+    """P0-5 R4:nsfw 资产图片 ordinary 亦可回显。"""
     c, alice, _ = ctx_img
     a = _create(c, alice, nsfw=True)
-    assert c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(alice)).status_code == 404
-    r = c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(alice, nsfw=True))
+    r = c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(alice))
     assert r.status_code == 200
 
 

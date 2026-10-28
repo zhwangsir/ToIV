@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # 开发 :3102, 生产真机 :8090;必须与 uvicorn/systemd 实际监听端口一致。
     api_base_url: str = "http://127.0.0.1:8090"
 
+    # —— C1b 参考 URL 安全:公网 http(s) 参考图/参考音默认拒绝私网/环回/链路本地/
+    # 保留地址与 URL userinfo(见 services/ref_guard);仅此处显式列出的主机名
+    # (逗号分隔)可放行内网目标。空 = 无例外;不新造全局私网放行开关。
+    ref_fetch_allowed_hosts: str = ""
+
     # CORS 允许的前端来源（分号或逗号分隔）。默认仅生产域名，开发环境经 .env 追加 localhost。
     # 不能用 "*" —— allow_credentials=True 时 CORS 规范禁止通配符 origin，否则浏览器会拒绝带凭据的跨域请求。
     cors_origins: str = "https://toiv.dgmt.top,http://192.168.71.47:3100,http://192.168.71.47:3101,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
@@ -295,6 +300,13 @@ class Settings(BaseSettings):
     worker_warmup_interval_sec: float = 900.0
     gpu_smoke_hour: int = 4  # 每日定点(容器本地时区,0-23)
     smoke_alert_webhook: str = ""
+
+    # D0 渲染成本预估:默认未定价且不启用金钱预算,绝不内置虚构价格。
+    # JSON 结构 {"currency":"CNY","rates":{"h3:video:ref2va":{"pixel_frame":"..."},
+    # "h3:image_motion:ref2va":{"candidate":"..."}}};费率由运维按真实合同配置。
+    studio_cost_rates_json: str = ""
+    # 单次预览/提交的预算上限(与费率同币种);0=不启用,非法/负数/非有限值按配置错误 503。
+    studio_render_budget_limit: str = "0"
 
     # 短剧工作室剧本拆解默认 LLM 层(L1/L2/L3/L4)。
     # L2/L3 当前依赖 Mac Studio EXO,模型实例未就绪时回退慢且易 502;

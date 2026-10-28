@@ -7,20 +7,26 @@ from __future__ import annotations
 
 from app.redline import (  # noqa: F401
     adult_at_submit,
+    adult_mode_enabled,
     is_underage,
     job_nsfw_from_intent,
     nsfw_allowed,
     nsfw_intent_var,
+    require_adult_ux,
+    require_not_underage,
     require_nsfw_context,
     should_apply_softening,
 )
 
 __all__ = [
     "adult_at_submit",
+    "adult_mode_enabled",
     "is_underage",
     "job_nsfw_from_intent",
     "nsfw_allowed",
     "nsfw_intent_var",
+    "require_adult_ux",
+    "require_not_underage",
     "require_nsfw_context",
     "should_apply_softening",
 ]

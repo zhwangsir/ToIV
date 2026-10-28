@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"infinite-canvas/backend/internal/app"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func RegisterProjectRoutes(r *gin.RouterGroup, svc *app.Service) {
@@ -977,6 +979,38 @@ func RegisterProjectRoutes(r *gin.RouterGroup, svc *app.Service) {
 		}
 		ok(c, gin.H{"asset": asset})
 	})
+	r.GET("/projects/:id/asset-reconciliation", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		result, err := svc.ProjectAssetReconciliation(user.ID, c.Param("id"))
+		if err != nil {
+			failProjectReconcileError(c, err)
+			return
+		}
+		ok(c, result)
+	})
+	r.POST("/projects/:id/asset-reconciliation/apply", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 128<<10)
+		var req app.ReconcileApplyRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		result, err := svc.ApplyAssetReconciliationDecisions(user.ID, c.Param("id"), req)
+		if err != nil {
+			failProjectReconcileError(c, err)
+			return
+		}
+		ok(c, result)
+	})
 	r.GET("/projects/:id/chapter-apply-receipts", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {
@@ -991,6 +1025,16 @@ func RegisterProjectRoutes(r *gin.RouterGroup, svc *app.Service) {
 		}
 		ok(c, gin.H{"receipts": receipts})
 	})
+}
+
+// failProjectReconcileError 把「项目/候选不存在或不属于当前用户」投影为 404，
+// 与 openapi 对账接口合同一致；其余失败仍走 failService 的真实状态投影。
+func failProjectReconcileError(c *gin.Context, err error) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		fail(c, http.StatusNotFound, errors.New("项目或资产候选不存在，或不属于当前用户"))
+		return
+	}
+	failService(c, err)
 }
 
 // parsePositiveQueryInt 解析列表查询里的正整数。分页和筛选查询名统一用 camelCase：page、pageSize、projectId、folderId、mediaType、unitId。

@@ -66,9 +66,10 @@ describe("BeefTV freeform canvas empty state", () => {
             },
         };
         const labels = resolveAddNodeMenuCommands(context).filter((command) => command.section === "node").slice(0, 8).map((command) => command.label);
-        expect(labels).toEqual(["文本", "图片", "视频", "音频", "智能剪辑", "导演台", "逐帧拉片", "脚本"]);
+        // P3.5 后 LibTV 调色板口径：图片→图像、智能剪辑→合成（add-node-menu-tools.tsx）。
+        expect(labels).toEqual(["文本", "图像", "视频", "音频", "合成", "导演台", "逐帧拉片", "脚本"]);
         const commandsByLabel = new Map(resolveAddNodeMenuCommands(context).map((command) => [command.label, command]));
-        for (const label of ["智能剪辑", "逐帧拉片", "脚本"]) {
+        for (const label of ["合成", "逐帧拉片", "脚本"]) {
             expect(commandsByLabel.get(label)?.disabledReason).toBe("正在开发");
         }
     });

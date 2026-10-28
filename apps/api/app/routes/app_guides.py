@@ -24,7 +24,6 @@ from app.agent.llm import LLMError
 from app.db import engine, get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import App, AppGuide, User
-from app.redline import nsfw_allowed
 from app.services.app_guide_gen import generate_guide_draft, save_guide
 from app import audit
 
@@ -120,11 +119,12 @@ def get_published_guide(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """读已发布说明书;应用不可见或不存在 → 404;草稿/无记录 → 404。"""
+    """读已发布说明书;应用不可见或不存在 → 404;草稿/无记录 → 404。
+
+    P0-5 R4:不再因 is_nsfw+ordinary 伪装 404。
+    """
     a = session.get(App, aid)
     if not a or not _app_visible_for_read(a, user):
-        raise HTTPException(status_code=404, detail="应用不存在")
-    if a.is_nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="应用不存在")
     g = session.get(AppGuide, aid)
     if not g or g.status != "published":
@@ -145,8 +145,6 @@ def get_app_relations(
     a = session.get(App, aid)
     if not a or not _app_visible_for_read(a, user):
         raise HTTPException(status_code=404, detail="应用不存在")
-    if a.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=404, detail="应用不存在")
     g = session.get(AppGuide, aid)
     if not g or g.status != "published":
         return []
@@ -155,14 +153,14 @@ def get_app_relations(
         r = session.get(App, str(rid))
         if r is None or not _app_visible_for_read(r, user):
             continue
-        if r.is_nsfw and not nsfw_allowed(user):
-            continue
+        # P0-5 R4:关联 NSFW 应用不过滤;透出 is_nsfw 供前端红线
         out.append({
             "id": r.id,
             "name": r.name,
             "cover_url": r.cover_url or "",
             "use_case": r.use_case or "",
             "output_kind": r.output_kind or "image",
+            "is_nsfw": bool(r.is_nsfw),
         })
     return out
 

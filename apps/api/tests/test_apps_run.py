@@ -10,7 +10,7 @@
     usage_count 提交时不变,仅 Job 到 done 时 +1(tracker.mark_done,2026-08-30 P2)
   - pool.pick 收到 _extract_required 模型依赖 + 图自动派生的 class_type 集
   - worker 不可达 503
-  - NSFW 门控:is_nsfw 应用无 X-NSFW 头 403,带头放行且 Job.nsfw 打标
+  - NSFW:P0-5 R5 普通态/未成年均可跑 is_nsfw 应用并打标(限制只前端)
 """
 from __future__ import annotations
 
@@ -1397,18 +1397,27 @@ def test_run_worker_4xx_passthrough(ctx):
 # --------------------------------------------------------------------------- #
 # NSFW 门控
 # --------------------------------------------------------------------------- #
-def test_run_nsfw_app_requires_header(ctx):
+def test_run_nsfw_app_ordinary_ok(ctx):
+    """P0-5 R3:普通态可跑 is_nsfw 应用并打 Job.nsfw。"""
     c, tokens, _, engine, _, _ = ctx
     with Session(engine) as s:
         _seed_app(s, id="nsfw-app", is_nsfw=True)
     r = c.post("/api/apps/nsfw-app/run", headers=_h(tokens), json={"values": {"prompt": "x"}})
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "prompt-app-1")).first()
+        assert job is not None and job.nsfw is True
 
 
 def test_run_nsfw_app_with_header_ok(ctx):
     c, tokens, _, engine, _, _ = ctx
     with Session(engine) as s:
         _seed_app(s, id="nsfw-app", is_nsfw=True)
+    # D-U1=B:R18 放行按账号成人态(X-NSFW 仅审计)
+    r_mode = c.put(
+        "/api/account/content-mode", headers=_h(tokens), json={"content_mode": "adult"},
+    )
+    assert r_mode.status_code == 200, r_mode.text
     r = c.post(
         "/api/apps/nsfw-app/run", headers=_h(tokens, nsfw=True),
         json={"values": {"prompt": "x"}},

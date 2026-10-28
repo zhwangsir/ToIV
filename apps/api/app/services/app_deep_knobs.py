@@ -8,6 +8,7 @@ import copy
 import logging
 from typing import Any
 
+from app.limits import MARKET_MAX_LORAS
 from app.services.lora_catalog import catalog_options
 from app.workflows.h3_video import _inject_loras as _inject_h3_loras
 from app.workflows.lora import LoraSpec, lora_chain
@@ -18,7 +19,9 @@ logger = logging.getLogger(__name__)
 # 与 seed 同款保留键:即使 DB schema 未声明也可透传(类似 seed)
 RESERVED_DEEP_KEYS = frozenset({"loras", "resolution_target"})
 
-_MAX_LORAS = 3
+# 市场 run 的 LoRA 上限(唯一事实源在 app.limits 的 MARKET_MAX_LORAS;
+# 与 H3_MAX_LORAS 同值但作用域不同——parse 拒绝面覆盖市场全家族)
+_MAX_LORAS = MARKET_MAX_LORAS
 
 
 def resolution_target_param() -> dict:
@@ -385,6 +388,87 @@ def enrich_params_schema(
         out.append(resolution_target_param())
 
     return out
+
+
+# ---------------------------------------------------------------------------
+# 引擎 limits → params_schema 可选上限(_to_out 与 run_app 共用有效 schema)
+# ---------------------------------------------------------------------------
+
+# 正向提示词的 schema key(positive 为主,prompt 兼容历史卡)
+_PROMPT_TEXT_KEYS = frozenset({"positive", "prompt"})
+# 媒体类型 → limits 的 max_bytes 键;params 的 max 仍是数量,语义不变
+_MEDIA_MAX_BYTES_KEY = {"images": "image_max_bytes", "audio": "audio_max_bytes", "video": "video_max_bytes"}
+
+
+def _engine_limits_for_app(app_id: str) -> dict | None:
+    """已知引擎 → registry spec 的 limits(未挂 limits 的 spec 按 engine_limits() 缺省)。
+
+    精确 engine id 优先;h3-* 市场变体(如 h3-t2v-15s-fast)回退 H3 家族(h3-t2v)声明;
+    未知自定义/rh-* 返回 None——不猜能力,不注入任何上限。
+    """
+    from app.services.engine_registry import engine_limits, get_engine_spec  # 惰性 import:防 services 环
+
+    aid = (app_id or "").strip()
+    spec = get_engine_spec(aid)
+    if spec is not None:
+        return spec.get("limits") or engine_limits()
+    if aid.lower().startswith("h3-"):
+        base = get_engine_spec("h3-t2v")
+        if base is not None:
+            return base.get("limits") or engine_limits()
+    return None
+
+
+def apply_engine_limits(app_id: str, schema: list[dict]) -> list[dict]:
+    """把已知引擎 limits 映射为 params_schema 项的可选上限(setdefault,不覆盖既有):
+
+      · key ∈ {positive, prompt} 的 text/textarea 项 → max_chars=prompt_max_chars;
+      · key=negative 的 text/textarea 项 → max_chars=negative_max_chars;
+      · images/audio/video 项 → 对应类型的 max_bytes(数量上限 max 保持原语义);
+      · loras 项 → max_items=lora_max_items(limits 未声明(None)不伪造,不注入)。
+
+    未知引擎(None)原样返回。
+    """
+    limits = _engine_limits_for_app(app_id)
+    if not limits:
+        return schema
+    out: list[dict] = []
+    for p in schema:
+        p = dict(p)
+        key, ptype = str(p.get("key") or ""), p.get("type", "text")
+        if ptype in ("text", "textarea"):
+            if key in _PROMPT_TEXT_KEYS:
+                cap = limits.get("prompt_max_chars")
+            elif key == "negative":
+                cap = limits.get("negative_max_chars")
+            else:
+                cap = None
+            if cap:
+                p.setdefault("max_chars", cap)
+        elif ptype in _MEDIA_MAX_BYTES_KEY:
+            cap = limits.get(_MEDIA_MAX_BYTES_KEY[ptype])
+            if cap:
+                p.setdefault("max_bytes", cap)
+        elif ptype == "loras":
+            cap = limits.get("lora_max_items")
+            if cap:
+                p.setdefault("max_items", cap)
+        out.append(p)
+    return out
+
+
+def effective_params_schema(
+    app_id: str,
+    schema: list[dict] | None,
+    *,
+    output_kind: str | None = None,
+) -> list[dict]:
+    """_to_out(详情下发)与 run_app(提交校验)共用的有效 params_schema 入口:
+    enrich_params_schema(LoRA/超分)之后,再映射已知引擎的 limits 声明。
+    两侧同源——界面能下发的限制,提交必按同一 schema 校验,不可绕过。
+    """
+    enriched = enrich_params_schema(app_id, schema, output_kind=output_kind)
+    return apply_engine_limits(app_id, enriched)
 
 
 def segment_extend_unsupported_reason() -> str:

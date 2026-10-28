@@ -77,7 +77,7 @@ def test_0259_crop_defaults_use_0_6_hair_and_0_45_face():
 
 
 def test_0259_contemplative_prompts_concrete_actions():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "视线下垂偏一侧" in src
     assert "眉头微蹙" in src
     assert "lips closed" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2] or "嘴唇闭合" in sheet_svc._EXPR_EDIT_INSTRUCTIONS[2]

@@ -46,13 +46,13 @@ describe("feat/studio-scroll-unlock contracts", () => {
         expect(overrides).toContain("display: block !important");
     });
 
-    test(".toiv-home uses --toiv-scroll-* tokens", () => {
+    test(".toiv-home 走 --toiv-scroll-* 共享 token（R12 起由 html 级继承）", () => {
+        // Freezone 首页重构后着色不再内联在 home css：toiv-local-overrides 的
+        // html { scrollbar-color: var(--toiv-scroll-thumb) var(--toiv-scroll-track) } 继承生效，
+        // .toiv-home 只保留细轨并禁止硬编码旧路径回退。
         expect(homeCss).toContain("scrollbar-width: thin");
-        expect(homeCss).toContain("var(--toiv-scroll-thumb");
-        expect(homeCss).toContain("var(--toiv-scroll-thumb-hover");
-        expect(homeCss).toContain("var(--toiv-scroll-track");
-        // old hard-only border-strong path should not be the sole scrollbar-color
-        const homeBlock = homeCss.slice(homeCss.indexOf(".toiv-home {"), homeCss.indexOf(".toiv-home-hero"));
-        expect(homeBlock).not.toMatch(/scrollbar-color:\s*var\(--user-border-strong\)\s+transparent/);
+        expect(homeCss).not.toContain("scrollbar-color:");
+        expect(overrides).toContain("scrollbar-color: var(--toiv-scroll-thumb) var(--toiv-scroll-track)");
+        expect(homeCss).not.toMatch(/scrollbar-color:\s*var\(--user-border-strong\)\s+transparent/);
     });
 });

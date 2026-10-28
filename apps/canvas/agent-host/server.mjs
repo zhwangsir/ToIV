@@ -9,7 +9,7 @@ import { ModelRuntime, SessionManager } from '@earendil-works/pi-coding-agent';
 import { providerRegistration, providerUnavailableReason,
   turnContextPrefix, modelTurnCompletion,
   unflushedSessionHistory,
-  resetTurnAccumulator, turnChange } from './canvas-turn.mjs';
+  resetTurnAccumulator, turnChange, turnEndPayload } from './canvas-turn.mjs';
 import { budgetError, createTurnBudget, spendModelRequest } from './request-budget.mjs';
 import { createDurableRequestBudget } from './durable-request-budget.mjs';
 import { createOperationBridge } from './operation-bridge.mjs';
@@ -333,14 +333,15 @@ const server = http.createServer(async (req, res) => {
         const toolCalls = entry.log.slice(before);
         const change = turnChange(entry.turn);
         const proposals = [...entry.turn.proposals];
-        const record = { turnId, userText, selectedNodeIds: selected, references, reply, toolCalls, change, proposals,
+        const studioProposals = [...entry.turn.productionProposals];
+        const record = { turnId, userText, selectedNodeIds: selected, references, reply, toolCalls, change, proposals, studioProposals,
           error, errorReason, cancelled: entry.generation.aborted, createdAt: new Date().toISOString() };
         try { entry.manager.appendCustomEntry(TURN_ENTRY_TYPE, record); }
         catch (persistError) { console.error(`agent-host: 轮次记录写入失败 ${persistError?.message || persistError}`); }
-        sendLine(res, { type: 'turn_end', turnId, reply, toolCalls, change, proposals, error, errorReason,
+        sendLine(res, turnEndPayload(entry.turn, { turnId, reply, toolCalls, change, proposals, error, errorReason,
           cancelled: entry.generation.aborted, persistence: entry.persistence,
           sessionId: entry.sessionId, metrics: { firstTokenMs, totalMs: Date.now() - started,
-            requests: budget.requests, toolSteps: budget.toolSteps } });
+            requests: budget.requests, toolSteps: budget.toolSteps } }));
         res.end();
         return;
       } finally {
@@ -353,7 +354,7 @@ const server = http.createServer(async (req, res) => {
     if (!res.headersSent && respondStoreError(res, error)) return;
     console.error(`agent-host: 请求失败 ${error?.message || error}`);
     if (!res.headersSent) { respond(res, 500, { code: 500, reason: 'internal_error', message: String(error?.message || error) }); }
-    else { sendLine(res, { type: 'turn_end', reply: '', toolCalls: [], change: null, proposals: [], error: String(error?.message || error), cancelled: false }); res.end(); }
+    else { sendLine(res, { type: 'turn_end', reply: '', toolCalls: [], change: null, proposals: [], studioProposals: [], error: String(error?.message || error), cancelled: false }); res.end(); }
   }
 });
 

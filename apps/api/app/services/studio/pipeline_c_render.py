@@ -93,6 +93,7 @@ def _register_pipeline_c_job(
     attempt: int,
     db_job_id: str | None,
     stage: str = "A",
+    revision_id: str = "",
 ) -> str | None:
     """queue_prompt 后落/更新 DB Job；失败只打日志，返回已有或新建的 Job.id。"""
     import json
@@ -112,6 +113,8 @@ def _register_pipeline_c_job(
         "seed": int(seed),
         "stage": st,  # A=同步等片；B=登记后立即返回，tracker 后台继续
     }
+    if revision_id:
+        snap["revision_id"] = revision_id  # C1a:成片归属可追溯
     try:
         with Session(engine) as s:
             job = s.get(Job, db_job_id) if db_job_id else None
@@ -171,9 +174,22 @@ def _h3_length(duration_sec: float) -> int:
 
 
 async def _fetch_bytes(url: str) -> bytes:
-    """拉取参考图字节：studio/files 只直读磁盘，禁止回环调本 API（单 worker 会死锁）。"""
-    import os
-    from app.storage import drama_output_root
+    """拉取参考图字节(安全口径见 app.services.ref_guard)。
+
+    - /api/studio/files/… 直读受控磁盘根,禁止回环调本 API(单 worker 会死锁);
+    - 裸文件路径一律拒绝(历史漏洞:Path.is_file() 可读任意本地文件);
+    - /api/images?worker=… 的 worker 必须过 deps.resolve_worker 白名单
+      (禁止直接构造 ComfyUIClient 打任意 host);
+    - 公网 http(s) 媒体保留正当远程参考用途,但经 guard_public_http_url:
+      默认拒绝私网/环回/链路本地/保留地址与 URL userinfo,仅配置主机可放行。
+    """
+    from fastapi import HTTPException
+
+    from app.services.ref_guard import (
+        RefUrlError,
+        guard_public_http_url,
+        read_studio_ref_file,
+    )
 
     u = (url or "").strip()
     if not u:
@@ -181,50 +197,38 @@ async def _fetch_bytes(url: str) -> bytes:
     marker = "/api/studio/files/"
     if marker in u:
         name = Path(u.split(marker, 1)[1].split("?", 1)[0]).name
-        if not name or name.startswith(".") or "/" in name or "\\" in name:
-            raise RenderError("非法 studio 文件路径")
-        roots = [
-            drama_output_root() / "studio",
-            Path(os.environ.get("TOIV_DRAMA_VIDEO_DIR", "")) / "studio",
-            Path("/mnt/toiv-nas/toiv/outputs/drama/final/studio"),
-            Path("/home/merlin/toiv/tmp/h3_long_exp/assets"),
-        ]
-        for root in roots:
-            try:
-                path = root / name
-            except Exception:
-                continue
-            if path.is_file():
-                data = path.read_bytes()
-                if data:
-                    return data
-        # 兼容样片原名（无 sample_ 前缀）
-        alt = name.replace("sample_", "", 1) if name.startswith("sample_") else ""
-        if alt:
-            for root in roots:
-                path = root / alt
-                if path.is_file():
-                    data = path.read_bytes()
-                    if data:
-                        return data
+        data = read_studio_ref_file(name)
+        if data:
+            return data
         raise RenderError(f"studio 参考图不在磁盘:{name}（禁止回环拉取）")
-    if u.startswith("/") and Path(u).is_file():
-        return Path(u).read_bytes()
-    # /api/images?filename=&worker=
     if "/api/images" in u:
+        from app.deps import resolve_worker
+
         q = parse_qs(urlparse(u).query)
         fn = (q.get("filename") or [""])[0]
         worker = (q.get("worker") or [""])[0]
         sub = (q.get("subfolder") or [""])[0]
         typ = (q.get("type") or ["input"])[0]
         if fn and worker:
-            client = ComfyUIClient(worker)
+            try:
+                client = resolve_worker(worker)
+            except HTTPException as e:
+                raise RenderError(f"未配置/不可信的 worker:{worker[:80]}") from e
             data, _ = await client.get_image_bytes(fn, sub, typ)
             if data:
                 return data
+            raise RenderError(f"worker 上未找到参考图:{fn}")
+        raise RenderError("/api/images 参考图缺少 filename 或 worker 参数")
+    if u.startswith("/"):
+        # C1b:裸绝对路径(含 /etc/… 等)一律拒绝;站内文件必须走上方受控根目录。
+        raise RenderError(f"拒绝裸文件路径:{u[:80]}")
     if u.startswith("http://") or u.startswith("https://"):
+        try:
+            guarded = await guard_public_http_url(u)
+        except RefUrlError as e:
+            raise RenderError(str(e)) from e
         async with httpx.AsyncClient(timeout=60.0, trust_env=False) as http:
-            r = await http.get(u)
+            r = await http.get(guarded)
             r.raise_for_status()
             return r.content
     raise RenderError(f"无法拉取参考图:{u[:80]}")
@@ -439,10 +443,8 @@ async def _brand_ocr_after_render(url: str, skip_until_frame: int = 0) -> dict:
             except Exception:
                 pass
 
-    if u.startswith("/") and Path(u).is_file():
-        return garment_brand_ocr_hit(u, skip_until_frame=skip_until_frame)
-
     # Comfy http(s) 或其它：拉字节写临时文件再 OCR
+    # (裸本地路径已被 _fetch_bytes 拒绝,C1b)
     try:
         data = await _fetch_bytes(u)
     except Exception as e:
@@ -504,6 +506,7 @@ async def render_pipeline_c(
     wait: bool = True,
     parent_chain_job_id: str | None = None,
     accel: str = "off",
+    revision_id: str = "",
 ) -> dict[str, Any]:
     """执行管线 C，返回 {url, context_latent, seed, prompt, worker, job_id, db_job_id, pipeline, first_frame}。
 
@@ -511,6 +514,7 @@ async def render_pipeline_c(
     阶段 B 最小（wait=False）：登记 Job + spawn_tracker 后立即返回 db_job_id；不 OCR/reseed；
     tracker 后台把 Job 推到终态。无属主时 wait=False 直接报错。
     job_id ≡ Comfy prompt_id；db_job_id 为 Job.id（同步无属主时为空）。
+    revision_id：C1a 发起 render 修订 id,登记进 Job.params(成片归属可追溯)。
 
     pipeline_name="c_hybrid"：必须带 first_frame_url（上一镜尾帧/首镜全身定妆图），
     图走 Hybrid（对齐实验 C：tmp/h3_long_exp/workflows/C_zh_seg*_c*.json）。
@@ -706,6 +710,7 @@ async def render_pipeline_c(
                 attempt=attempt,
                 db_job_id=db_job_id,
                 stage=job_stage,
+                revision_id=revision_id,
             )
             if new_id:
                 db_job_id = new_id

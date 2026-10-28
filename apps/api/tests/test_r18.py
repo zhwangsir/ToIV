@@ -5,9 +5,9 @@
   - GET /auth/me 含 content_mode + updated_at
   - PUT /api/account/content-mode + 遗留 POST /account/nsfw
   - GET /api/models、/api/models/local 关/开过滤(剔除成人底模 + 成人 LoRA)
-  - GET /api/marketplace/search 关闭时强制 nsfw=false
-  - GET /api/jobs 关闭时剔除 Job.nsfw==True
-  - POST /api/generate/txt2img 成人底模未开→403、已开→放行并打标 Job.nsfw
+  - GET /api/marketplace/search P0-5 R4 nsfw 查询参数原样透传
+  - GET /api/jobs 透出 nsfw 标记(P0-5 R2:不再因 ordinary 剔除)
+  - POST /api/generate/txt2img 成人底模普通态放行并打标 Job.nsfw(P0-5 R3)
 """
 from __future__ import annotations
 
@@ -304,6 +304,7 @@ def test_local_models_filters_nsfw_loras(client):
 
 
 def test_marketplace_forces_sfw_when_disabled(client, monkeypatch):
+    """P0-5 R4:nsfw 查询参数原样透传,不再因 ordinary 强制 false。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "mktoff", nsfw_enabled=False)
@@ -316,20 +317,19 @@ def test_marketplace_forces_sfw_when_disabled(client, monkeypatch):
 
     monkeypatch.setattr(marketplace_route, "_get_json", fake_get_json)
     token = create_token(uid)
-    # 即便客户端显式传 nsfw=true,无 X-NSFW 头(主站)也必须被强制成 "false"
     r = c.get(
         "/api/marketplace/search?source=civitai&nsfw=true",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
-    assert captured["nsfw"] == "false"
+    assert captured["nsfw"] == "true"
 
 
 def test_marketplace_account_flag_no_longer_allows_nsfw(client, monkeypatch):
-    """语义统一:账户开关 nsfw_enabled 已废弃,即使为 True,不带 X-NSFW 头仍强制 SFW。"""
+    """P0-5 R4:ordinary 下 nsfw=true 原样透传(账户旗标/content_mode 均不作后端闸)。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "mktlegacy", nsfw_enabled=True, content_mode="ordinary")  # 遗留旗标不放行
+        uid = _seed_user(s, "mktlegacy", nsfw_enabled=True, content_mode="ordinary")
 
     captured: dict = {}
 
@@ -344,7 +344,7 @@ def test_marketplace_account_flag_no_longer_allows_nsfw(client, monkeypatch):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
-    assert captured["nsfw"] == "false"
+    assert captured["nsfw"] == "true"
 
 
 def test_marketplace_allows_nsfw_when_enabled(client, monkeypatch):
@@ -399,6 +399,7 @@ def _seed_jobs(session: Session, user: User) -> None:
 
 
 def test_jobs_filtered_when_nsfw_disabled(client):
+    """P0-5 R2:ordinary 也能看见 NSFW jobs(限制只前端)。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "jobsoff", nsfw_enabled=False)
@@ -407,7 +408,9 @@ def test_jobs_filtered_when_nsfw_disabled(client):
     r = c.get("/api/jobs", headers={"Authorization": f"Bearer {create_token(uid)}"})
     assert r.status_code == 200
     prompts = {j["prompt"] for j in r.json()}
-    assert prompts == {"sfw work"}  # r18 作品被剔除
+    assert prompts == {"sfw work", "r18 work"}
+    flags = {j["prompt"]: j["nsfw"] for j in r.json()}
+    assert flags == {"sfw work": False, "r18 work": True}
 
 
 def test_jobs_full_when_nsfw_enabled(client):
@@ -453,19 +456,23 @@ def test_generate_explicit_ckpt_pony_is_not_nsfw(client, monkeypatch):
         assert job is not None and job.nsfw is False
 
 
-def test_generate_nsfw_ckpt_blocked_when_disabled(client):
-    """显式成人底模(autismmix)主站无头 403。"""
+def test_generate_nsfw_ckpt_allowed_when_ordinary(client, monkeypatch):
+    """P0-5 R3:显式成人底模普通态放行并打 nsfw 标(成人 UX 403 退役)。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "genoff2", nsfw_enabled=False)
     app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
     r = c.post(
         "/api/generate/txt2img",
         headers={"Authorization": f"Bearer {token}"},
         json={"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True
 
 
 def test_generate_nsfw_ckpt_allowed_when_enabled(client, monkeypatch):
@@ -552,27 +559,18 @@ def test_generate_sfw_intent_preset_does_not_shield_explicit_ckpt(client, monkey
         assert job is not None and job.nsfw is False
 
 
-def test_generate_nsfw_preset_still_gated_on_main_site(client, monkeypatch):
-    """真 NSFW 预设(nsfw_anime→autismmix):主站(无 X-NSFW)仍 403;带 X-NSFW 放行并打标。"""
+def test_generate_nsfw_preset_allowed_on_main_site(client, monkeypatch):
+    """P0-5 R3:真 NSFW 预设普通态放行并打标。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "gennsfwpreset", content_mode="ordinary")  # 先普通再切成人
+        uid = _seed_user(s, "gennsfwpreset", content_mode="ordinary")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
     body = {"positive": "a girl", "style_preset": "nsfw_anime"}
 
     r = c.post("/api/generate/txt2img", headers={"Authorization": f"Bearer {token}"}, json=body)
-    assert r.status_code == 403, r.text
-
-    with Session(engine) as s:
-        _set_mode(s, uid, "adult")
-    r2 = c.post(
-        "/api/generate/txt2img",
-        headers={"Authorization": f"Bearer {token}"},
-        json=body,
-    )
-    assert r2.status_code == 200, r2.text
+    assert r.status_code == 200, r.text
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.nsfw is True
@@ -607,8 +605,8 @@ def test_generate_nextgen_ckpt_ok(client, monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
-    """漫剧单镜:R18 底模主站 403;/nsfw(带头)放行并打 Job.nsfw 标。"""
+def test_manju_shot_nsfw_ckpt_tagged_without_adult_mode(client, monkeypatch):
+    """P0-5 R3:漫剧单镜 R18 底模普通态放行并打 Job.nsfw 标。"""
     import app.routes.manju as manju_route
 
     c, engine = client
@@ -620,26 +618,17 @@ def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
     body = {"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"}
 
     r = c.post("/api/manju/shot", headers={"Authorization": f"Bearer {token}"}, json=body)
-    assert r.status_code == 403  # 普通模式 → 拒
-
-    with Session(engine) as s:
-        _set_mode(s, uid, "adult")
-    r2 = c.post(
-        "/api/manju/shot",
-        headers={"Authorization": f"Bearer {token}"},
-        json=body,
-    )
-    assert r2.status_code == 200, r2.text
+    assert r.status_code == 200, r.text
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
-        assert job is not None and job.nsfw is True  # 打标 → 主站作品库/版本链可滤
+        assert job is not None and job.nsfw is True
 
 
-def test_raw_gate_uses_account_mode_not_legacy_flag(client, monkeypatch):
-    """raw 门槛:遗留 nsfw_enabled 不放行;账号 content_mode=adult 才放行。X-NSFW 头无效。"""
+def test_raw_gate_ordinary_allows_nsfw_graph(client, monkeypatch):
+    """P0-5 R3:raw 含 R18 底模普通态放行(头/遗留旗标不再作 UX 闸)。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "rawgate", nsfw_enabled=True, content_mode="ordinary")  # 遗留旗标不放行
+        uid = _seed_user(s, "rawgate", nsfw_enabled=True, content_mode="ordinary")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda *a, **k: None)
     token = create_token(uid)
@@ -649,16 +638,7 @@ def test_raw_gate_uses_account_mode_not_legacy_flag(client, monkeypatch):
     }
 
     r = c.post("/api/generate/raw", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"}, json={"graph": graph})
-    assert r.status_code == 403  # 头+遗留旗标仍拒
-
-    with Session(engine) as s:
-        _set_mode(s, uid, "adult")
-    r2 = c.post(
-        "/api/generate/raw",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"graph": graph},
-    )
-    assert r2.status_code == 200, r2.text
+    assert r.status_code == 200, r.text
 
 
 # --------------------------------------------------------------------------- #
@@ -666,14 +646,15 @@ def test_raw_gate_uses_account_mode_not_legacy_flag(client, monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def test_nsfw_recommendations_require_nsfw_header(client):
-    """2026-09-07:无 X-NSFW 上下文 → 403(资源区普通用户不可拉 R18 推荐)。"""
+def test_nsfw_recommendations_allowed_without_adult_mode(client):
+    """P0-5 R3:普通态可拉 R18 推荐清单(前端灰化);不再 403。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "recs-sfw")
     token = create_token(uid)
     r = c.get("/api/models/nsfw-recommendations", headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    assert "items" in r.json()
 
 
 def test_nsfw_recommendations_include_10eros_loras(client):
@@ -771,6 +752,10 @@ def test_content_mode_get_put_and_me(client):
     me = c.get("/api/auth/me", headers=h).json()["user"]
     assert me["content_mode"] == "adult"
     assert me["content_mode_updated_at"]
+    # P0-5 R5:只读透出 birthdate(null)/is_underage;不加闸
+    assert "birthdate" in me
+    assert me["birthdate"] is None
+    assert me.get("is_underage") is False
 
     # 切回 ordinary 不触发任何 job cancel(无在途也可验收端点不 5xx)
     back = c.put("/api/account/content-mode", headers=h, json={"content_mode": "ordinary"})

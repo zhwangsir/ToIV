@@ -1,0 +1,398 @@
+{
+  "schema": "toiv.ProjectBible.v0",
+  "id": "yellow-submarine-premonition",
+  "title": "黄色潜水艇的预感",
+  "version": "4B.0.0",
+  "frozen_at": null,
+  "status": "pilot_unfrozen",
+  "source_docs": [
+    "/workspace/yellow-submarine-project/PRODUCTION_BIBLE_V4A.md",
+    "/workspace/yellow-submarine-project/SCRIPT_COHERENT_V4B.md",
+    "/workspace/yellow-submarine-project/COHERENCE_NOTES_V4B.md"
+  ],
+  "runtime_policy": {
+    "storage": "db_structured_plus_object_store_blobs",
+    "git_export_optional": true,
+    "external_moke_materials": "method_reference_only",
+    "production_authority": "internal_fork_pinned_version",
+    "consistency_qa": "p0_human_gate_required",
+    "previs_dual_character": "warn_configurable_to_block"
+  },
+  "facts": [
+    {
+      "id": "f1",
+      "text": "Carolyn 在伦敦游玩，参加 Beatles 会展。",
+      "immutable": true
+    },
+    {
+      "id": "f2",
+      "text": "会展两个小时。",
+      "immutable": true
+    },
+    {
+      "id": "f3",
+      "text": "Peter 频繁看她、不敢打招呼。",
+      "immutable": true
+    },
+    {
+      "id": "f4",
+      "text": "她主动出击后相识。",
+      "immutable": true
+    },
+    {
+      "id": "f5",
+      "text": "两人后来结婚。",
+      "immutable": true
+    },
+    {
+      "id": "f6",
+      "text": "女：Carolyn，印尼华裔；男：Peter，澳大利亚人。",
+      "immutable": true
+    }
+  ],
+  "creative_locks": {
+    "runtime_window": "14:00-16:00",
+    "carolyn_job": "雅加达平面插画师",
+    "peter_job": "墨尔本建筑师",
+    "companion": "Vivian",
+    "motif_prop": "黄铜黄色潜水艇徽章（创作）",
+    "medium": "2D_theatrical_anime",
+    "aspect_deliverable": "2.39:1",
+    "aspect_generate": "16:9",
+    "primary_language": "zh-CN",
+    "duration_target_sec": 720,
+    "duration_tolerance_sec": 30
+  },
+  "emotional_core": "渴望被坚定遇见，却总习惯等别人先开口；用两次主动换「慢慢不怕」。",
+  "causal_spine": [
+    "两小时期限",
+    "注视带税",
+    "Peter走开(B2)",
+    "Carolyn出击(B3)",
+    "徽章共享坦白",
+    "B4预埋出口",
+    "出口拆散(C1)第二次主动",
+    "纸条",
+    "窗边最小协议",
+    "异地仍选择接听",
+    "婚礼回指主动"
+  ],
+  "hard_rules": [
+    "B1+B2+B3+B4 >= 7.5 minutes",
+    "D1 <= 45 seconds",
+    "不得删 B2 或 C1",
+    "不为凑时长加观光蒙太奇"
+  ],
+  "characters": [
+    {
+      "id": "carolyn",
+      "name_zh": "卡罗琳",
+      "name_en": "Carolyn",
+      "age_feel": "28-32",
+      "ethnicity_note": "印尼华裔",
+      "locks": {
+        "hair": "黑棕直发及肩或松低马尾",
+        "eyes": "深棕",
+        "wardrobe_exhibit": "米白/浅驼风衣或针织外套；米白帆布包",
+        "prop": "左肩带固定黄铜潜水艇徽章，有一道划痕，永远同侧"
+      },
+      "want": "闭馆前完成真实对话",
+      "need": "允许自己先行动",
+      "lie": "等别人先开口才礼貌/安全",
+      "ghost": "过往把冲动压成预感却从不兑现",
+      "voice": {
+        "register": "女中音偏暖",
+        "pace": "中等偏慢；出击段句号留半拍",
+        "notes": "不娇不御；句尾不上扬卖萌"
+      },
+      "acting_profile": "认真看展不自拍；走向他；出口挣开回头；答应会回",
+      "asset_min": 6
+    },
+    {
+      "id": "peter",
+      "name_zh": "彼得",
+      "name_en": "Peter",
+      "age_feel": "30-35",
+      "ethnicity_note": "澳大利亚人",
+      "locks": {
+        "hair": "浅棕/深金发短发，可有淡雀斑",
+        "eyes": "hazel-brown（锁定）",
+        "wardrobe_exhibit": "卡其/橄榄工装夹克袖口挽至小臂；深色裤；双肩包侧可露草图卷",
+        "prop": "腕上磨毛深色编织手绳"
+      },
+      "want": "靠近但不冒犯",
+      "need": "承认胆怯代价并留下证据",
+      "lie": "不敢开口=礼貌",
+      "ghost": "父亲与车载旧歌情感使他易哽住",
+      "voice": {
+        "register": "男中音略低",
+        "pace": "慢；允许自我打断",
+        "notes": "害羞时音量-2～-3dB；英语句轻澳式勿滑稽；仅 I'm Peter. From Melbourne. 可英语"
+      },
+      "acting_profile": "三次偷看后自责退开；递皱纸条；窗边承认差点走掉",
+      "asset_min": 6
+    },
+    {
+      "id": "vivian",
+      "name_zh": "薇薇安",
+      "name_en": "Vivian",
+      "function": "清场压力人格化，非闲笔旅伴",
+      "locks": {
+        "look": "短发或利落束发；比 Carolyn 更都市、颜色略亮"
+      },
+      "voice": {
+        "register": "女高偏亮",
+        "pace": "字头清晰、短促"
+      },
+      "asset_min": 3
+    }
+  ],
+  "locations": [
+    {
+      "id": "exhibit_hall",
+      "name": "伦敦 Beatles 特展厅",
+      "color_temp": "暖琥珀 #E8B86D + 深褐展墙",
+      "keywords": [
+        "museum amber",
+        "quiet crowd"
+      ]
+    },
+    {
+      "id": "london_entrance",
+      "name": "伦敦外/入口",
+      "color_temp": "湿冷灰蓝",
+      "keywords": [
+        "overcast autumn London"
+      ]
+    },
+    {
+      "id": "window_bar",
+      "name": "窗边吧",
+      "color_temp": "薄橘黄昏",
+      "keywords": [
+        "orange dusk window"
+      ]
+    },
+    {
+      "id": "jakarta_night",
+      "name": "雅加达夜（异地短章）",
+      "color_temp": "夜青绿",
+      "keywords": [
+        "jakarta night"
+      ]
+    },
+    {
+      "id": "melbourne_day",
+      "name": "墨尔本昼（异地短章）",
+      "color_temp": "昼清冷",
+      "keywords": [
+        "melbourne daylight"
+      ]
+    },
+    {
+      "id": "wedding",
+      "name": "婚礼",
+      "color_temp": "浅日光+海风白",
+      "keywords": [
+        "soft daylight seaside"
+      ]
+    }
+  ],
+  "timeline_beats": [
+    {
+      "id": "A1",
+      "tc_in": "0:00",
+      "tc_out": "1:00",
+      "sec": 60,
+      "goal": "C：准时入展",
+      "obstacle": "湿冷/时间紧",
+      "choice": "按徽章；承认只有两小时",
+      "value_change": "建立期限"
+    },
+    {
+      "id": "B1",
+      "tc_in": "1:40",
+      "tc_out": "4:10",
+      "sec": 150,
+      "goal": "P靠近；C确认被看",
+      "obstacle": "自尊/礼貌Lie",
+      "choice": "三次偷看三次缩",
+      "value_change": "接近↑又↓"
+    },
+    {
+      "id": "B2",
+      "tc_in": "4:10",
+      "tc_out": "5:10",
+      "sec": 60,
+      "goal": "P鼓起勇气",
+      "obstacle": "内阻爆发",
+      "choice": "他走开；C抬脚又放下",
+      "value_change": "失败节拍；若停=路人"
+    },
+    {
+      "id": "B3",
+      "tc_in": "5:10",
+      "tc_out": "8:10",
+      "sec": 180,
+      "goal": "C把陌生人变对话",
+      "obstacle": "人群/他僵住",
+      "choice": "她出击；交换名字城市；徽章坦白",
+      "value_change": "信任↑"
+    },
+    {
+      "id": "B4",
+      "tc_in": "8:10",
+      "tc_out": "9:00",
+      "sec": 50,
+      "goal": "留住对话",
+      "obstacle": "广播二十分钟",
+      "choice": "别在出口变路人",
+      "value_change": "预埋C1"
+    },
+    {
+      "id": "C1",
+      "tc_in": "9:00",
+      "tc_out": "10:00",
+      "sec": 60,
+      "goal": "C不被拆散；P留证据",
+      "obstacle": "Vivian+人流",
+      "choice": "第二次回头；皱纸条；我会回",
+      "value_change": "证据留下"
+    },
+    {
+      "id": "C2",
+      "tc_in": "10:00",
+      "tc_out": "11:10",
+      "sec": 70,
+      "goal": "定义关系下限",
+      "obstacle": "距离/时差恐惧",
+      "choice": "最小协议：愿意联系",
+      "value_change": "承诺下限"
+    },
+    {
+      "id": "D1",
+      "tc_in": "11:10",
+      "tc_out": "11:50",
+      "sec": 40,
+      "goal": "证明跨海",
+      "obstacle": "时差/未读",
+      "choice": "冲突后仍接起",
+      "value_change": "选择留下"
+    },
+    {
+      "id": "D2",
+      "tc_in": "11:50",
+      "tc_out": "12:00+",
+      "sec": 85,
+      "goal": "落地结婚事实",
+      "obstacle": null,
+      "choice": "婚礼回指两次主动；徽章可见",
+      "value_change": "结婚是结果"
+    }
+  ],
+  "style_prefix": "Anime cinematic frame, 2D theatrical animation, adult proportions, consistent character design sheets, soft volumetric light, detailed background, gentle film grain, 16:9, no photorealism, no live action, no chibi, no exaggerated childlike eyes, no readable copyrighted poster text, no celebrity likeness",
+  "style_negatives": [
+    "photorealism",
+    "live action",
+    "chibi",
+    "exaggerated childlike eyes",
+    "readable copyrighted poster text",
+    "celebrity likeness",
+    "per-shot wardrobe/hair drift"
+  ],
+  "copyright_bans": [
+    "Beatles 原曲与歌词",
+    "可辨认侵权肖像/名人脸",
+    "可读版权海报原文当捷径"
+  ],
+  "music_slots": [
+    {
+      "id": "M1",
+      "intent": "入场/期限建立，克制环境感",
+      "ban": "不可识别 Beatles 旋律"
+    },
+    {
+      "id": "M2",
+      "intent": "展厅凝望段可近乎无乐，仅环境",
+      "ban": "不可识别 Beatles 旋律"
+    },
+    {
+      "id": "M3",
+      "intent": "出击与出口危机张力床垫，对白下 -18～-22 LUFS",
+      "ban": "不可识别 Beatles 旋律"
+    },
+    {
+      "id": "M4",
+      "intent": "窗边协议/婚礼收束温暖但不滥情",
+      "ban": "不可识别 Beatles 旋律"
+    }
+  ],
+  "dialogue_tc": [
+    {
+      "tc": "~5:20",
+      "who": "carolyn",
+      "line": "不好意思。我不是来质问你的。"
+    },
+    {
+      "tc": "~5:28",
+      "who": "carolyn",
+      "line": "只是——你看我很久了，却一直不过来。"
+    },
+    {
+      "tc": "~5:36",
+      "who": "carolyn",
+      "line": "再不说，四点我们就会变成陌生人。"
+    },
+    {
+      "tc": "~5:45",
+      "who": "peter",
+      "line": "抱歉。我……我不是故意冒犯。我只是——不太会。"
+    },
+    {
+      "tc": "~5:55",
+      "who": "peter",
+      "line": "I'm Peter. From Melbourne."
+    },
+    {
+      "tc": "~6:02",
+      "who": "carolyn",
+      "line": "Carolyn。雅加达。"
+    },
+    {
+      "tc": "~9:38",
+      "who": "carolyn",
+      "line": "我会回。"
+    },
+    {
+      "tc": "~11:55",
+      "who": "peter",
+      "line": "展厅里那两个小时……谢谢你走过来。"
+    },
+    {
+      "tc": "~12:05",
+      "who": "carolyn",
+      "line": "我只是不想我们变成路人。现在——我们可以慢慢不怕。"
+    }
+  ],
+  "acceptance": {
+    "B1": "至少三次偷看+缩回；徽章同侧",
+    "B2": "他明确走开且成为 B3 直接原因",
+    "B3": "她走向他；名字与城市清楚；徽章触发坦白",
+    "B4_C1": "别在出口变路人被出口危机回收",
+    "C1": "Vivian拉人；第二次回头；纸条",
+    "D1": "≤45s；无景点广告感",
+    "D2": "婚礼短；旧徽章可见"
+  },
+  "shot_budget": {
+    "min": 36,
+    "max": 42
+  },
+  "change_log": [
+    {
+      "at": "2026-10-28T08:54:00+08:00",
+      "from": null,
+      "to": "4B.0.0",
+      "note": "从 PRODUCTION_BIBLE_V4A + SCRIPT_COHERENT_V4B 抽出试点 JSON；未 freeze"
+    }
+  ]
+}

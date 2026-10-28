@@ -3,15 +3,15 @@
 对标 MiniMax Design 分工式参考 / Lovart Brand Kit:每镜头生成时从资产库勾选引用,
 而非每次重新上传。本里程碑只做 DB + CRUD,不做前端 UI、不做 orchestrator 打通。
 
-- GET /api/assets?kind=character:列表(可选 kind 过滤;仅当前用户;SFW 上下文滤掉 nsfw 资产)
+- GET /api/assets?kind=character:列表(可选 kind 过滤;仅当前用户;nsfw 字段透出)
 - POST /api/assets:创建(kind 枚举、images 1-4 张、filename 路径穿越检查、name 1-100 字符)
-- GET /api/assets/{asset_id}:单查(他人资产返 404 防枚举;nsfw 资产 SFW 上下文同样 404)
+- GET /api/assets/{asset_id}:单查(他人资产返 404 防枚举;P0-5 R4 不再因 nsfw 伪装 404)
 - PATCH /api/assets/{asset_id}:部分更新 name/description/images/kind/nsfw
 - DELETE /api/assets/{asset_id}
 
 images 只持久化 /api/upload 返回的 {filename, worker} 句柄,文件本体不重复存储;
 1-4 张硬上限:业界共识参考元素 ≤4 是质量拐点。
-NSFW 可见性复用 redline.nsfw_allowed()(按请求级 X-NSFW header)。
+P0-5 R4:列表/详情不再按 NSFW 过滤。
 """
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import ReferenceAsset, User, _now
-from app.redline import nsfw_allowed
 from app.pathsafe import PathTraversalError, validate_path_component
 from app.routes.images import _host, _ranged_response
 
@@ -113,15 +112,13 @@ def _to_out(a: ReferenceAsset) -> AssetOut:
 
 
 def _get_visible(session: Session, asset_id: str, user: User) -> ReferenceAsset:
-    """单查 + 可见性门控:不存在 / 非属主 / nsfw 但上下文未放行 → 统一 404。
+    """单查 + 属主门控:不存在 / 非属主 → 统一 404。
 
     他人资产一律 404 而非 403:不泄露资产存在性,防枚举攻击。
-    nsfw 资产在 SFW 上下文同样 404(与 agents 路由语义一致,主站零 R18)。
+    P0-5 R4:不再因 nsfw+ordinary 伪装 404;nsfw 字段仍透出。
     """
     a = session.get(ReferenceAsset, asset_id)
     if not a or a.user_id != user.id:
-        raise HTTPException(status_code=404, detail="资产不存在")
-    if a.nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=404, detail="资产不存在")
     return a
 
@@ -135,12 +132,13 @@ def list_assets(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[AssetOut]:
-    """列表:仅当前用户资产;可选 kind 过滤;SFW 上下文滤掉 nsfw 资产。"""
+    """列表:仅当前用户资产;可选 kind 过滤。
+
+    P0-5 R4:不再因 ordinary 滤掉 nsfw 资产;nsfw 字段仍透出。
+    """
     stmt = select(ReferenceAsset).where(ReferenceAsset.user_id == user.id)
     if kind is not None:
         stmt = stmt.where(ReferenceAsset.kind == kind)
-    if not nsfw_allowed(user):
-        stmt = stmt.where(ReferenceAsset.nsfw == False)  # noqa: E712
     rows = session.exec(stmt.order_by(ReferenceAsset.created_at)).all()
     return [_to_out(a) for a in rows]
 

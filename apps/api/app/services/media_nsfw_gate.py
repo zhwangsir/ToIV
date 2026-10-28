@@ -1,20 +1,17 @@
-"""媒体 URL 双闸:普通态不得裸出 NSFW 产物(Wave8 P0)。
+"""[DEPRECATED · P0-5 R1] 媒体 URL 成人 UX 闸已退役(限制只前端)。
 
-判据仅 ``nsfw_allowed(user)``(账号 ``content_mode`` + 未成年硬关);
-X-NSFW 头不作放行。失败统一 404,不泄露存在性。
+本模块保留薄壳 no-op,避免旧 import 炸裂;**禁止**再加 content_mode/NSFW 404。
+未成年硬关见 ``app.redline.require_not_underage``(独立入口),不经本模块。
 
-能关联到 ``Job.nsfw=True`` 的产物才闸;纯 StudioShot/签名 URL 无 Job 行时
-无法判定 —— 见 handback。
+``shot_urls_nsfw`` 仍可标注分镜 ``nsfw`` 字段;调用方不得据此过滤/404。
 """
 from __future__ import annotations
 
-from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.models import Job, User
-from app.redline import nsfw_allowed
 
-_NOT_FOUND = HTTPException(status_code=404, detail="产物不存在")
+# 保留内部探测供 shot_urls_nsfw 标注;断言函数一律 no-op。
 
 
 def _nsfw_job_hits_filename(session: Session, filename: str) -> bool:
@@ -41,26 +38,19 @@ def _nsfw_job_hits_marker(session: Session, marker: str) -> bool:
 def assert_image_content_mode_allows(
     session: Session, user: User, filename: str
 ) -> None:
-    """/api/images 与 /api/images/thumb:NSFW 产物仅成人态可取。"""
-    if nsfw_allowed(user):
-        return
-    if _nsfw_job_hits_filename(session, filename):
-        raise _NOT_FOUND
+    """No-op:Wave8 媒体 UX 闸已退役(P0-5 R1)。参数保留兼容调用方。"""
+    return
 
 
 def assert_studio_file_content_mode_allows(
     session: Session, user: User, name: str
 ) -> None:
-    """/api/studio/files:若 Job.result 标 NSFW,普通态 404。"""
-    if nsfw_allowed(user):
-        return
-    marker = f"/api/studio/files/{name}"
-    if _nsfw_job_hits_marker(session, marker):
-        raise _NOT_FOUND
+    """No-op:Wave8 媒体 UX 闸已退役(P0-5 R1)。参数保留兼容调用方。"""
+    return
 
 
 def shot_urls_nsfw(session: Session, urls: list[str]) -> bool:
-    """分镜媒体 URL 是否命中任一 NSFW Job.result。"""
+    """分镜媒体 URL 是否命中任一 NSFW Job.result(仅标注,勿过滤)。"""
     for u in urls:
         u = (u or "").strip()
         if not u:

@@ -261,7 +261,7 @@ def test_render_body_accepts_pipeline_c(ctx, monkeypatch):
     r = client.post(
         f"/api/studio/shots/{sid}/render",
         headers=H,
-        json={"video_model": "h3", "pipeline": "c", "num_candidates": 2},
+        json={"video_model": "h3", "pipeline": "c", "num_candidates": 2, "force_direct": True},
     )
     assert r.status_code == 200, r.text
     body = r.json()

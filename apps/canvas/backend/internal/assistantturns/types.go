@@ -68,17 +68,19 @@ type Change struct {
 // Input is the backend-verified explicit context at Begin. The model cannot
 // grant extra references.
 type Input struct {
-	SelectedNodeIDs []string
-	AssetIDs        []string
-	CanvasIDs       []string
+	SelectedNodeIDs  []string
+	AssetIDs         []string
+	CanvasIDs        []string
+	StudioProjectIDs []string
 }
 
 // Scope is the backend-verified read/write range for an open round.
 type Scope struct {
-	CanvasID  string
-	AssetIDs  []string
-	CanvasIDs []string
-	TaskIDs   []string
+	CanvasID         string
+	AssetIDs         []string
+	CanvasIDs        []string
+	TaskIDs          []string
+	StudioProjectIDs []string
 }
 
 // HistoryState supplements pi conversation history with business receipts.
@@ -91,20 +93,21 @@ type HistoryState struct {
 // Record is the in-memory business round. Document is the pre-turn canvas
 // snapshot, not a chat transcript.
 type Record struct {
-	TurnID              string
-	UserID              string
-	CanvasID            string
-	RevisionBefore      int64
-	CreatedAt           time.Time
-	State               string
-	SelectedNodeIDs     []string
-	ReferencedAssetIDs  []string
-	ReferencedCanvasIDs []string
-	AssociatedAssetIDs  []string
-	AssociatedTaskIDs   []string
-	Undone              bool
-	Change              *Change
-	Document            json.RawMessage
+	TurnID                     string
+	UserID                     string
+	CanvasID                   string
+	RevisionBefore             int64
+	CreatedAt                  time.Time
+	State                      string
+	SelectedNodeIDs            []string
+	ReferencedAssetIDs         []string
+	ReferencedCanvasIDs        []string
+	ReferencedStudioProjectIDs []string
+	AssociatedAssetIDs         []string
+	AssociatedTaskIDs          []string
+	Undone                     bool
+	Change                     *Change
+	Document                   json.RawMessage
 }
 
 func (r Record) effectiveState() string {
@@ -118,7 +121,8 @@ func (r Record) sameBeginScope(userID, canvasID string, input Input) bool {
 	return r.UserID == userID && r.CanvasID == canvasID &&
 		equalStringLists(r.SelectedNodeIDs, uniqueSorted(input.SelectedNodeIDs)) &&
 		equalStringLists(r.ReferencedAssetIDs, uniqueSorted(input.AssetIDs)) &&
-		equalStringLists(r.ReferencedCanvasIDs, uniqueSorted(input.CanvasIDs))
+		equalStringLists(r.ReferencedCanvasIDs, uniqueSorted(input.CanvasIDs)) &&
+		equalStringLists(r.ReferencedStudioProjectIDs, uniqueSorted(input.StudioProjectIDs))
 }
 
 func equalStringLists(a, b []string) bool {

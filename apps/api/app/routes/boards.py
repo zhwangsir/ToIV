@@ -37,7 +37,6 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.routes.jobs import _app_id_of, _app_names_map, _job_dict
 from app.services.board_film import KIND as BOARD_FILM_KIND, start_board_film
 from app.services.board_generate import prepare_shot_meta, submit_shot_generation
-from app.redline import nsfw_allowed
 from app.services.board_storyboard import (
     build_export_document,
     create_board_from_script as create_board_from_script_svc,
@@ -254,9 +253,7 @@ def list_items(
             continue
         if job is None or job.deleted_at is not None:
             continue  # 作品已彻底删除的成员静默跳过(不炸板)
-        # R18 门槛:与 GET /api/jobs 同口径;普通态不可裸出 NSFW results URL
-        if job.nsfw and not nsfw_allowed(user):
-            continue
+        # P0-5 R2:boards 不再因 ordinary 隐藏 NSFW job(限制只前端)
         out.append({
             "id": it.id,
             "sort_order": it.sort_order,

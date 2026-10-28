@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 13
+const CurrentSchemaVersion int64 = 14
 
 type localSchemaMigration struct {
 	Version   int64 `gorm:"primaryKey;autoIncrement:false"`
@@ -87,6 +87,7 @@ func canonicalLocalMigrations() []localMigration {
 		{version: 11, name: "creation-conversations", apply: migrateCreationConversations},
 		{version: 12, name: "canvas-library-drawings", apply: migrateCanvasLibrarySchema},
 		{version: 13, name: "upload-reservation-witness", apply: migrateUploadReservationWitness},
+		{version: 14, name: "assistant-studio-project-scope", apply: migrateAssistantBusinessTurns},
 	}
 }
 

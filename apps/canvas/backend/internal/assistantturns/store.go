@@ -120,6 +120,10 @@ func recordFromModel(row *model.AssistantTurn) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
+	referencedStudioProjects, err := decodeStringList(row.ReferencedStudioProjectIDs)
+	if err != nil {
+		return Record{}, err
+	}
 	associatedAssets, err := decodeStringList(row.AssociatedAssetIDs)
 	if err != nil {
 		return Record{}, err
@@ -129,18 +133,19 @@ func recordFromModel(row *model.AssistantTurn) (Record, error) {
 		return Record{}, err
 	}
 	rec := Record{
-		TurnID:              row.TurnID,
-		UserID:              row.UserID,
-		CanvasID:            row.CanvasID,
-		RevisionBefore:      row.RevisionBefore,
-		CreatedAt:           row.CreatedAt,
-		State:               row.State,
-		SelectedNodeIDs:     selected,
-		ReferencedAssetIDs:  referencedAssets,
-		ReferencedCanvasIDs: referencedCanvas,
-		AssociatedAssetIDs:  associatedAssets,
-		AssociatedTaskIDs:   associatedTasks,
-		Undone:              row.Undone,
+		TurnID:                     row.TurnID,
+		UserID:                     row.UserID,
+		CanvasID:                   row.CanvasID,
+		RevisionBefore:             row.RevisionBefore,
+		CreatedAt:                  row.CreatedAt,
+		State:                      row.State,
+		SelectedNodeIDs:            selected,
+		ReferencedAssetIDs:         referencedAssets,
+		ReferencedCanvasIDs:        referencedCanvas,
+		ReferencedStudioProjectIDs: referencedStudioProjects,
+		AssociatedAssetIDs:         associatedAssets,
+		AssociatedTaskIDs:          associatedTasks,
+		Undone:                     row.Undone,
 	}
 	if strings.TrimSpace(row.Document) != "" {
 		if !json.Valid([]byte(row.Document)) {
@@ -160,20 +165,21 @@ func recordFromModel(row *model.AssistantTurn) (Record, error) {
 
 func recordToModel(rec Record, now time.Time) *model.AssistantTurn {
 	row := &model.AssistantTurn{
-		TurnID:              rec.TurnID,
-		UserID:              rec.UserID,
-		CanvasID:            rec.CanvasID,
-		RevisionBefore:      rec.RevisionBefore,
-		CreatedAt:           rec.CreatedAt,
-		UpdatedAt:           now,
-		State:               rec.effectiveState(),
-		SelectedNodeIDs:     encodeStringList(rec.SelectedNodeIDs),
-		ReferencedAssetIDs:  encodeStringList(rec.ReferencedAssetIDs),
-		ReferencedCanvasIDs: encodeStringList(rec.ReferencedCanvasIDs),
-		AssociatedAssetIDs:  encodeStringList(rec.AssociatedAssetIDs),
-		AssociatedTaskIDs:   encodeStringList(rec.AssociatedTaskIDs),
-		Undone:              rec.Undone,
-		Document:            string(rec.Document),
+		TurnID:                     rec.TurnID,
+		UserID:                     rec.UserID,
+		CanvasID:                   rec.CanvasID,
+		RevisionBefore:             rec.RevisionBefore,
+		CreatedAt:                  rec.CreatedAt,
+		UpdatedAt:                  now,
+		State:                      rec.effectiveState(),
+		SelectedNodeIDs:            encodeStringList(rec.SelectedNodeIDs),
+		ReferencedAssetIDs:         encodeStringList(rec.ReferencedAssetIDs),
+		ReferencedCanvasIDs:        encodeStringList(rec.ReferencedCanvasIDs),
+		ReferencedStudioProjectIDs: encodeStringList(rec.ReferencedStudioProjectIDs),
+		AssociatedAssetIDs:         encodeStringList(rec.AssociatedAssetIDs),
+		AssociatedTaskIDs:          encodeStringList(rec.AssociatedTaskIDs),
+		Undone:                     rec.Undone,
+		Document:                   string(rec.Document),
 	}
 	if rec.CreatedAt.IsZero() {
 		row.CreatedAt = now

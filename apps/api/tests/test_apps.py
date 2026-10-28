@@ -5,7 +5,7 @@
   - 创建:字段回读 / id 撞车 409 / 非法 category 422 / 坏图(缺 class_type)422
         / 绑定悬空(节点不在图内)422 / 绑定 key 不在 schema 422
   - 三区可见性:公共(admin 建)全员可见;个人应用仅属主(他人列表不见、详情 404)
-  - NSFW 门控:无 X-NSFW 列表不见/详情 404,带 X-NSFW 可见
+  - NSFW:P0-5 R4 ordinary 列表/详情可见并透出 is_nsfw(限制只前端)
   - 详情 workflow_json 对所有可见用户透出(2026-09-02 产品决策:工作流模式展现给用户)
   - 更新:内置 403 / 公共非 admin 403 / 个人属主可改 / is_builtin 不可变
   - 删除:内置 403 / 个人属主可删 / 公共非 admin 403
@@ -248,6 +248,7 @@ def test_list_public_visible_personal_hidden(ctx):
 
 
 def test_list_nsfw_gated(ctx):
+    """P0-5 R4:ordinary 也能看见 NSFW app,并透出 is_nsfw。"""
     c, tokens, ids, engine = ctx
     c.post(
         "/api/apps", headers=_h(tokens, "admin"),
@@ -255,15 +256,9 @@ def test_list_nsfw_gated(ctx):
     )
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body())
     r = c.get("/api/apps", headers=_h(tokens, "user"))
-    got = {a["id"] for a in r.json()}
-    assert "nsfw-app" not in got and "t2i-basic" in got
-    with Session(engine) as s:
-        _u = s.get(User, ids["user"])
-        _u.content_mode = "adult"
-        s.add(_u)
-        s.commit()
-    r2 = c.get("/api/apps", headers=_h(tokens, "user"))
-    assert "nsfw-app" in {a["id"] for a in r2.json()}
+    by_id = {a["id"]: a for a in r.json()}
+    assert "nsfw-app" in by_id and "t2i-basic" in by_id
+    assert by_id["nsfw-app"]["is_nsfw"] is True
 
 
 def test_list_category_and_q_filter(ctx):
@@ -351,15 +346,12 @@ def test_detail_404_and_personal_hidden(ctx):
 
 
 def test_detail_nsfw_hidden_without_header(ctx):
+    """P0-5 R4:ordinary 详情可见 NSFW app 并透出 is_nsfw。"""
     c, tokens, ids, engine = ctx
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(id="na", is_nsfw=True))
-    assert c.get("/api/apps/na", headers=_h(tokens, "user")).status_code == 404
-    with Session(engine) as s:
-        _u = s.get(User, ids["user"])
-        _u.content_mode = "adult"
-        s.add(_u)
-        s.commit()
-    assert c.get("/api/apps/na", headers=_h(tokens, "user")).status_code == 200
+    r = c.get("/api/apps/na", headers=_h(tokens, "user"))
+    assert r.status_code == 200
+    assert r.json()["is_nsfw"] is True
 
 
 # --------------------------------------------------------------------------- #
@@ -494,14 +486,9 @@ def test_fork_404_for_invisible(ctx):
 
 
 def test_fork_nsfw_gated(ctx):
+    """P0-5 R4:ordinary 可 fork NSFW app(可见性对齐详情)。"""
     c, tokens, ids, engine = ctx
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body(id="na", is_nsfw=True))
-    assert c.post("/api/apps/na/fork", headers=_h(tokens, "user")).status_code == 404
-    with Session(engine) as s:
-        _u = s.get(User, ids["user"])
-        _u.content_mode = "adult"
-        s.add(_u)
-        s.commit()
     r = c.post("/api/apps/na/fork", headers=_h(tokens, "user"))
     assert r.status_code == 200
     assert r.json()["is_nsfw"] is True

@@ -1,0 +1,39 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · underage FE-only · light-curtain adult disabled · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#4A7FC1;
+  --toiv-switch-h:32px;--toiv-switch-min-w:108px;--toiv-light-curtain-w-max:124px;--toiv-switch-pad:2px;--toiv-switch-radius:9999px;
+  --toiv-switch-border:rgba(255,255,255,.08);--toiv-switch-bg:#101118;--toiv-switch-thumb-sfw:rgba(255,255,255,.08);
+  --toiv-switch-fg:#8b8e98;--toiv-switch-fg-active-sfw:#f4f6f7;--toiv-switch-fs:12px;--toiv-switch-fw:500;--toiv-switch-item-px:10px;
+  --toiv-switch-disabled-opacity:.45}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.frame{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:40px}
+.badge{font-size:11px;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.card{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:320px}
+h1{margin:0;font-size:15px;font-weight:600}
+.hint{margin:0;color:var(--muted);font-size:12px;text-align:center;max-width:280px}
+.cm-light-curtain{display:flex;flex-direction:column}
+.cm-light-curtain-rail{position:relative;display:grid;grid-template-columns:1fr 1fr;min-width:var(--toiv-switch-min-w);max-width:var(--toiv-light-curtain-w-max);height:var(--toiv-switch-h);padding:var(--toiv-switch-pad);border-radius:var(--toiv-switch-radius);border:1px solid var(--toiv-switch-border);background:var(--toiv-switch-bg);overflow:hidden}
+.cm-light-curtain-veil{position:absolute;inset:var(--toiv-switch-pad);width:calc(50% - var(--toiv-switch-pad));border-radius:var(--toiv-switch-radius);background:var(--toiv-switch-thumb-sfw);pointer-events:none}
+.cm-light-curtain-opt{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:24px;padding:0 var(--toiv-switch-item-px);border:0;background:transparent;color:var(--toiv-switch-fg);font-size:var(--toiv-switch-fs);font-weight:var(--toiv-switch-fw);cursor:pointer;border-radius:var(--toiv-switch-radius)}
+.cm-light-curtain-opt.is-active{color:var(--toiv-switch-fg-active-sfw)}
+.cm-light-curtain-opt.is-disabled,.cm-light-curtain-opt:disabled{opacity:var(--toiv-switch-disabled-opacity);cursor:not-allowed;color:var(--muted)}
+.meta{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+</style></head><body>
+<div class="frame">
+  <span class="badge">UNDERAGE FE-ONLY · tip 0a426713 · 非 commit</span>
+  <div class="card">
+    <h1>内容模式光幕 · 未成年硬关</h1>
+    <p class="hint">成人钮 disabled · title=「当前账号未满足成人内容使用条件」· 主路径 FE <code>isUnderage()</code></p>
+    <div class="cm-light-curtain" data-testid="content-mode-light-curtain">
+      <div class="cm-light-curtain-rail" role="group" aria-label="内容模式光幕拨片">
+        <span class="cm-light-curtain-veil" aria-hidden></span>
+        <button type="button" class="cm-light-curtain-opt is-active" aria-pressed="true" data-testid="content-mode-a-ordinary" title="普通">普通</button>
+        <button type="button" class="cm-light-curtain-opt is-disabled" aria-pressed="false" data-testid="content-mode-a-adult" title="当前账号未满足成人内容使用条件" disabled>成人</button>
+      </div>
+    </div>
+    <p class="meta">birthdate sync ← /auth/me · setR18Mode(true)→false · apply→ordinary</p>
+  </div>
+</div>
+</body></html>

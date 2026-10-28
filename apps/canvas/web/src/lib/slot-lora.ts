@@ -110,15 +110,16 @@ export function readSlotLoras(slot: SlotLoraKey): SlotLoraPick[] {
     }
 }
 
-export function writeSlotLoras(slot: SlotLoraKey, picks: SlotLoraPick[]) {
-    if (typeof window === "undefined") return;
+export function writeSlotLoras(slot: SlotLoraKey, picks: SlotLoraPick[]): boolean {
+    if (typeof window === "undefined") return false;
     try {
         const raw = window.localStorage.getItem(SLOT_LORA_STORAGE_KEY);
         const map: SlotLoraMap = raw ? (JSON.parse(raw) as SlotLoraMap) : {};
         map[slot] = normalizePicks(picks);
         window.localStorage.setItem(SLOT_LORA_STORAGE_KEY, JSON.stringify(map));
+        return true;
     } catch {
-        /* ignore */
+        return false;
     }
 }
 
@@ -236,7 +237,7 @@ export function mergeLoraCandidates(engineList: SlotLoraCandidate[], inventoryLi
 /** 从兼容图谱（按底模族）+ 现网引擎抽 LoRA 候选。 */
 export async function fetchSlotLoraCandidates(
     slot: SlotLoraKey,
-    opts?: { baseHint?: string | null },
+    opts?: { baseHint?: string | null; strictEngines?: boolean },
 ): Promise<SlotLoraCandidate[]> {
     const compat = listCompatCandidatesForSlot({ slot, baseHint: opts?.baseHint });
     const inventoryList: SlotLoraCandidate[] = compat.items.map((item) => ({
@@ -270,7 +271,8 @@ export async function fetchSlotLoraCandidates(
         } else {
             engineList = collectLoraOptions(engines, (e) => String(e.kind || "") === "video" && isMotionVideoEngine(e));
         }
-    } catch {
+    } catch (error) {
+        if (opts?.strictEngines) throw error;
         engineList = [];
     }
 

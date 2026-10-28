@@ -50,6 +50,7 @@ import { CanvasNodeType, type CanvasFolderStyle, type CanvasFolderTheme, type Ca
 import { downloadOwnedOrBrowserMedia, reportOwnedMediaSave } from "@/services/desktop-media-save";
 import { mediaFileExtension, sanitizeDownloadFileName } from "@/lib/canvas/canvas-media-download";
 
+import { ProjectAssetReconciliationPanel } from "./project-asset-reconciliation";
 import { ProjectCharacterCard } from "./project-character-card";
 import { linkSelectedProjectAssets } from "./project-asset-linking";
 import { generateCharacterTurnaround } from "./project-character-media";
@@ -77,6 +78,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
     const [category, setCategory] = useState("all");
     const [folderId, setFolderId] = useState("");
+    const [assetSection, setAssetSection] = useState<"library" | "reconcile">("library");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(40);
     const [candidatePage, setCandidatePage] = useState(1);
@@ -463,6 +465,13 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                     <Button type="primary" className="!h-9 !px-3.5" icon={<Plus className="size-3.5" />} onClick={() => openCharacterEditor("new")}>新建角色</Button>
                 </div>
             </header>
+            <div role="tablist" aria-label="资产视图" className="mt-3 inline-flex w-fit items-center gap-1 rounded-lg bg-foreground/[.045] p-1">
+                <button type="button" role="tab" aria-selected={assetSection === "library"} onClick={() => setAssetSection("library")} className={`h-8 rounded-md px-3 text-xs font-medium ${assetSection === "library" ? "bg-surface-active text-foreground" : "text-foreground/52 hover:bg-surface-hover"}`}>资产库</button>
+                <button type="button" role="tab" aria-selected={assetSection === "reconcile"} onClick={() => setAssetSection("reconcile")} className={`h-8 rounded-md px-3 text-xs font-medium ${assetSection === "reconcile" ? "bg-surface-active text-foreground" : "text-foreground/52 hover:bg-surface-hover"}`}>跨集对账</button>
+            </div>
+            {assetSection === "reconcile" ? (
+                <div className="mt-4"><ProjectAssetReconciliationPanel projectId={detail.project.id} /></div>
+            ) : (
             <div className="project-assets-layout mt-3 grid gap-3">
                 <nav className="space-y-0.5 pr-2" aria-label="素材目录与资产分类">
                     <div className="mb-1 flex h-8 items-center justify-between px-2 text-[var(--fs-tiny)] font-medium text-foreground/42"><span>素材目录</span><button type="button" className="rounded p-1 hover:bg-surface-hover" aria-label="新建根目录文件夹" onClick={() => openFolderEditor(undefined, "")}><FolderPlus className="size-3.5" /></button></div>
@@ -516,6 +525,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                     {assetsQuery.isLoading ? <WorkspaceState icon="assets" compact title="正在读取资产" /> : visibleAssets.length ? <><div className="project-assets-grid assets-library-grid">{visibleAssets.map((asset) => asset.category === "character" ? <ProjectCharacterCard key={asset.id} asset={asset} folderItems={folderMoveItems} generating={generatingAssetIds.has(asset.id)} removing={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} onOpen={() => setPreviewAsset(asset)} onEdit={() => openCharacterEditor(asset)} onGenerate={() => generateMutation.mutate(asset)} onBindImages={() => openImages(asset)} onBindVoice={() => openVoice(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onRemove={() => unlinkMutation.mutate(asset.id)} /> : <MediaAssetCard key={asset.id} asset={asset} personalAsset={personalAssets.find((item) => item.id === asset.id)} folderItems={folderMoveItems} onOpen={() => setPreviewAsset(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onCategoryChange={(next) => categoryMutation.mutate({ id: asset.id, next })} onVersion={() => versionMutation.mutate(asset.id)} onRemove={() => unlinkMutation.mutate(asset.id)} loading={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (categoryMutation.isPending && categoryMutation.variables?.id === asset.id) || (versionMutation.isPending && versionMutation.variables === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} />)}</div><PaginationBar current={page} pageSize={pageSize} total={assetsQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} /></> : childFolders.length || (showPendingCandidates && pendingCandidates.length) ? null : <WorkspaceState icon="assets" compact title={debouncedKeyword ? "没有找到匹配资产" : "这个文件夹还没有内容"}  />}
                 </div>
             </div>
+            )}
 
             <AssetLibraryPickerModal
                 open={addOpen}

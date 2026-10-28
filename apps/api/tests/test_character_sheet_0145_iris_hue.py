@@ -69,7 +69,7 @@ def test_assert_iris_hue_match_rejects_red_vs_blue(monkeypatch):
         seq["i"] += 1
         return (v, 1000)
 
-    monkeypatch.setattr(sheet_svc, "measure_iris_hue", _fake)
+    monkeypatch.setattr(sheet_svc.gates, "measure_iris_hue", _fake)
     with pytest.raises(sheet_svc.CharacterSheetError) as ei:
         sheet_svc.assert_iris_hue_match(b"cell", b"ref", expr_key="expr_2")
     assert "瞳色漂移" in str(ei.value)
@@ -84,13 +84,13 @@ def test_assert_iris_hue_match_passes_blue_variants(monkeypatch):
         seq["i"] += 1
         return (v, 1000)
 
-    monkeypatch.setattr(sheet_svc, "measure_iris_hue", _fake)
+    monkeypatch.setattr(sheet_svc.gates, "measure_iris_hue", _fake)
     info = sheet_svc.assert_iris_hue_match(b"cell", b"ref", expr_key="expr_2")
     assert info["diff"] <= 40.0
 
 
 def test_assert_iris_hue_match_skips_when_unmeasurable(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "measure_iris_hue", lambda data: None)
+    monkeypatch.setattr(sheet_svc.gates, "measure_iris_hue", lambda data: None)
     info = sheet_svc.assert_iris_hue_match(b"cell", b"ref", expr_key="expr_2")
     assert info.get("skipped") is True
 

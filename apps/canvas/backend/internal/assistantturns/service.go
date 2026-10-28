@@ -121,18 +121,19 @@ func (s *Service) Begin(userID, canvasID, turnID string, input Input) (int64, er
 		}
 		associatedAssets, associatedTasks := AssociatedReferences(raw)
 		rec = Record{
-			TurnID:              id,
-			UserID:              userID,
-			CanvasID:            canvasID,
-			RevisionBefore:      DocumentRevision(doc),
-			CreatedAt:           s.now(),
-			State:               StateOpen,
-			Document:            raw,
-			SelectedNodeIDs:     uniqueSorted(input.SelectedNodeIDs),
-			ReferencedAssetIDs:  uniqueSorted(input.AssetIDs),
-			ReferencedCanvasIDs: uniqueSorted(input.CanvasIDs),
-			AssociatedAssetIDs:  associatedAssets,
-			AssociatedTaskIDs:   associatedTasks,
+			TurnID:                     id,
+			UserID:                     userID,
+			CanvasID:                   canvasID,
+			RevisionBefore:             DocumentRevision(doc),
+			CreatedAt:                  s.now(),
+			State:                      StateOpen,
+			Document:                   raw,
+			SelectedNodeIDs:            uniqueSorted(input.SelectedNodeIDs),
+			ReferencedAssetIDs:         uniqueSorted(input.AssetIDs),
+			ReferencedCanvasIDs:        uniqueSorted(input.CanvasIDs),
+			ReferencedStudioProjectIDs: uniqueSorted(input.StudioProjectIDs),
+			AssociatedAssetIDs:         associatedAssets,
+			AssociatedTaskIDs:          associatedTasks,
 		}
 		inserted, insErr := s.store.Insert(tx, recordToModel(rec, s.now()))
 		if insErr != nil {
@@ -187,10 +188,11 @@ func (s *Service) ScopeForHost(userID, turnID string) (Scope, bool, error) {
 		return Scope{}, false, nil
 	}
 	return Scope{
-		CanvasID:  rec.CanvasID,
-		AssetIDs:  uniqueSorted(append(append([]string{}, rec.ReferencedAssetIDs...), rec.AssociatedAssetIDs...)),
-		CanvasIDs: uniqueSorted(rec.ReferencedCanvasIDs),
-		TaskIDs:   uniqueSorted(rec.AssociatedTaskIDs),
+		CanvasID:         rec.CanvasID,
+		AssetIDs:         uniqueSorted(append(append([]string{}, rec.ReferencedAssetIDs...), rec.AssociatedAssetIDs...)),
+		CanvasIDs:        uniqueSorted(rec.ReferencedCanvasIDs),
+		TaskIDs:          uniqueSorted(rec.AssociatedTaskIDs),
+		StudioProjectIDs: uniqueSorted(rec.ReferencedStudioProjectIDs),
 	}, true, nil
 }
 

@@ -513,8 +513,11 @@ export function isR18ContextRequiredText(value: string): boolean {
     if (/r18_context_required|nsfw_context_required/i.test(text)) return true;
     if (text.startsWith("当前为普通模式，此页需切换到成人模式")) return true;
     if (text.startsWith("当前为普通模式；该内容需切换到成人模式")) return true;
-    // 未成年硬阻断也属成人闸（Wire：可引导设置闸；勿当成额度/权限）
+    // 未成年硬关主路径 = FE redline.isUnderage（光幕 disabled / setR18Mode 拒）。
+    // 此处仅兼容识别旧后端 403 文案（R5 退役 require_not_underage 后不应再为主路径）。
     if (/未成年/.test(text) && /R18|成人|NSFW/i.test(text)) return true;
+    // FE 文案：光幕 underage title / COPY_UNDERAGE_ADULT
+    if (text.includes("当前账号未满足成人内容使用条件")) return true;
     return (
         /须在\s*R18\s*上下文/.test(text) ||
         /R18\s*产物需在专区内/.test(text) ||

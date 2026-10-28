@@ -1,11 +1,11 @@
 /* R5 Node graph visual — Freezone glass / type bar / accent select / ports
-   Tokens: --toiv-node-* (toiv-freezone-tokens.css). Adult #4f8cff never used here. */
+   Tokens: --toiv-node-* (toiv-freezone-tokens.css). Adult #6B7280 never used here. */
 
 .canvas-editor-shell,
 .toiv-create-studio,
 .workflow-graph-editor {
-  --cn-active-stroke: var(--toiv-node-stroke-active, var(--toiv-accent, #5ba0ff));
-  --cn-active-stroke-soft: rgb(91 160 255 / 0.18);
+  --cn-active-stroke: var(--toiv-node-stroke-active, var(--toiv-accent, #4A7FC1));
+  --cn-active-stroke-soft: rgb(74 127 193 / 0.18);
 }
 
 /* Type color mapping on host */
@@ -22,7 +22,7 @@
 .node-element[data-canvas-node-type="html"],
 .node-element[data-canvas-node-type="svg"] { --toiv-node-type-color: var(--toiv-node-type-text); }
 .node-element[data-canvas-node-type="batch-table"] { --toiv-node-type-color: var(--toiv-node-type-config); }
-.node-element[data-canvas-node-type="director"] { --toiv-node-type-color: var(--toiv-accent-cyan, #00bdcf); }
+.node-element[data-canvas-node-type="director"] { --toiv-node-type-color: var(--toiv-accent-interactive, var(--toiv-accent, #4A7FC1)); }
 .node-element[data-canvas-node-type="panorama"],
 .node-element[data-canvas-node-type="compare"],
 .node-element[data-canvas-node-type="chart"],
@@ -34,8 +34,13 @@
 /* Glass shell + type bar — reject flat gray slabs */
 .canvas-node-shell {
   border-radius: var(--toiv-node-radius-preferred, var(--toiv-node-radius, 12px)) !important;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
   backdrop-filter: blur(var(--toiv-node-glass-blur, 14px));
   -webkit-backdrop-filter: blur(var(--toiv-node-glass-blur, 14px));
+}
+.node-element:hover .canvas-node-shell {
+  outline-color: var(--toiv-node-stroke-hover);
 }
 
 .canvas-node-shell::before {
@@ -47,7 +52,7 @@
   width: var(--toiv-node-type-bar-w, 3px);
   border-radius: 0 2px 2px 0;
   background: var(--toiv-node-type-color, var(--toiv-node-type-default));
-  box-shadow: 0 0 10px color-mix(in srgb, var(--toiv-node-type-color, var(--toiv-accent)) 45%, transparent);
+  box-shadow: none; /* B2: type bar = flat gray; no colorful shell glow */
   opacity: 0.92;
   pointer-events: none;
   z-index: 3;
@@ -64,9 +69,9 @@
 .canvas-node-shell[data-node-state="selected"],
 .canvas-node-shell[data-node-state="focus"],
 .canvas-node-shell[data-node-state="target"] {
-  /* accent ring — JS theme already sets border/shadow; reinforce glow */
-  outline: none;
-  filter: drop-shadow(0 0 24px rgb(91 160 255 / 0.25));
+  outline: 1px solid var(--cn-active-stroke);
+  outline-offset: -1px;
+  filter: drop-shadow(0 0 24px rgb(74 127 193 / 0.25));
 }
 
 /* Ports (side rail + row handles) */
@@ -78,7 +83,12 @@
 [data-canvas-connection-rail]:focus-visible span svg,
 .canvas-connection-handle:hover,
 .canvas-connection-handle:focus-visible {
-  filter: drop-shadow(0 0 6px rgb(91 160 255 / 0.45));
+  filter: drop-shadow(0 0 6px rgb(74 127 193 / 0.45));
+}
+.node-element [data-canvas-connection-rail]:focus-visible {
+  opacity: 1 !important;
+  outline: 2px solid var(--cn-active-stroke);
+  outline-offset: 2px;
 }
 
 .node-element[data-node-selected="true"] [data-canvas-connection-rail] {
@@ -97,8 +107,8 @@
   padding: var(--toiv-node-param-section-pad, 10px);
   margin-bottom: var(--toiv-node-param-section-gap, 12px);
   border-radius: var(--toiv-node-param-radius, 12px);
-  border: 1px solid var(--toiv-border, #22232c);
-  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 55%, transparent);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 55%, transparent);
   box-shadow: var(--toiv-shadow-inner-glow, none);
 }
 .canvas-config-node-panel .toiv-node-param-section-title,
@@ -107,7 +117,7 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
 }
 
 /* Workflow graph editor (Comfy topology preview) — same Freezone nail */
@@ -116,11 +126,11 @@
   border: 1px solid var(--toiv-border, transparent);
 }
 .workflow-graph-sidebar {
-  background: color-mix(in srgb, var(--toiv-bg, #0a0c12) 70%, transparent) !important;
-  border-right: 1px solid var(--toiv-border, #22232c);
+  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 70%, transparent) !important;
+  border-right: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
 }
 .workflow-graph-stage {
-  background-color: var(--toiv-bg, #0a0c12) !important;
+  background-color: var(--toiv-bg, #0b0c0f) !important;
   background-image: radial-gradient(circle, color-mix(in srgb, var(--toiv-accent) 14%, transparent) 1px, transparent 1px) !important;
 }
 .workflow-graph-edge {
@@ -129,30 +139,30 @@
 }
 .workflow-graph-node rect {
   fill: color-mix(in srgb, var(--toiv-surface) 94%, transparent) !important;
-  stroke: var(--toiv-border, #22232c) !important;
+  stroke: var(--toiv-border, rgba(255, 255, 255, 0.10)) !important;
   stroke-width: 1.4 !important;
   filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.35));
 }
 .workflow-graph-node:hover rect,
 .workflow-graph-node:focus-visible rect {
-  stroke: var(--toiv-node-stroke-hover, #2f3036) !important;
-  fill: var(--toiv-surface-raised, #1b1c23) !important;
+  stroke: var(--toiv-node-stroke-hover, rgba(255, 255, 255, 0.14)) !important;
+  fill: var(--toiv-surface-raised, #1a1b21) !important;
 }
 .workflow-graph-node.has-fields rect {
   stroke: color-mix(in srgb, var(--toiv-accent) 70%, transparent) !important;
 }
 .workflow-graph-node.is-selected rect {
   fill: color-mix(in srgb, var(--toiv-accent) 14%, var(--toiv-surface)) !important;
-  stroke: var(--toiv-accent, #5ba0ff) !important;
+  stroke: var(--toiv-accent, #4A7FC1) !important;
   stroke-width: 2.4 !important;
-  filter: drop-shadow(0 0 12px rgb(91 160 255 / 0.28));
+  filter: drop-shadow(0 0 12px rgb(74 127 193 / 0.28));
 }
 .workflow-graph-node-count {
-  fill: var(--toiv-accent, #5ba0ff) !important;
+  fill: var(--toiv-accent, #4A7FC1) !important;
 }
 .workflow-graph-node.is-video rect { stroke: color-mix(in srgb, var(--toiv-node-type-video) 80%, transparent) !important; }
-.workflow-graph-node.is-loader rect { stroke: color-mix(in srgb, var(--toiv-warn, #efa831) 76%, transparent) !important; }
-.workflow-graph-node.is-output rect { stroke: color-mix(in srgb, var(--toiv-ok, #51bf6f) 72%, transparent) !important; }
+.workflow-graph-node.is-loader rect { stroke: color-mix(in srgb, var(--toiv-warn, #C4A35A) 76%, transparent) !important; }
+.workflow-graph-node.is-output rect { stroke: color-mix(in srgb, var(--toiv-ok, #3D8B6E) 72%, transparent) !important; }
 .workflow-graph-node.is-sampler rect { stroke: color-mix(in srgb, var(--toiv-accent) 62%, transparent) !important; }
 
 /* Type chips on workflow nodes: left accent via category class */

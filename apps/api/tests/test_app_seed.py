@@ -418,7 +418,7 @@ def test_builtin_txt2img_run_and_nsfw_gate(ctx):
     # CLIP 必须由独立 CLIPLoader 提供(flux2 fp8mixed 是 UNET-only,CheckpointLoaderSimple 必炸)
     assert graph["3"]["class_type"] == "CLIPLoader"
     assert graph["1"]["class_type"] == "UNETLoader"
-    # NSFW 内置应用无 X-NSFW 头 403
+    # NSFW 内置应用普通账号 403(D-U1=B:账号态为判据)
     r2 = c.post(
         "/api/apps/ltx-txt2video/run",
         headers={"Authorization": f"Bearer {token}"},
@@ -438,6 +438,13 @@ def test_builtin_txt2img_run_and_nsfw_gate(ctx):
         json={"values": {"positive": "x"}, "content_mode": "nsfw"},
     )
     assert r3b.status_code == 403
+    # 切成人态后可跑 R18(X-NSFW 仅审计)
+    r_mode = c.put(
+        "/api/account/content-mode",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"content_mode": "adult"},
+    )
+    assert r_mode.status_code == 200, r_mode.text
     r4 = c.post(
         "/api/apps/txt2img-basic/run",
         headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},

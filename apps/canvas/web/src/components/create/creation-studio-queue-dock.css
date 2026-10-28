@@ -9,9 +9,9 @@
   height: var(--toiv-queue-trigger-h, 36px);
   padding: 0 10px;
   border-radius: var(--toiv-queue-trigger-radius, 12px);
-  border: 1px solid var(--toiv-border, #22232c);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
   background: color-mix(in srgb, var(--toiv-surface) 88%, transparent);
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -19,8 +19,12 @@
 }
 .toiv-queue-trigger:hover,
 .toiv-queue-trigger[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 45%, var(--toiv-border));
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 10%, var(--toiv-surface));
+  border-color: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 45%, var(--toiv-border));
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 10%, var(--toiv-surface));
+}
+.toiv-queue-trigger:focus-visible {
+  outline: 2px solid var(--toiv-accent);
+  outline-offset: 2px;
 }
 .toiv-queue-trigger-count {
   min-width: 1.25rem;
@@ -41,17 +45,17 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: var(--toiv-z-queue-panel, 80);
-  width: var(--toiv-job-popover-w, var(--toiv-queue-panel-w, 300px));
+  width: min(var(--toiv-job-popover-w, var(--toiv-queue-panel-w, 420px)), calc(100vw - 24px));
   max-height: var(--toiv-queue-panel-max-h, min(70vh, 520px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--toiv-job-popover-radius, 16px);
+  border-radius: var(--toiv-job-popover-radius, 10px);
   border: 1px solid var(--toiv-border);
-  background: color-mix(in srgb, var(--toiv-surface) 96%, transparent);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
-  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 280ms) var(--toiv-job-progress-ease, ease-out) both;
+  background: var(--toiv-surface, #14151a);
+  backdrop-filter: none;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 220ms) var(--toiv-job-progress-ease, ease-out) both;
 }
 @keyframes toiv-job-side-enter {
   from { opacity: 0; transform: translateX(var(--toiv-job-side-enter-from, 24px)); }
@@ -89,8 +93,8 @@
 .toiv-queue-list {
   display: flex;
   flex-direction: column;
-  gap: var(--toiv-job-row-list-gap, 8px);
-  padding: var(--toiv-queue-panel-pad, 10px);
+  gap: 0;
+  padding: var(--toiv-queue-panel-pad, 6px 8px);
   overflow: auto;
   min-height: 0;
   max-height: var(--toiv-job-popover-list-max-h, 256px);
@@ -98,19 +102,21 @@
 
 .toiv-queue-row {
   display: grid;
+  flex: none;
   grid-template-columns: var(--toiv-job-thumb-w, 84px) minmax(0, 1fr) auto;
   gap: var(--toiv-job-row-gap, 18px);
   align-items: center;
   min-height: var(--toiv-job-row-min-h, 92px);
   padding: var(--toiv-job-row-pad-y, 12px) var(--toiv-job-row-pad-x, 14px);
-  border-radius: var(--toiv-job-row-radius, 12px);
-  border: 1px solid var(--toiv-border);
-  background: color-mix(in srgb, var(--toiv-bg) 55%, transparent);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--toiv-border);
+  background: transparent;
   transition: background 150ms ease;
 }
 .toiv-queue-row:hover { background: var(--toiv-job-row-hover-bg); }
 .toiv-queue-row.is-nsfw-locked { opacity: 0.72; filter: grayscale(0.35); }
-.toiv-queue-row.is-failed { background: color-mix(in srgb, var(--toiv-danger, #ea4335) 4%, transparent); }
+.toiv-queue-row.is-failed { background: color-mix(in srgb, var(--toiv-danger, #B85C5C) 4%, transparent); }
 
 .toiv-queue-thumb {
   width: var(--toiv-job-thumb-w, 84px);
@@ -140,10 +146,27 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.toiv-queue-row-prompt {
+  margin: 0;
+  color: var(--toiv-text-secondary);
+  font-size: var(--toiv-job-meta-fs, 11px);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .toiv-queue-row-meta {
   margin: 0;
   font-size: var(--toiv-job-meta-fs, 11px);
   color: var(--toiv-text-muted);
+}
+.toiv-queue-row-error {
+  color: var(--toiv-danger);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .toiv-queue-row-statusline {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -161,9 +184,9 @@
   animation: toiv-job-dot-pulse 1.6s ease-out infinite;
 }
 @keyframes toiv-job-dot-pulse {
-  0% { box-shadow: 0 0 0 0 rgb(91 160 255 / 0.45); }
-  70% { box-shadow: 0 0 0 6px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  /* A4: running state = opacity pulse only, no color bloom ring */
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 @media (prefers-reduced-motion: reduce) {
   .toiv-queue-dot.is-running { animation: none; }
@@ -179,9 +202,23 @@
 }
 .toiv-queue-badge.is-running { color: var(--toiv-accent); }
 .toiv-queue-badge.is-queued { color: var(--toiv-text-muted); }
-.toiv-queue-badge.is-failed { color: var(--toiv-danger, #ea4335); }
-.toiv-queue-badge.is-succeeded { color: var(--toiv-ok, #51bf6f); }
+.toiv-queue-badge.is-failed { color: var(--toiv-danger, #B85C5C); }
+.toiv-queue-badge.is-succeeded { color: var(--toiv-ok, #3D8B6E); }
 .toiv-queue-badge.is-cancelled { color: var(--toiv-text-muted); }
+
+.toiv-queue-health {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  color: var(--toiv-text-muted);
+  font-size: var(--toiv-job-status-fs, 10px);
+  font-weight: 600;
+}
+.toiv-queue-health.is-fresh { color: var(--toiv-ok, #3D8B6E); }
+.toiv-queue-health.is-stalled,
+.toiv-queue-health.is-waiting { color: var(--toiv-warning, #f0b35a); }
+.toiv-queue-health-reason { overflow-wrap: anywhere; }
 
 /* Progress: true % only; indeterminate when unknown — never fake 100% */
 .toiv-queue-progress {
@@ -196,7 +233,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--toiv-job-progress-fill, #5ba0ff);
+  background: var(--toiv-job-progress-fill, #4A7FC1);
   transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease);
 }
 .toiv-queue-progress.is-indeterminate > span {
@@ -270,7 +307,7 @@
   padding: 8px;
   border-radius: var(--toiv-job-log-radius, 12px);
   border: 1px solid var(--toiv-border);
-  background: var(--toiv-job-log-bg, var(--toiv-bg, #0a0c12));
+  background: var(--toiv-job-log-bg, var(--toiv-bg, #0b0c0f));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--toiv-job-log-fs, 12px);
   line-height: 1.45;
@@ -289,12 +326,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--toiv-job-popover-radius, 16px);
+  border-radius: var(--toiv-job-popover-radius, 10px);
   border: 1px solid var(--toiv-border);
-  background: color-mix(in srgb, var(--toiv-surface) 96%, transparent);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 16px 48px rgb(0 0 0 / 0.4);
-  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 280ms) var(--toiv-job-progress-ease) both;
+  background: var(--toiv-surface, #14151a);
+  backdrop-filter: none;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  animation: toiv-job-side-enter var(--toiv-job-side-enter-dur, 220ms) var(--toiv-job-progress-ease) both;
 }
 .toiv-queue-bottom[hidden] { display: none !important; }
 .toiv-queue-bottom-head {

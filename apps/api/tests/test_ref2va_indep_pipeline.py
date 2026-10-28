@@ -298,6 +298,29 @@ def ctx(monkeypatch):
     app.dependency_overrides.clear()
 
 
+def _gate_stages_for_batch(client, H, pid):
+    """C1c 门禁:批量渲染前显式完成 storyboard 阶段(测试夹具,非放宽生产门禁)。
+    空项目(无分镜)不设防——生产门禁对空批次/空项目本就不拦。"""
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    if not detail.get("shots"):
+        return
+    states = detail["stage_states"]
+    script_action = "confirm" if states["script"]["ready"] else "skip"
+    for stage, action in (("script", script_action), ("assets", "skip"), ("storyboard", "confirm")):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": action, "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
+def _gate_stages_for_assemble(client, H, pid):
+    """C1c 门禁:合成前显式完成 storyboard/generate/voice 阶段。"""
+    _gate_stages_for_batch(client, H, pid)
+    for stage in ("generate", "voice"):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": "skip", "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
 def _make_project(client, H, n_shots=2):
     pid = client.post(
         "/api/studio/projects",
@@ -362,10 +385,10 @@ def test_api_default_routes_ref2va_and_never_continues(ctx, monkeypatch):
     seen: list = []
     _install_fake_renderer(monkeypatch, seen)
     # 镜0 显式 c 出带 context 的入选候选，镜1 默认（不传 pipeline）必须不续写
-    r0 = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1})
+    r0 = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1, "force_direct": True})
     assert r0.status_code == 200, r0.text
     assert r0.json()["candidates"][0]["context_latent"]
-    r1 = client.post(f"/api/studio/shots/{sids[1]}/render", headers=H, json={"num_candidates": 2})
+    r1 = client.post(f"/api/studio/shots/{sids[1]}/render", headers=H, json={"num_candidates": 2, "force_direct": True})
     assert r1.status_code == 200, r1.text
     for kw in seen[1:]:
         assert kw["pipeline"] == "ref2va"
@@ -382,7 +405,7 @@ def test_api_no_body_defaults_ref2va(ctx, monkeypatch):
     _pid, sids = _make_project(client, H, 1)
     seen: list = []
     _install_fake_renderer(monkeypatch, seen)
-    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H)
+    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"num_candidates": 1, "force_direct": True})
     assert r.status_code == 200, r.text
     assert seen[0]["pipeline"] == "ref2va"
     assert json.loads(r.json().get("ref_images_json") or "[]") == LX[:4] or r.json().get("ref_images") == LX[:4]
@@ -394,9 +417,9 @@ def test_api_explicit_c_still_continues_prev_context(ctx, monkeypatch):
     _pid, sids = _make_project(client, H, 2)
     seen: list = []
     _install_fake_renderer(monkeypatch, seen)
-    r0 = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1})
+    r0 = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1, "force_direct": True})
     ctx0 = r0.json()["candidates"][0]["context_latent"]
-    r1 = client.post(f"/api/studio/shots/{sids[1]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1})
+    r1 = client.post(f"/api/studio/shots/{sids[1]}/render", headers=H, json={"pipeline": "c", "num_candidates": 1, "force_direct": True})
     assert r1.status_code == 200, r1.text
     assert seen[1]["pipeline"] == "c"
     assert seen[1]["context_latent_path"] == ctx0
@@ -406,7 +429,7 @@ def test_api_accepts_ref2va_and_rejects_unknown(ctx):
     client, token, _ = ctx
     H = {"Authorization": f"Bearer {token}"}
     _pid, sids = _make_project(client, H, 1)
-    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "motion"})
+    r = client.post(f"/api/studio/shots/{sids[0]}/render", headers=H, json={"pipeline": "motion", "force_direct": True})
     assert r.status_code == 422
     assert "ref2va" in r.text
 
@@ -417,6 +440,12 @@ def test_api_batch_render_uses_ref2va(ctx, monkeypatch):
     pid, _sids = _make_project(client, H, 2)
     seen: list = []
     _install_fake_renderer(monkeypatch, seen)
+    direct = client.patch(
+        f"/api/studio/projects/{pid}", headers=H,
+        json={"preferred_drive_mode": "direct"},
+    )
+    assert direct.status_code == 200, direct.text
+    _gate_stages_for_batch(client, H, pid)
     r = client.post(f"/api/studio/projects/{pid}/render", headers=H)
     assert r.status_code == 200, r.text
     assert r.json()["rendered"] == 2

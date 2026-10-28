@@ -1,16 +1,16 @@
 """Skill(智能体)CRUD —— 提示词优化系统的人格预设管理,Skill 市场的数据层。
 
 - GET /api/agents?kind=image:列表,按 applies_to 过滤(含 'all' 也返回),
-  NSFW 智能体仅 R18 鉴权用户可见(/nsfw 专页带 X-NSFW header),按 sort 排序。
+  按 sort 排序。P0-5 R4:is_nsfw 透出,后端不过滤。
   可见范围(2026-08-18 Skill 市场化):公共(user_id 空:内置 seed/admin 建)+ 本人导入。
-- GET /api/agents/{id}:详情;NSFW 智能体需 R18;他人私有无可见性。
+- GET /api/agents/{id}:详情;他人私有无可见性。
 - POST /api/skills/import:普通用户从 Skill 市场导入个人技能(user_id=属主,
   id 前缀自动生成防冲突;admin 建公共技能仍走 POST /api/agents)。
 - POST /api/agents:创建公共自定义(is_builtin=False,user_id 空),需 admin。
 - PUT /api/agents/{id}:改;内置/公共需 admin,个人技能属主可改;is_builtin 不变。
 - DELETE /api/agents/{id}:删;内置返 403;个人技能属主可删;公共自定义需 admin。
 
-NSFW 可见性复用 redline.nsfw_allowed()(按请求级 X-NSFW header,非账户开关)。
+P0-5 R4:列表/详情不再按 NSFW 过滤;运行/import 仍可走 require_not_underage。
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import Agent, User, _now
-from app.redline import nsfw_allowed
+from app.redline import require_not_underage
 
 router = APIRouter()
 
@@ -128,16 +128,15 @@ def list_agents(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[AgentOut]:
-    """列表:公共 + 本人导入;按 applies_to 过滤(含 'all' 也返回),NSFW 仅 R18 可见,按 sort 排序。"""
-    allow_nsfw = nsfw_allowed(user)
+    """列表:公共 + 本人导入;按 applies_to 过滤(含 'all' 也返回),按 sort 排序。
+
+    P0-5 R4:不再因 is_nsfw 跳过;is_nsfw 仍透出供前端红线。
+    """
     rows = session.exec(select(Agent).order_by(Agent.sort, Agent.name)).all()
     out: list[AgentOut] = []
     for a in rows:
         # 可见性:公共(user_id 空)或本人导入;他人的个人技能不可见
         if a.user_id and a.user_id != user.id:
-            continue
-        # NSFW 智能体对未授权用户不可见(不泄露存在性,直接跳过)
-        if a.is_nsfw and not allow_nsfw:
             continue
         if kind is not None:
             applies = _applies_list(a.applies_to)
@@ -153,12 +152,12 @@ def get_agent(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> AgentOut:
-    """详情;NSFW 智能体需 R18 鉴权,他人私有无可见性(均 404 不泄露存在性)。"""
+    """详情;他人私有无可见性(404 不泄露存在性)。
+
+    P0-5 R4:不再因 is_nsfw+ordinary 伪装 404;is_nsfw 仍透出。
+    """
     a = session.get(Agent, aid)
     if not a or (a.user_id and a.user_id != user.id):
-        raise HTTPException(status_code=404, detail="智能体不存在")
-    if a.is_nsfw and not nsfw_allowed(user):
-        # 与列表一致:对未授权用户不泄露 NSFW 智能体存在性
         raise HTTPException(status_code=404, detail="智能体不存在")
     return _to_out(a, user)
 
@@ -172,10 +171,10 @@ def import_skill(
     """从 Skill 市场导入个人技能(普通用户可用):user_id=属主,仅本人可见/可改/可删。
 
     id 省略时按 name 生成 slug + 随机后缀(id 主键全局唯一,个人技能不与他人冲突)。
-    NSFW 技能导入要求当前请求处于 R18 上下文(与可见性规则一致)。
+    NSFW 技能导入仅过未成年硬关(P0-5 R3;成人 UX 由前端限制)。
     """
-    if body.is_nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="R18 技能需在 R18 模式下导入")
+    if body.is_nsfw:
+        require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
     skill_id = (body.id or "").strip() or f"{_slugify(body.name)}-{_now().strftime('%H%M%S')}"
     if session.get(Agent, skill_id):
         # 指定 id 撞公共/他人技能:id 全局主键,直接 409 提示改 id 或留空自动生成

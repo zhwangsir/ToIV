@@ -437,3 +437,67 @@ def test_lipsync_route_error_502(ctx, monkeypatch):
         s.commit()
     r = client.post(f"/api/studio/shots/{shot['id']}/lipsync", headers=H)
     assert r.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_synth_for_shot_ref_download_log_no_secret(tmp_path, monkeypatch, caplog):
+    """参考音下载失败日志不得含完整 URL/sig/token;降级行为与 revision 归属不变。"""
+    import logging as _log
+
+    from sqlmodel import Session as _Session
+
+    from app.models import StudioCharacter, StudioProject, StudioShot, Tenant, User
+    from app.services.studio import voice as _voice
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
+                           poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with _Session(engine) as s:
+        t = Tenant(name="log"); s.add(t); s.commit(); s.refresh(t)
+        u = User(email="log@toiv.ai", hashed_password=hash_password("p"), tenant_id=t.id)
+        s.add(u); s.commit(); s.refresh(u)
+        p = StudioProject(tenant_id=t.id, user_id=u.id, title="x")
+        s.add(p); s.commit(); s.refresh(p)
+        char = StudioCharacter(project_id=p.id, name="楚生",
+                               voice_ref_url="/api/studio/files/ref.wav?sig=SECRET123&token=ABC")
+        s.add(char); s.commit(); s.refresh(char)
+        cid = char.id
+        shot = StudioShot(project_id=p.id, idx=0, dialogue="台词", speaker="楚生")
+        s.add(shot); s.commit(); s.refresh(shot)
+
+    class DownClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return None
+
+        async def get(self, url):
+            raise httpx.ConnectError("refused")
+
+        async def post(self, url, data=None, files=None):
+            class _R:
+                status_code = 200
+                content = b"RIFF" + b"\x00" * 8
+            return _R()
+
+    monkeypatch.setattr(_voice.httpx, "AsyncClient", lambda **kw: DownClient())
+    monkeypatch.setattr(_voice, "_save_wav", lambda data: "/api/studio/files/v.wav")
+    monkeypatch.setattr(_voice, "get_settings", lambda: type(
+        "S", (), {"tts_url": "http://tts:9200", "tts_multilingual_url": "",
+                  "api_base_url": "http://api.test"})())
+
+    caplog.set_level(_log.WARNING, logger="app.services.studio.voice")
+    with _Session(engine) as s:
+        sh = s.get(StudioShot, shot.id)
+        url = await _voice.synth_for_shot(s, sh, s.get(StudioCharacter, cid))
+    assert url == "/api/studio/files/v.wav"
+    with _Session(engine) as s:
+        sh = s.get(StudioShot, shot.id)
+        assert sh.voice_url == "/api/studio/files/v.wav"
+        assert sh.voiced_revision_id, "revision 归属不变"
+    # 日志审计:不得泄露完整 URL / sig / token
+    blob = "\n".join(f"{r.getMessage()}" for r in caplog.records
+                     if r.name == "app.services.studio.voice")
+    assert "SECRET123" not in blob and "token=ABC" not in blob
+    assert "ref.wav?sig" not in blob

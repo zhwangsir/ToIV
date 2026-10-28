@@ -163,14 +163,14 @@ def test_score_expression_grid_candidate_exists():
 
 
 def test_source_has_1552_rules():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "match_side_head_coat_hair_to_front" in src
     assert ("hist-match" in src and "coat" in src) or "hist-match accepted" in src
     # V4-0a:pick-best 竞争链已被 10/1 固定版式(分格出图+拼版)替代
-    assert "Pillow 固定版式拼版" in src
+    assert "Pillow 固定版式" in src
     assert "_COSTUME_PORTRAIT_N = 4" in src
     assert "costume_cell_edge_density" in src
-    assert '("collar"' in src or '("collar",' in src
+    assert '("collar"' in src or '("collar",' in src or "('collar'" in src
     assert "遮罩外（含全部头发与胸口）强制用底图像素贴回" in src
 
 

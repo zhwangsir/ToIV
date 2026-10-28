@@ -190,11 +190,11 @@ class _FakeClient:
 
 
 def test_0430_queue_time_not_counted(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_POLL_INTERVAL", 0.0)
+    monkeypatch.setattr(sheet_svc.retry, "_POLL_INTERVAL", 0.0)
     # 排队 50 轮（远超 exec_timeout 对应轮数），之后执行 2 轮出图 → 不应超时
     states = ["pending"] * 50 + ["running"] * 5
     cli = _FakeClient(states, images_after=52)
-    monkeypatch.setattr(sheet_svc, "_POLL_INTERVAL", 1.0)
+    monkeypatch.setattr(sheet_svc.retry, "_POLL_INTERVAL", 1.0)
 
     async def _nosleep(_):
         return None
@@ -207,7 +207,7 @@ def test_0430_queue_time_not_counted(monkeypatch):
 
 
 def test_0430_exec_timeout_counts_only_running(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_POLL_INTERVAL", 1.0)
+    monkeypatch.setattr(sheet_svc.retry, "_POLL_INTERVAL", 1.0)
 
     async def _nosleep(_):
         return None
@@ -221,7 +221,7 @@ def test_0430_exec_timeout_counts_only_running(monkeypatch):
 
 
 def test_0430_queue_wait_over_max_dequeues_and_raises(monkeypatch):
-    monkeypatch.setattr(sheet_svc, "_POLL_INTERVAL", 1.0)
+    monkeypatch.setattr(sheet_svc.retry, "_POLL_INTERVAL", 1.0)
 
     async def _nosleep(_):
         return None
@@ -242,14 +242,14 @@ def test_0430_defaults():
 # ---------- 源码契约：管线接线 ----------
 
 def test_0430_pipeline_contract():
-    src = Path(sheet_svc.__file__).read_text(encoding="utf-8")
+    src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(Path(sheet_svc.__file__).parent.glob("*.py")))
     assert "crop_expr_head_closeup(raw, size=768, frame=expr_frame)" in src
     assert "assert_no_uniform_bottom_band(cell_b, expr_key=ek)" in src
     assert "except CharacterSheetQueueWait as qw:" in src
     assert "attempt -= 1" in src  # queue_wait 不消耗次数
     assert "_QUEUE_WAIT_RETRY_MAX" in src
     # 不再用紧裁 crop_face_ref+squareize 做沉思/温柔编辑底
-    seg = src[src.index("04:30：编辑底用**宽头肩源**"):src.index("except CharacterSheetQueueWait as qw:")]
+    seg = src[src.index("无可用宽头肩编辑底"):src.index("except CharacterSheetQueueWait as qw:")]
     assert "squareize_face_center_crop(edit_base" not in seg
     assert "squareize_face_center_crop(cell_b" not in seg
 

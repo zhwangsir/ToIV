@@ -1,0 +1,95 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · W3-A job center tokens · 非现网硬刷</title>
+<style>
+:root{
+  --bg:#0b0c0f;--raised:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);
+  --accent:#4A7FC1;
+  --toiv-job-row-min-h:92px;--toiv-job-row-pad-y:12px;--toiv-job-row-pad-x:14px;--toiv-job-row-gap:18px;
+  --toiv-job-row-cols:84px minmax(0,1fr) 120px 104px;--toiv-job-row-radius:12px;--toiv-job-row-list-gap:8px;
+  --toiv-job-row-hover-bg:color-mix(in srgb,#f4f6f7 4%,transparent);
+  --toiv-job-thumb-w:84px;--toiv-job-thumb-h:60px;
+  --toiv-job-title-fs:14px;--toiv-job-title-fw:560;--toiv-job-title-max:68ch;
+  --toiv-job-meta-fs:11px;--toiv-job-status-fs:10px;--toiv-job-dot-d:7px;
+  --toiv-job-progress-h:3px;--toiv-job-progress-max-w:420px;--toiv-job-progress-radius:999px;
+  --toiv-job-progress-track:color-mix(in srgb,#f4f6f7 9%,transparent);
+  --toiv-job-progress-fill:var(--accent);--toiv-job-progress-dur:420ms;
+  --toiv-job-progress-ease:cubic-bezier(0.22,1,0.36,1);--toiv-job-retry-hit:32px;
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px 1fr;height:100vh}
+.side{border-right:1px solid var(--line);padding:12px}
+.brand{height:56px;display:flex;align-items:center;font:700 15px/1 system-ui;padding:0 8px}
+.nav a{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--muted);text-decoration:none}
+.nav a.is-on{color:var(--text);background:rgba(255,255,255,.08);box-shadow:inset 2px 0 0 color-mix(in srgb,var(--text) 55%,transparent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line)}
+.top .spacer{flex:1}
+.cta{height:32px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:#f4f6f7;font-weight:600;font-size:12px}
+.body{flex:1;padding:16px 20px;overflow:auto}
+.list{display:grid;gap:var(--toiv-job-row-list-gap)}
+.row{display:grid;grid-template-columns:var(--toiv-job-row-cols);align-items:center;gap:var(--toiv-job-row-gap);min-height:var(--toiv-job-row-min-h);padding:var(--toiv-job-row-pad-y) var(--toiv-job-row-pad-x);border-radius:var(--toiv-job-row-radius)}
+.row:hover{background:var(--toiv-job-row-hover-bg)}
+.thumb{width:var(--toiv-job-thumb-w);height:var(--toiv-job-thumb-h);border-radius:var(--toiv-job-row-radius);background:color-mix(in srgb,#f4f6f7 4%,transparent);display:grid;place-items:center;color:var(--muted);font:600 10px ui-monospace,Menlo,monospace}
+.thumb.is-img{background:linear-gradient(135deg,#1a2330,#0f141c);color:var(--accent)}
+.maincol{min-width:0}
+.title{max-width:var(--toiv-job-title-max);font-size:var(--toiv-job-title-fs);font-weight:var(--toiv-job-title-fw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{margin-top:7px;font-size:var(--toiv-job-meta-fs);color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:var(--toiv-job-status-fs);color:var(--muted)}
+.dot{width:var(--toiv-job-dot-d);height:var(--toiv-job-dot-d);border-radius:999px;background:#c9a227}
+.dot.ok{background:#3d9a6a}.dot.bad{background:#B85C5C}
+.prog{display:grid;max-width:var(--toiv-job-progress-max-w);grid-template-columns:minmax(80px,1fr) 42px;gap:10px;align-items:center;margin-top:8px;font-size:var(--toiv-job-meta-fs);color:var(--muted)}
+.prog i{grid-column:1/-1;display:block;height:var(--toiv-job-progress-h);border-radius:var(--toiv-job-progress-radius);background:var(--toiv-job-progress-track);margin-top:-4px;overflow:hidden}
+.prog b{display:block;height:100%;width:62%;background:var(--toiv-job-progress-fill);border-radius:inherit}
+.date{font-size:var(--toiv-job-meta-fs);color:var(--muted);font-variant-numeric:tabular-nums}
+.actions{display:flex;justify-content:flex-end;gap:2px}
+.actions button{width:var(--toiv-job-retry-hit);height:var(--toiv-job-retry-hit);border:0;border-radius:8px;background:transparent;color:var(--muted)}
+.row.is-fail .actions button{opacity:1}
+.note{margin-top:14px;font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+.sample{display:inline-block;width:18px;height:3px;background:var(--accent);vertical-align:middle;margin:0 6px;border-radius:999px}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · W3-A job center · 1280</div>
+<div class="shell">
+<aside class="side"><div class="brand">ToIV</div>
+<nav class="nav"><a href="#">创作</a><a href="#">短剧</a><a class="is-on" href="#">任务</a><a href="#">设置</a></nav></aside>
+<div class="main">
+<header class="top"><span style="font-weight:600">任务中心</span><span class="spacer"></span><button class="cta" id="cta">新建作业</button></header>
+<div class="body">
+  <div class="list" aria-label="任务列表">
+    <div class="row">
+      <div class="thumb is-img">84×60</div>
+      <div class="maincol">
+        <div class="title">雨夜便利店 · 镜 03 结账特写</div>
+        <div class="meta">seedance · 竖屏 9:16 · create 队列同节奏</div>
+        <div class="prog" role="progressbar" aria-valuenow="62"><span>渲染中</span><span>62%</span><i><b id="fill"></b></i></div>
+      </div>
+      <div class="date">今天 11:42</div>
+      <div class="actions"><button type="button" aria-label="取消">✕</button></div>
+    </div>
+    <div class="row">
+      <div class="thumb">IMG</div>
+      <div class="maincol">
+        <div class="title">角色定妆 · 店员 A</div>
+        <div class="meta">done · 失败重试冷却几何未改</div>
+        <div class="status"><span class="dot ok"></span>完成</div>
+      </div>
+      <div class="date">今天 10:18</div>
+      <div class="actions"><button type="button" aria-label="打开">↗</button></div>
+    </div>
+    <div class="row is-fail">
+      <div class="thumb">VID</div>
+      <div class="maincol">
+        <div class="title">成片轨导出 · 草稿 v2</div>
+        <div class="meta">provider timeout · retry hit 32</div>
+        <div class="status"><span class="dot bad"></span>失败</div>
+      </div>
+      <div class="date">昨天 21:05</div>
+      <div class="actions"><button type="button" aria-label="重试">↻</button></div>
+    </div>
+  </div>
+  <p class="note">W3-A · row min-h 92 · thumb 84×60 · progress <span class="sample" id="bar"></span>3px fill #4A7FC1 · 与 create queue 同 --toiv-job-*</p>
+</div>
+</div>
+</div>
+</body></html>

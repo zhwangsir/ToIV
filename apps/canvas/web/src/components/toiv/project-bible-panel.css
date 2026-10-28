@@ -1,0 +1,239 @@
+/* P0-4 ProjectBible min UI — BeefTV dense desk · A6 accent only on focus/CTA */
+
+.toiv-bible-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  color: var(--toiv-text, #f4f6f7);
+}
+
+.toiv-bible-panel[data-variant="page"] {
+  gap: 14px;
+  padding: var(--toiv-create-canvas-inset, 12px);
+  height: 100%;
+  overflow: auto;
+  background: var(--toiv-create-stage-bg, var(--toiv-bg, #0b0c0f));
+}
+
+.toiv-bible-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--toiv-create-divider, var(--toiv-border));
+}
+
+.toiv-bible-panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toiv-bible-panel[data-variant="page"] .toiv-bible-panel-title {
+  font-size: 15px;
+}
+
+.toiv-bible-panel-meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+.toiv-bible-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--toiv-border, rgba(255, 255, 255, 0.10));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--toiv-surface, #14151a) 70%, transparent);
+  color: var(--toiv-text-muted, #8b8e98);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.toiv-bible-empty strong {
+  color: var(--toiv-text-secondary, #a3a6b0);
+  font-weight: 600;
+}
+
+.toiv-bible-error {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--toiv-danger, #B85C5C) 45%, var(--toiv-border));
+  border-radius: 8px;
+  color: var(--toiv-danger, #B85C5C);
+  font-size: 12px;
+}
+
+.toiv-bible-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toiv-bible-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toiv-bible-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+.toiv-bible-field select {
+  height: 32px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
+  background: var(--toiv-surface-field, #0d0e12);
+  color: var(--toiv-text, #f4f6f7);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.toiv-bible-field select:focus-visible {
+  outline: 2px solid var(--toiv-accent, #4A7FC1);
+  outline-offset: 1px;
+}
+
+.toiv-bible-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toiv-bible-btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border);
+  background: transparent;
+  color: var(--toiv-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toiv-bible-btn:hover:not(:disabled) {
+  color: var(--toiv-text);
+  border-color: var(--toiv-border-strong, rgba(255, 255, 255, 0.14));
+}
+
+.toiv-bible-btn.is-primary {
+  border: 0;
+  background: var(--toiv-accent, #4A7FC1);
+  color: var(--toiv-text-on-accent, #f4f6f7);
+}
+
+.toiv-bible-btn.is-primary:hover:not(:disabled) {
+  background: var(--toiv-accent-hover, #6B96D0);
+  color: var(--toiv-text-on-accent, #f4f6f7);
+}
+
+.toiv-bible-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toiv-bible-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--toiv-border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--toiv-text-muted);
+  background: color-mix(in srgb, var(--toiv-surface-raised, #1a1b21) 80%, transparent);
+}
+
+.toiv-bible-badge.is-frozen {
+  color: var(--toiv-ok, #3D8B6E);
+  border-color: color-mix(in srgb, var(--toiv-ok, #3D8B6E) 40%, var(--toiv-border));
+}
+
+.toiv-bible-badge.is-draft {
+  color: var(--toiv-warn, #C4A35A);
+  border-color: color-mix(in srgb, var(--toiv-warn, #C4A35A) 35%, var(--toiv-border));
+}
+
+.toiv-bible-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.toiv-bible-section h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+.toiv-bible-style {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border);
+  background: var(--toiv-surface, #14151a);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toiv-bible-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toiv-bible-list li {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--toiv-border);
+  background: color-mix(in srgb, var(--toiv-surface, #14151a) 88%, transparent);
+  font-size: 12px;
+}
+
+.toiv-bible-list strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.toiv-bible-list em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--toiv-text-muted, #8b8e98);
+}
+
+.toiv-bible-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .toiv-bible-grid {
+    grid-template-columns: 1fr;
+  }
+}

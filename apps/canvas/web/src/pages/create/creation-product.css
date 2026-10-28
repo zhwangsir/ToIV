@@ -407,7 +407,7 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
     cursor: pointer;
     opacity: 0;
     transition: opacity 160ms ease, background var(--user-motion);
-    backdrop-filter: blur(8px);
+    backdrop-filter: none;
 }
 .creation-image-upscale svg { width: 14px; height: 14px; }
 .creation-image-result-cell:hover .creation-image-upscale,
@@ -517,3 +517,107 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
 .creation-threed-entry-copy strong { font-size: 13px; font-weight: 650; }
 .creation-threed-entry-copy span { color: var(--user-ink-muted); font-size: 11px; line-height: 1.5; }
 .creation-threed-entry > svg:last-child { flex: 0 0 auto; width: 15px; height: 15px; color: var(--user-ink-muted); }
+
+
+/* A4 quieter featured / skill cards — operate not persuade */
+.creation-featured-card.is-featured-hero {
+  grid-column: auto;
+  transform: none;
+  box-shadow: none;
+  border-color: var(--user-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
+}
+.creation-featured-card .creation-inspiration-overlay,
+.creation-featured-card .creation-skill-hover-use {
+  backdrop-filter: none !important;
+  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 78%, transparent);
+  font-size: 12px;
+  font-weight: 560;
+}
+.creation-featured-copy em {
+  opacity: 0.65;
+  font-weight: 450;
+}
+.creation-featured-works .product-collection-card {
+  box-shadow: none;
+}
+
+
+/* A4.1 quiet empty desk — operate, not inspire */
+.creation-home-heading {
+  text-align: center;
+  margin: 28px auto 18px;
+  max-width: 42rem;
+}
+.creation-home-heading h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--user-ink, var(--toiv-text, #f4f6f7));
+}
+.creation-home-heading-muted,
+.creation-home-heading p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+}
+.creation-empty-quiet {
+  width: min(720px, 100%);
+  margin: 18px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.creation-empty-quiet-copy {
+  margin: 0;
+  font-size: 12px;
+  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+}
+.creation-empty-quiet-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.creation-empty-quiet-cta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--user-border, var(--toiv-border, rgba(255,255,255,.10)));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--user-ink, var(--toiv-text, #f4f6f7));
+  cursor: pointer;
+  transition: background 220ms ease-out, border-color 220ms ease-out;
+}
+.creation-empty-quiet-cta strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.creation-empty-quiet-cta span {
+  font-size: 11px;
+  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+}
+.creation-empty-quiet-cta:hover {
+  background: color-mix(in srgb, var(--user-ink, #f4f6f7) 4%, transparent);
+  border-color: var(--user-border-strong, var(--toiv-border-strong, rgba(255,255,255,.14)));
+}
+.creation-empty-quiet-cta:focus-visible {
+  outline: 2px solid var(--user-accent, var(--toiv-accent, #4A7FC1));
+  outline-offset: 2px;
+}
+/* Hide legacy icon suggest / empty-art if any residual mount; featured inspirations restored BF1.1 */
+.creation-empty-workspace > .creation-empty-art,
+.creation-home .creation-empty-suggest {
+  display: none !important;
+}
+@media (max-width: 620px) {
+  .creation-empty-quiet-row { gap: 6px; }
+  .creation-empty-quiet-cta { flex: 1 1 calc(50% - 6px); }
+}

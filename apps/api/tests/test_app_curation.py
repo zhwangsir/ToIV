@@ -201,29 +201,32 @@ def test_curation_put_unknown_app_404(ctx):
 # ---------------------------------------------------------------------------
 
 def test_summary_counts_and_nsfw_gating(ctx):
+    """P0-5 R4:ordinary 计入 nsfw;hidden 仍仅 admin。"""
     client, admin_token, user_token = ctx
     ah = {"Authorization": f"Bearer {admin_token}"}
     uh = {"Authorization": f"Bearer {user_token}"}
 
-    # 普通用户无 X-NSFW 头:drama = app-drama + app-drama-2(nsfw/hidden 均不计)
+    # ordinary:drama = app-drama + app-drama-2 + app-nsfw(hidden 不计)
     r = client.get("/api/apps/use-cases/summary", headers=uh)
     assert r.status_code == 200, r.text
     rows = {x["id"]: x for x in r.json()}
     assert len(rows) == 12
-    assert rows["drama"] == {"id": "drama", "label": "短剧剧情", "count": 2}
+    assert rows["drama"] == {"id": "drama", "label": "短剧剧情", "count": 3}
     assert rows["face"]["count"] == 1
     assert rows["other"]["count"] == 0
 
-    # 带 X-NSFW 头:nsfw 应用计入
+    # adult 同口径
+    r = client.put("/api/account/content-mode", headers=uh, json={"content_mode": "adult"})
+    assert r.status_code == 200, r.text
     r = client.get("/api/apps/use-cases/summary",
                    headers={**uh, "X-NSFW": "1"})
     rows = {x["id"]: x for x in r.json()}
     assert rows["drama"]["count"] == 3
 
-    # admin 可见 soft-hide:hidden 计入
+    # admin 可见 soft-hide:hidden 计入 → 4
     r = client.get("/api/apps/use-cases/summary", headers=ah)
     rows = {x["id"]: x for x in r.json()}
-    assert rows["drama"]["count"] == 3
+    assert rows["drama"]["count"] == 4
 
     # 未登录 401
     assert client.get("/api/apps/use-cases/summary").status_code == 401
@@ -245,14 +248,14 @@ def test_list_use_case_and_featured_filters(ctx):
     assert by_id["app-drama"]["featured"] is False
     assert by_id["app-drama-2"]["featured"] is True
     assert by_id["app-untagged"]["use_case"] == ""
-    # nsfw/hidden 按列表口径不进列表
-    assert "app-nsfw" not in by_id
+    # P0-5 R4:nsfw 进列表;hidden 仍不进
+    assert "app-nsfw" in by_id and by_id["app-nsfw"]["is_nsfw"] is True
     assert "app-hidden" not in by_id
 
     # use_case 过滤
     lst = client.get("/api/apps?use_case=drama", headers=uh)
     ids = {a["id"] for a in lst.json()}
-    assert ids == {"app-drama", "app-drama-2"}
+    assert ids == {"app-drama", "app-drama-2", "app-nsfw"}
 
     # featured 过滤
     lst = client.get("/api/apps?featured=true", headers=uh)

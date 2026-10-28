@@ -1,37 +1,24 @@
 /* ════════════════════════════════════════════════════════════════════
-   登录落地页 — DramaClaw 暗色壳（token/节奏对齐 DESIGN.md；禁抄 DC TSX）
-   桌面:左品牌 + 右登录卡；<1024 单列卡。
-   全部色值在 .landing 作用域内强制覆盖 minimal 亮默认，不依赖全局 data-mode。
+   登录落地页 — A3v2 密台门（非 AI SaaS 海报）
+   左：品牌+能力索引；右：登录卡。全部色值仅在 .landing；主焦点 #4A7FC1。
    ════════════════════════════════════════════════════════════════════ */
 
 .landing {
-  /* Freezone dark-first — bridged to toiv-freezone-tokens.css (B aesthetic rewrite) */
-  --bg-canvas: var(--toiv-bg);
-  --bg-surface-1: var(--toiv-surface);
-  --bg-surface-2: var(--toiv-surface-raised);
-  --bg-surface-3: var(--toiv-surface-panel);
-  --border-subtle: var(--toiv-border);
-  --border-strong: var(--toiv-border-strong);
-  --text-primary: var(--toiv-text);
-  --text-secondary: var(--toiv-text-secondary);
-  --text-muted: var(--toiv-text-muted);
-  --accent: var(--toiv-accent-cyan);
-  --accent-hover: var(--toiv-accent-cyan-hover);
-  --accent-soft: var(--toiv-accent-cyan-soft);
-  --accent-halo: rgba(91, 160, 255, 0.28);
-  --text-on-accent: var(--toiv-text-on-accent);
-  --accent-glow: var(--toiv-accent);
-  --accent-glow-soft: var(--toiv-accent-soft);
-  --accent-glow-shadow: var(--toiv-glow-accent);
-  --err: var(--toiv-danger);
-  --err-soft: var(--toiv-danger-soft);
-  --glass-bg: rgba(21, 22, 29, 0.86);
-  --glass-border: rgba(91, 160, 255, 0.16);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --glass-blur: blur(28px) saturate(1.2);
-  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
-  --shadow-md: 0 2px 12px rgba(0, 189, 207, 0.22);
-  --shadow-lg: 0 8px 28px rgba(0, 189, 207, 0.28);
+  --bg-canvas: var(--toiv-bg, #0b0c0f);
+  --bg-surface-1: var(--toiv-surface, #14151a);
+  --bg-surface-2: var(--toiv-surface-raised, #1a1b21);
+  --bg-surface-3: var(--toiv-surface-panel, #101116);
+  --border-subtle: var(--toiv-border, rgba(255, 255, 255, 0.10));
+  --border-strong: var(--toiv-border-strong, rgba(255, 255, 255, 0.14));
+  --text-primary: var(--toiv-text, #f4f6f7);
+  --text-secondary: var(--toiv-text-secondary, #b4b8c4);
+  --text-muted: var(--toiv-text-muted, #8b8e98);
+  --accent: var(--toiv-accent, #4A7FC1);
+  --accent-hover: var(--toiv-accent-hover, #6B96D0);
+  --accent-soft: var(--toiv-accent-soft, rgba(74, 127, 193, 0.16));
+  --text-on-accent: #f4f6f7;
+  --err: var(--toiv-danger, #B85C5C);
+  --err-soft: var(--toiv-danger-soft, rgba(184, 92, 92, 0.14));
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 
@@ -39,54 +26,38 @@
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 3fr 2fr;
-  background:
-    radial-gradient(ellipse 50% 40% at 12% 18%, rgba(91, 160, 255, 0.18), transparent 65%),
-    radial-gradient(ellipse 40% 35% at 88% 80%, rgba(0, 189, 207, 0.12), transparent 70%),
-    var(--bg-canvas);
+  background: var(--bg-canvas);
   color: var(--text-primary);
   position: relative;
   overflow: hidden;
 }
 
-.landing::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    conic-gradient(from 200deg at 6% 22%, transparent 0deg, rgba(91, 160, 255, 0.07) 20deg, transparent 46deg);
-  opacity: 0.7;
-}
-
-/* ── 左:暗色品牌区 ── */
+/* ── 左：密台索引 ── */
 .landing-brand {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-5);
-  padding: var(--space-12) var(--space-10);
-  background:
-    linear-gradient(180deg, rgba(17, 27, 33, 0.35), transparent 55%),
-    color-mix(in srgb, var(--bg-surface-1) 55%, transparent);
+  gap: 20px;
+  padding: 48px 40px;
+  background: var(--bg-surface-1);
   border-right: 1px solid var(--border-subtle);
 }
 .landing-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 .landing-logo-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: linear-gradient(145deg, #00bdcf, #5ba0ff);
-  box-shadow: var(--accent-glow-shadow);
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 .landing-logo-text {
-  font-size: var(--text-section);
-  font-weight: var(--font-bold);
+  font-size: 15px;
+  font-weight: 650;
   color: var(--text-primary);
   letter-spacing: -0.02em;
 }
@@ -95,151 +66,139 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-4);
+  gap: 10px;
 }
 .landing-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 4px var(--space-3);
-  background: var(--accent-glow-soft);
-  border: 1px solid color-mix(in srgb, #5ba0ff 28%, transparent);
-  border-radius: var(--radius-full);
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.08em;
-  color: #5ba0ff;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 .landing-eyebrow-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #00bdcf;
-  box-shadow: 0 0 10px #00bdcf;
-  animation: landing-eyebrow-breathe var(--duration-loop, 2.4s) ease-in-out infinite;
-}
-@keyframes landing-eyebrow-breathe {
-  0%, 100% { opacity: 0.45; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .landing-eyebrow-dot { animation: none; }
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--accent);
 }
 .landing-slogan {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(var(--text-display-md, 32px), 4.2vw, 52px);
-  font-weight: var(--font-bold);
-  letter-spacing: -0.03em;
-  line-height: var(--leading-display, 1.15);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
   color: var(--text-primary);
-  text-shadow: 0 0 36px rgba(91, 160, 255, 0.14);
 }
 .landing-brand-desc {
   margin: 0;
-  font-size: var(--text-body);
+  font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.7;
-  max-width: 380px;
+  line-height: 1.55;
+  max-width: 340px;
 }
 .landing-keywords {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-4) 0 0;
+  gap: 0;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--border-subtle);
 }
 .landing-keyword {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  margin: 0 calc(-1 * var(--space-2));
-  border-top: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control, 8px);
-  transition: background-color var(--duration-fast, 140ms) var(--ease-standard, ease);
+  gap: 12px;
+  padding: 10px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .landing-keyword:hover {
-  background: var(--accent-soft);
+  background: transparent;
 }
 .landing-keyword-index {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
 }
 .landing-keyword-label {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: var(--text-section);
-  font-weight: var(--font-semibold);
-  color: #5ba0ff;
+  font-size: 13px;
+  font-weight: 560;
+  font-style: normal;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 .landing-keyword-desc {
   margin-left: auto;
-  font-size: var(--text-aux);
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.4;
   text-align: right;
+  max-width: 52%;
 }
 
-/* ── 右:暗玻璃登录卡 ── */
+/* ── 右：实体登录卡（非玻璃） ── */
 .landing-auth {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: 24px;
+  background: var(--bg-canvas);
 }
 .landing-card {
   width: 100%;
-  max-width: 400px;
-  padding: var(--space-8);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-panel, 16px);
-  box-shadow: var(--glass-highlight), var(--shadow-pop), 0 0 40px rgba(0, 189, 207, 0.08);
-  max-height: calc(100dvh - var(--space-8));
+  max-width: 360px;
+  padding: 28px 24px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: none;
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }
 .landing-card-brand {
   display: none;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  gap: 8px;
+  margin-bottom: 16px;
 }
 .landing-card-head {
-  margin-bottom: var(--space-5);
+  margin-bottom: 20px;
 }
 .landing-title {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-title);
-  font-weight: var(--font-bold);
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 650;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
 .landing-subtitle {
   margin: 0;
-  font-size: var(--text-aux);
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .landing-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 12px;
 }
 .landing-form .landing-submit {
   display: flex;
   width: 100%;
-  margin-top: var(--space-2);
+  margin-top: 8px;
 }
 .landing-form .landing-submit .ui-ripple {
   display: flex;
@@ -248,82 +207,93 @@
 .landing-form .btn-primary {
   flex: 1;
   width: 100%;
-  height: var(--touch-target, 44px);
-  font-size: var(--text-body);
-  background: #00bdcf;
-  border-color: #00bdcf;
-  color: #111b21;
-  box-shadow: 0 0 24px rgba(0, 189, 207, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text-on-accent);
+  box-shadow: none;
+  cursor: pointer;
 }
 .landing-form .btn-primary:hover:not(:disabled) {
-  background: #1ad0e0;
-  border-color: #1ad0e0;
-  box-shadow: 0 0 32px rgba(0, 189, 207, 0.45);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: none;
+}
+.landing-form .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .landing-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 4px;
 }
 .landing-field .input {
-  height: var(--touch-target, 44px);
-  padding-top: 0;
-  padding-bottom: 0;
-  background: #0d0e14;
-  border-color: #2a3942;
+  height: 40px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   color: var(--text-primary);
-  caret-color: #00bdcf;
+  caret-color: var(--accent);
+  font: inherit;
+  outline: none;
 }
 .landing-field .input::placeholder {
-  color: #6f7079;
+  color: #8b8e98;
 }
 .landing-field .input:hover {
-  border-color: color-mix(in srgb, #5ba0ff 40%, #2a3942);
+  border-color: var(--border-strong);
 }
 .landing-field .input:focus {
-  border-color: #5ba0ff;
-  box-shadow: var(--shadow-xs), 0 0 0 3px rgba(91, 160, 255, 0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(74, 127, 193, 0.18);
 }
 .landing-field .input[aria-invalid="true"] {
   border-color: var(--err);
 }
 .landing-field-error {
-  font-size: var(--text-aux);
+  font-size: 12px;
   color: var(--err);
   line-height: 1.4;
 }
 .landing-error {
-  padding: var(--space-2) var(--space-3);
+  padding: 8px 12px;
   background: var(--err-soft);
   border: 1px solid var(--err);
-  border-radius: var(--radius-control, 8px);
+  border-radius: 8px;
   color: var(--err);
-  font-size: var(--text-aux);
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .landing-hint {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-aux);
+  font-size: 12px;
   color: var(--text-muted);
   text-align: center;
 }
 .landing-hint code {
-  font-family: var(--font-mono);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--text-secondary);
   padding: 2px 6px;
   background: var(--bg-surface-3);
-  border-radius: var(--radius-badge, 6px);
-  font-size: var(--text-aux);
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 @media (max-width: 1023px) {
   .landing {
     grid-template-columns: 1fr;
     place-items: center;
-    padding: var(--space-4);
+    padding: 16px;
   }
   .landing-brand {
     display: none;
@@ -341,9 +311,9 @@
 
 @media (max-width: 767px) {
   .landing-card {
-    padding: var(--space-6) var(--space-5);
+    padding: 24px 20px;
   }
   .landing-card-brand {
-    margin-bottom: var(--space-3);
+    margin-bottom: 12px;
   }
 }

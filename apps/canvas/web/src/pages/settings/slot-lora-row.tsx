@@ -9,6 +9,7 @@ import {
     formatLoraConflictHint,
     formatSlotLoraSummary,
     readSlotLoras,
+    resolvePinnedLorasForGenerate,
     slotLoraInventoryFooter,
     writeSlotLoras,
     type SlotLoraCandidate,
@@ -37,6 +38,7 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     const [picks, setPicks] = useState<SlotLoraPick[]>(() => readSlotLoras(slot));
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState("");
     const [candidates, setCandidates] = useState<SlotLoraCandidate[]>([]);
     const [draft, setDraft] = useState<SlotLoraPick[]>([]);
     const [filterTag, setFilterTag] = useState<string | "all">("all");
@@ -62,6 +64,10 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
 
     const resolvedHint = baseHint || baseLabel || "";
     const summary = useMemo(() => formatSlotLoraSummary(picks), [picks]);
+    const selectionCheck = useMemo(
+        () => picks.length ? resolvePinnedLorasForGenerate({ slot, baseHint: resolvedHint, formLoras: picks, hasLorasParam: true }) : null,
+        [picks, resolvedHint, slot],
+    );
     const footer = useMemo(
         () => slotLoraInventoryFooter(slot, { baseHint: resolvedHint, shown: candidates.length || undefined }),
         [slot, resolvedHint, candidates.length],
@@ -86,9 +92,13 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
         setFilterTag("all");
         setDraft(readSlotLoras(slot));
         setLoading(true);
+        setLoadError("");
         try {
-            const list = await fetchSlotLoraCandidates(slot, { baseHint: resolvedHint });
+            const list = await fetchSlotLoraCandidates(slot, { baseHint: resolvedHint, strictEngines: true });
             setCandidates(list);
+        } catch {
+            setLoadError("在线引擎清单暂不可用；当前仅显示本地调研库存。可稍后重试。");
+            setCandidates(await fetchSlotLoraCandidates(slot, { baseHint: resolvedHint }));
         } finally {
             setLoading(false);
         }
@@ -115,7 +125,10 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
     };
 
     const save = () => {
-        writeSlotLoras(slot, draft);
+        if (!writeSlotLoras(slot, draft)) {
+            message.error("本地保存失败，请检查浏览器存储空间后重试");
+            return;
+        }
         setPicks(draft);
         setOpen(false);
         message.success(draft.length ? `已挂 ${draft.length} 个 LoRA（本地偏好）` : "已清空本槽 LoRA");
@@ -133,6 +146,11 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
                 </p>
                 {baseLabel ? <p className="settings-lora-chip__base">基座 · {baseLabel}</p> : null}
             </div>
+            {selectionCheck && !selectionCheck.ok ? (
+                <p className="settings-lora-chip__base" role="alert" data-testid={`slot-lora-incompatible-${slot}`} title={selectionCheck.errors.join("；")}>
+                    与当前基座不兼容 · 生成前需调整
+                </p>
+            ) : null}
             <Button size="small" onClick={() => void openManage()} data-testid={`slot-lora-manage-${slot}`}>
                 管理
             </Button>
@@ -154,6 +172,17 @@ export function SlotLoraRow({ slot, baseLabel, baseHint }: Props) {
                 <p className="settings-lora-modal-footer" data-testid={`slot-lora-inventory-footer-${slot}`}>
                     {footer}
                 </p>
+                {selectionCheck && !selectionCheck.ok ? (
+                    <div className="mb-3 rounded-md border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-2 text-xs text-foreground" role="alert" data-testid={`slot-lora-modal-incompatible-${slot}`}>
+                        已选 LoRA 与当前基座不兼容，请调整后再生成。原选择仍保留。
+                    </div>
+                ) : null}
+                {loadError ? (
+                    <div className="mb-3 flex items-center gap-3 rounded-md border border-border/60 px-3 py-2 text-xs text-foreground/70" role="status" data-testid={`slot-lora-load-error-${slot}`}>
+                        <span className="flex-1">{loadError}</span>
+                        <Button size="small" onClick={() => void openManage()}>重试</Button>
+                    </div>
+                ) : null}
 
                 {loading ? (
                     <div className="flex justify-center py-8">

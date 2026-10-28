@@ -14,6 +14,10 @@ describe("W0-2 pathname-key 摘除", () => {
     test("外层 Suspense 不再以 pathname 为 key", () => {
         const router = read("src/router.tsx");
         expect(router).not.toContain("<Suspense key={pathname}");
-        expect(router).toContain("return <Suspense fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense>;");
+        expect(router).not.toContain("key={pathname}");
+        // b0bf9f4a 后出口为 UserLayout 内嵌 RedlineRouteGuard（光幕路由门）；外层仍是无 key 的 Suspense。
+        expect(router).toContain("return <Suspense fallback={fallback}><UserLayout>");
+        expect(router).toContain("<RedlineRouteGuard><Outlet /></RedlineRouteGuard>");
+        expect(router).toContain("</UserLayout></Suspense>;");
     });
 });

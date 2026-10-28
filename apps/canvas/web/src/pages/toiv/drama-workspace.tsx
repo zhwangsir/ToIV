@@ -2,9 +2,8 @@
  * v2 项目工作区骨架（S2/W1.1，2026-10-11）。
  *
  * 六段式：剧本 → 资产 → 分镜 → 镜头 → 时间线 → 成片（docs/ops/PLATFORM_V2_CONTRACT.md §1）。
- * 本页挂在独立路由 /toiv/ws/:id/:section（不动现役 /toiv/drama/:id，零回归——绞杀者纪律）；
- * S3/S4 逐段把经典端能力迁进来，迁移齐后 W1.2 末步做路由对调。
- * 现在各段为只读骨架：头部项目状态 + 各段已有数据的轻量呈现 + 落地批次的说明。
+ * 对外由 /create?project=:id&section=:section 承载；旧 /toiv/ws 路径永久重定向至此。
+ * 六段共用单一创作台，不再另建工作区外壳。
  */
 import { ArrowDown, ArrowUp, BookOpen, Camera, Captions, Check, Clapperboard, Columns3, FileText, GitBranch, Film, IdCard, Layers, List, ListOrdered, Loader2, Mic, PlayCircle, RefreshCw, Save, ScrollText, Sparkles, Users, Volume2, X } from "lucide-react";
 import { Select } from "antd";
@@ -31,7 +30,7 @@ import {
 import { ComputeStatusStrip, depBlocksCta } from "@/components/toiv/compute-status-strip";
 import { ControlReadinessLamps } from "@/components/toiv/control-readiness-lamps";
 import { BgmBedPanel } from "@/components/toiv/bgm-bed-panel";
-import { JianyingExportButton } from "@/components/toiv/jianying-export-button";
+import { StudioExportMenu } from "@/components/toiv/studio-export-menu";
 import { KpiNorthboundPanel } from "@/components/toiv/kpi-northbound-panel";
 import { projectControlReadinessLamps } from "@/services/toiv/control-readiness";
 import {
@@ -51,16 +50,25 @@ import { SheetGateJobError, sheetFailureFromCaughtError, sheetFailureFromJobResu
 import { toivMediaUrl } from "@/services/toiv/cover-url";
 
 import { ToolButton } from "@/components/ui/base/buttons";
+import { RenderCostEstimate } from "@/components/toiv/render-cost-estimate";
+import { ShotRevisionInspector, buildShotsSavePayload, shotInspectorPanelFromQuery } from "@/components/toiv/shot-revision-inspector";
 import { WordAnchorTimeline } from "@/components/toiv/word-anchor-timeline";
 import { SceneAnchorPanel } from "@/components/toiv/scene-anchor-panel";
 import { WsCreationDock } from "@/components/toiv/ws-creation-dock";
 import { CreationStudioScriptStage } from "@/components/create/creation-studio-script-stage";
 import { CreationStudioStoryboardFlow } from "@/components/create/creation-studio-storyboard-flow";
 import { useCreationStudioSlots } from "@/components/create/creation-studio-slots";
+import { StageBlockNotice } from "@/components/toiv/creation-stage-track";
+import {
+    createLoadSeqGuard,
+    firstBlockingStage,
+    stageTransitionConflictMessage,
+} from "@/lib/studio-stage-progress";
 import { StatusBadge } from "@/components/ui/base/badges";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { EmptyState } from "@/components/ui/product/empty-state";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { cn } from "@/lib/utils";
 import {
     adoptSheetAsReference,
     buildMakeupCChainFromDrama,
@@ -70,6 +78,7 @@ import {
     fetchCharacterAsset,
     type ToivCharacterAsset,
     fetchDramaProject,
+    fetchJobById,
     fetchAccelTiers,
     formatAccelTierLabel,
     formatAccelTierNote,
@@ -97,6 +106,7 @@ import {
     submitSheetAsync,
     triggerBatchRender,
     triggerShotVoice,
+    type RenderShotAsyncOpts,
     type ToivCharacterSheet,
     type ToivDramaCharacter,
     type ToivDramaDetail,
@@ -325,6 +335,8 @@ function StoryboardSectionR4(props: {
         shots, selectedShotId, onSelectShot, frameBusy, frameVariants, frameError,
         onFrameVariants, onAdoptFrame, studioSlots,
     } = props;
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const selected = selectedShotId ? shots.find((s) => s.id === selectedShotId) ?? null : null;
 
     useEffect(() => {
@@ -346,10 +358,10 @@ function StoryboardSectionR4(props: {
                             <textarea readOnly value={String(selected.dialogue || selected.prompt || "").trim() || "—"} aria-label="分镜摘要" />
                         </label>
                         <p className="toiv-create-inspector-hint">
-                            右栏已扩至 420（上限 480）；取消选中回 320。不另开挡中栏浮层。
+                            运镜 · {selected.camera || "未设定"} · 时长 {selected.duration_sec != null ? `${selected.duration_sec}s` : "未设定"}
                         </p>
                         <p className="toiv-create-inspector-hint">
-                            双轨默认 PiP：草图 2:3 叠成片 16:9。配景仍在卡片上操作。
+                            取消选中回到项目属性；配景与候选版本仍在卡片上操作。
                         </p>
                     </>
                 ) : (
@@ -374,6 +386,11 @@ function StoryboardSectionR4(props: {
             frameError={frameError}
             onFrameVariants={onFrameVariants}
             onAdoptFrame={onAdoptFrame}
+            onOpenScript={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("section", "script");
+                navigate({ search: next.toString() });
+            }}
         />
     );
 }
@@ -443,6 +460,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
     }, [studioSlots, section]);
 
     const focusShotId = (searchParams.get("shot") || "").trim();
+    const initialPanel = shotInspectorPanelFromQuery(searchParams.get("panel"));
 
     /** Wave P3 / D2-A：列表↔看板投影；选中态跨视图保持 */
     const [shotViewMode, setShotViewMode] = useState<DramaShotViewMode>("pipeline");
@@ -467,6 +485,10 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
     const [detail, setDetail] = useState<ToivDramaDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    /** C1c:批量 render/assemble 被阶段闸 409 拦截时的阻断引导(原因 + 定位入口) */
+    const [stageBlock, setStageBlock] = useState<{ message: string; stageId: ReturnType<typeof firstBlockingStage> } | null>(null);
+    /** C1c:load 序号闸,项目切换/卸载后丢弃旧项目投影,避免串号 */
+    const loadSeqRef = useRef(createLoadSeqGuard());
 
     /** F2：专家一键成片（仅剧组协助 ON；建 run 不 auto-approve） */
     const [oneClickBusy, setOneClickBusy] = useState(false);
@@ -489,31 +511,47 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
             const msg =
                 e instanceof CrewOneClickGateError
                     ? e.message
-                    : userFacingCaughtError(e) || "一键成片失败";
+                    : userFacingCaughtError(e, "一键成片失败");
             setOneClickMsg(msg);
         } finally {
             setOneClickBusy(false);
         }
     }, [id, detail, navigate]);
 
-    const load = useCallback(async () => {
-        if (!id) return;
+    const load = useCallback(async (): Promise<ToivDramaDetail | null> => {
+        if (!id) return null;
+        const seq = loadSeqRef.current.begin();
         setLoading(true);
         setError(false);
         try {
             const d = await fetchDramaProject(id);
+            // 项目已切换/组件卸载:丢弃旧项目投影,不得覆盖当前 detail
+            if (!loadSeqRef.current.isCurrent(seq)) return null;
             setDetail(d);
             setPremiseText(d.premise || "");
+            setStageBlock(null);
+            return d;
         } catch {
-            setError(true);
+            if (loadSeqRef.current.isCurrent(seq)) setError(true);
+            return null;
         } finally {
-            setLoading(false);
+            if (loadSeqRef.current.isCurrent(seq)) setLoading(false);
         }
     }, [id]);
 
     useEffect(() => {
         void load();
     }, [load]);
+
+    // C1c:把项目真源(detail + load)注册进 slots,供右栏 Inspector 消费;
+    // 卸载/项目切换时清理(pid 守卫:旧卸载不得清掉新项目的注册)。
+    // 只依赖稳定回调,不依赖 slots 对象 identity(其随 provider value 重算而变,会导致 register/clear 抖动)。
+    const registerProject = studioSlots?.registerProject;
+    const clearProject = studioSlots?.clearProject;
+    useEffect(() => {
+        registerProject?.(detail?.id === id ? detail : null, load);
+        return () => clearProject?.(id);
+    }, [registerProject, clearProject, id, detail, load]);
 
     const goSection = (key: SectionKey) => {
         if (!id) return;
@@ -634,7 +672,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
     }, [load]);
 
     const softKeepRejected = useCallback(async () => {
-        if (!sheetChar || !sheetFailure?.previewUrl) return;
+        if (!id || !sheetChar || !sheetFailure?.previewUrl) return;
         setSoftKeepBusy(true);
         setSheetError(null);
         try {
@@ -811,7 +849,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         return () => { alive = false; };
     }, []);
     const selectedAccelTier = accelTiers.find((t) => t.level === accelLevel) ?? OFF_ACCEL_TIER;
-    const runShotRender = useCallback(async (sid: string) => {
+    const runShotRender = useCallback(async (sid: string, opts: RenderShotAsyncOpts = {}) => {
         const target = shots.find((x) => x.id === sid);
         const gate = videoRenderGate(target || {}, driveMode);
         if (!gate.allowed) {
@@ -829,10 +867,17 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         try {
             const queueStarted = Date.now();
             const { job_id } = await renderShotAsync(sid, {
-                num_candidates: 2,
-                accel: accelLevel,
-                pipeline: renderPipeline,
-                force_direct: driveMode === "direct",
+                num_candidates: opts.num_candidates ?? 2,
+                accel: opts.accel ?? accelLevel,
+                pipeline: opts.pipeline ?? renderPipeline,
+                force_direct: opts.force_direct ?? (driveMode === "direct"),
+                // C1b 配方 render_params 透传(原样,不本地改写)
+                auto_pick: opts.auto_pick,
+                seed: opts.seed,
+                ref_images: opts.ref_images,
+                scene_images: opts.scene_images,
+                ref_style: opts.ref_style,
+                video_model: opts.video_model,
             });
             setRenderMsg(`渲染已入后台(作业 ${job_id.slice(0, 8)}…,双候选约 10-20 分钟;可离开本页,任务中心可见)`);
             for (let i = 0; i < 240 && !pollStop.current; i++) {
@@ -914,19 +959,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         setTlMsg(null);
         setTlError(null);
         try {
-            const payload = tlShots.map((x) => ({
-                id: x.id,
-                scene: x.scene ?? "",
-                prompt: x.prompt ?? "",
-                camera: x.camera ?? "",
-                dialogue: x.dialogue ?? "",
-                speaker: x.speaker ?? "",
-                duration_sec: tlDuration[x.id] ?? x.duration_sec ?? 6,
-                characters: (x.characters ?? []) as string[],
-                render_mode: x.render_mode ?? "video",
-                seam_to_next: tlSeam[x.id] ?? x.seam_to_next ?? "hardcut", // W2.5:衔接持久化
-                beats: x.beats ?? [],
-            }));
+            const payload = buildShotsSavePayload(tlShots, { durationSec: tlDuration, seamToNext: tlSeam });
             await saveStudioShots(id, payload);
             setTlDirty(false);
             await load();
@@ -988,11 +1021,17 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
             setAssembleMsg("合成预览已完成，可到「合成」段看片；也可留在时间线继续调序。");
             goSection("final");
         } catch (e) {
+            // C1c:阶段闸 409 → 显示后端原因 + 定位到相应阶段的可执行入口(不只报错无下文)
+            const conflict = stageTransitionConflictMessage(e);
+            if (conflict) {
+                const fresh = await load();
+                setStageBlock({ message: conflict, stageId: firstBlockingStage(fresh ?? detail) });
+            }
             setAssembleError(studioQaHumanMessage("assemble", e, userFacingCaughtError(e, "成片合成失败")));
         } finally {
             setAssembling(false);
         }
-    }, [id, load, goSection]);
+    }, [id, load, goSection, detail]);
 
     // ---- S9: 字幕对齐(台词↔whisper,SRT 双出) ----
     const [subsBusy, setSubsBusy] = useState<"build" | "burn" | null>(null);
@@ -1137,15 +1176,30 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
         setBatchRendering(true);
         setRenderError(null);
         try {
-            await triggerBatchRender(id, accelLevel, renderPipeline);
-            await load();
+            const { job_id } = await triggerBatchRender(id, accelLevel, renderPipeline);
+            setRenderMsg(`整批渲染已入后台(作业 ${job_id.slice(0, 8)}…)`);
+            for (let i = 0; i < 3600 && !pollStop.current; i += 1) {
+                const job = await fetchJobById(job_id);
+                if (["done", "error", "canceled"].includes(job.status)) {
+                    await load();
+                    if (job.status !== "done") throw new Error(job.error || `整批渲染作业 ${job.status}`);
+                    break;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
         } catch (e) {
             // 失败必须给反馈:此前 try/finally 无 catch,整批渲染失败无任何提示
+            // C1c:阶段闸 409 → 显示后端原因 + 定位到相应阶段的可执行入口(不只报错无下文)
+            const conflict = stageTransitionConflictMessage(e);
+            if (conflict) {
+                const fresh = await load();
+                setStageBlock({ message: conflict, stageId: firstBlockingStage(fresh ?? detail) });
+            }
             setRenderError(studioQaHumanMessage("batch", e, userFacingCaughtError(e, "整批渲染提交失败，可在任务中心查看详情后重试")));
         } finally {
             setBatchRendering(false);
         }
-    }, [id, load, accelLevel, renderPipeline, driveMode, shots]);
+    }, [id, load, accelLevel, renderPipeline, driveMode, shots, detail]);
 
     const runAutoStoryboard = useCallback(async () => {
         if (!id || parsing) return;
@@ -1216,8 +1270,20 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
     );
 
     return (
-        <WorkspacePage fluid className="toiv-drama-workspace">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
+        <WorkspacePage
+            fluid
+            sectionPage={!projectIdOverride}
+            scroll={!projectIdOverride}
+            className={cn("toiv-drama-workspace", projectIdOverride && "is-hosted")}
+        >
+            <div
+                className={cn(
+                    "mx-auto flex w-full max-w-7xl flex-col",
+                    projectIdOverride ? "gap-3 p-3" : "gap-4 p-6",
+                )}
+                data-surface={projectIdOverride ? "beeftv-drama" : undefined}
+                data-testid={projectIdOverride ? "drama-workspace-hosted" : "drama-workspace"}
+            >
                 <header className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
@@ -1542,19 +1608,26 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                                         <li className="text-foreground">· 剧组协助：过脸/门禁与合成闸仍须确认，不会自动越过。</li>
                                                     )}
                                                 </ul>
-                                                <div className="flex gap-2">
-                                                    <ToolButton
-                                                        variant="default"
-                                                        icon={<PlayCircle />}
-                                                        label={batchRendering ? "提交中…" : "确认并开始整批渲染"}
-                                                        loading={batchRendering}
-                                                        onClick={() => {
+                                                {id && detail && (
+                                                    <RenderCostEstimate
+                                                        scope="batch"
+                                                        projectId={id}
+                                                        open={gateOpen}
+                                                        accel={accelLevel}
+                                                        pipeline={renderPipeline}
+                                                        detail={detail}
+                                                        onConfirm={() => {
                                                             setGateOpen(false);
                                                             void runBatchRender();
                                                         }}
+                                                        onCancel={() => setGateOpen(false)}
+                                                        onStageFocus={(stage) => studioSlots?.requestStageFocus(id, stage)}
+                                                        onKeyframeFocus={() => {
+                                                            studioSlots?.requestStageFocus(id, "storyboard");
+                                                            goSection("storyboard");
+                                                        }}
                                                     />
-                                                    <ToolButton variant="ghost" label="取消" onClick={() => setGateOpen(false)} />
-                                                </div>
+                                                )}
                                             </div>
                                         )}
                                         {chainMsg && (
@@ -1564,6 +1637,14 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                             <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2.5 text-xs text-[var(--danger)]">
                                                 {renderError}
                                             </p>
+                                        )}
+                                        {/* C1c:整批渲染被阶段闸 409 → 触发位置附近的阻断引导,点击打开右栏 Inspector 并聚焦阶段 */}
+                                        {stageBlock && (
+                                            <StageBlockNotice
+                                                message={stageBlock.message}
+                                                stageId={stageBlock.stageId}
+                                                onOpenStage={(stage) => { if (id) studioSlots?.requestStageFocus(id, stage); }}
+                                            />
                                         )}
                                         {renderMsg && (
                                             <p className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">
@@ -1817,9 +1898,6 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                                     (() => {
                                                         const proj = toDramaShotProjection(selectedShot, renderPipeline);
                                                         const busy = busyShots.has(selectedShot.id);
-                                                        const canRender = !RENDERED_STATES.has(selectedShot.status) && !busy && makeupReady;
-                                                        const hasDlg = shotHasDialogue(selectedShot.dialogue);
-                                                        const canVoice = hasDlg && selectedShot.status === "rendered" && !selectedShot.voice_url && !busy;
                                                         return (
                                                             <div className="flex flex-col gap-2 text-xs">
                                                                 <div className="flex items-start justify-between gap-2">
@@ -1831,14 +1909,40 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                                                 </div>
                                                                 <StatusBadge variant="filled" tone={STATUS_TONE[selectedShot.status] ?? "neutral"} label={statusLabelZh(selectedShot.status)} size="sm" />
                                                                 <p className="text-[var(--muted-foreground)]">管线 · {PIPELINE_OPTIONS.find((x) => x.value === renderPipeline)?.label ?? renderPipeline}</p>
-                                                                <div>
-                                                                    <p className="mb-0.5 font-medium text-foreground">提示语</p>
-                                                                    <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">{proj.prompt || proj.scene || "—"}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="mb-0.5 font-medium text-foreground">台词</p>
-                                                                    <p className="whitespace-pre-wrap break-words text-[var(--muted-foreground)]">{proj.dialogue?.trim() || "（无对白）"}</p>
-                                                                </div>
+                                                                {id && (
+                                                                    <ShotRevisionInspector
+                                                                        projectId={id}
+                                                                        shot={selectedShot}
+                                                                        shots={tlShots}
+                                                                        initialPanel={initialPanel ?? undefined}
+                                                                        durationSec={tlDuration}
+                                                                        seamToNext={tlSeam}
+                                                                        busy={busy}
+                                                                        makeupReady={makeupReady}
+                                                                        onSaved={() => void load()}
+                                                                        renderOptions={{
+                                                                            num_candidates: selectedShot.num_candidates ?? 2,
+                                                                            accel: accelLevel,
+                                                                            pipeline: renderPipeline,
+                                                                            force_direct: driveMode === "direct",
+                                                                            ref_images: selectedShot.ref_images,
+                                                                            scene_images: selectedShot.scene_images,
+                                                                            ref_style: selectedShot.ref_style,
+                                                                            video_model: selectedShot.video_model,
+                                                                        }}
+                                                                        onRender={(sid, options) => void runShotRender(sid, options)}
+                                                                        onKeyframeFocus={() => {
+                                                                            studioSlots?.requestStageFocus(id, "storyboard");
+                                                                            goSection("storyboard");
+                                                                        }}
+                                                                        onApplyRender={(sid, params) => void runShotRender(sid, params as RenderShotAsyncOpts)}
+                                                                        onVoice={(sid) => void runShotVoice(sid)}
+                                                                        onLipsync={(sid) => void runLipsync(sid)}
+                                                                        onSkipLipsync={(sid) => void runSkipLipsync(sid)}
+                                                                        lipsyncBusy={lipsyncBusy.has(selectedShot.id)}
+                                                                        voiceBlocked={voiceBlocked}
+                                                                    />
+                                                                )}
                                                                 {(proj.imageUrl || proj.videoUrl) && (
                                                                     <div className="flex flex-col gap-1.5">
                                                                         {proj.imageUrl && <img src={toivMediaUrl(proj.imageUrl) || proj.imageUrl} alt="" className="max-h-28 w-full rounded border border-[var(--border)] object-cover" />}
@@ -1847,27 +1951,12 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                                                 )}
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {proj.voiceUrl && <StatusBadge variant="filled" tone="success" label="已配音" size="sm" />}
-                                                                    {proj.finalClipUrl && <StatusBadge variant="filled" tone="success" label="成片段" size="sm" />}
+                                                                    {/* 成片段 success 徽标已移入 ShotRevisionInspector:final stale/unknown 时不显示,不与「成片待重合成」并存伪装最新 */}
                                                                     {selectedShot.error && <StatusBadge variant="filled" tone="error" label="失败" size="sm" />}
                                                                 </div>
                                                                 {selectedShot.error && (
                                                                     <p className="rounded border border-[var(--border)] bg-[var(--muted)] p-2 text-[var(--danger)]">{selectedShot.error}</p>
                                                                 )}
-                                                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                                                    {canRender && (
-                                                                        <ToolButton size="xs" variant="default" icon={<PlayCircle />} label={busy ? "渲染中…" : "渲染"} onClick={() => void runShotRender(selectedShot.id)} />
-                                                                    )}
-                                                                    {canVoice && (
-                                                                        <ToolButton size="xs" variant="ghost" icon={<Volume2 />} label="配音" onClick={() => void runShotVoice(selectedShot.id)} />
-                                                                    )}
-                                                                    {selectedShot.voice_url && !["lipsyncing", "lipsynced"].includes(selectedShot.status) && (
-                                                                        <>
-                                                                        <ToolButton size="xs" variant="ghost" icon={<Mic />} label="对口型" loading={lipsyncBusy.has(selectedShot.id)} disabled={voiceBlocked.blocked} title={voiceBlocked.blocked ? voiceBlocked.hint : undefined} onClick={() => void runLipsync(selectedShot.id)} />
-                                                                        <ToolButton size="xs" variant="ghost" icon={<Check />} label="跳过口型" loading={lipsyncBusy.has(selectedShot.id)} onClick={() => void runSkipLipsync(selectedShot.id)} />
-                                                                        </>
-                                                                    )}
-                                                                    {selectedShot.lipsync_skipped && <StatusBadge variant="filled" tone="warning" label="未对口型" size="sm" />}
-                                                                </div>
                                                             </div>
                                                         );
                                                     })()
@@ -1927,6 +2016,13 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                         {tlError && <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{tlError}</p>}
                                         {assembleError && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{assembleError}</p>
+                                        )}
+                                        {stageBlock && (
+                                            <StageBlockNotice
+                                                message={stageBlock.message}
+                                                stageId={stageBlock.stageId}
+                                                onOpenStage={(stage) => { if (id) studioSlots?.requestStageFocus(id, stage); }}
+                                            />
                                         )}
                                         {assembleMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>
@@ -2026,7 +2122,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                             />
                                             {id && (
                                                 <div className="w-full">
-                                                    <JianyingExportButton
+                                                    <StudioExportMenu
                                                         projectId={id}
                                                         shots={detail.shots ?? tlShots}
                                                         disabled={assembling}
@@ -2059,7 +2155,7 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                             <ToolButton variant="ghost" icon={<Layers />} label="去时间线检查片段" onClick={() => goSection("timeline")} />
                                         </div>
                                         {id && (
-                                            <JianyingExportButton
+                                            <StudioExportMenu
                                                 projectId={id}
                                                 shots={detail.shots ?? tlShots}
                                                 disabled={assembling}
@@ -2067,6 +2163,13 @@ export default function DramaWorkspacePage({ projectIdOverride }: { projectIdOve
                                         )}
                                         {assembleError && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-[var(--danger)]">{assembleError}</p>
+                                        )}
+                                        {stageBlock && (
+                                            <StageBlockNotice
+                                                message={stageBlock.message}
+                                                stageId={stageBlock.stageId}
+                                                onOpenStage={(stage) => { if (id) studioSlots?.requestStageFocus(id, stage); }}
+                                            />
                                         )}
                                         {assembleMsg && (
                                             <p className="rounded-lg border border-[var(--border)] p-2.5 text-xs text-foreground">{assembleMsg}</p>

@@ -50,16 +50,20 @@ router = APIRouter()
 
 
 def _user_dict(user: User) -> dict:
-    from app.redline import account_content_mode
+    from app.redline import account_content_mode, is_underage
 
     updated = getattr(user, "content_mode_updated_at", None)
+    bd = getattr(user, "birthdate", None)
     return {
         "id": user.id,
         "email": user.email,
         "role": user.role,
-        # 账号全局内容模式(ordinary|adult);403 / nsfw_allowed 唯一判据
+        # 账号全局内容模式(ordinary|adult);只读透出供前端同步(后端不加闸)
         "content_mode": account_content_mode(user),
         "content_mode_updated_at": updated.isoformat() if updated else None,
+        # P0-5 R5:只读透出 birthdate(ISO 或 null)+is_underage 供前端红线同步;不校验年龄、不加闸
+        "birthdate": bd.isoformat() if bd else None,
+        "is_underage": is_underage(user),
         # [DEPRECATED] 遗留软开关,仅历史透出
         "nsfw_enabled": user.nsfw_enabled,
         "default_agent_id": getattr(user, "default_agent_id", None),

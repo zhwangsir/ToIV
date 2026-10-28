@@ -212,6 +212,11 @@ def fusion_transcript_of_video(
     try:
         if raw.startswith("/api/") or Path(raw).is_absolute():
             video_owned = _owned_media_path(raw, user, session)
+        elif Path(raw).name == raw:
+            root = drama_output_root().resolve()
+            video_owned = (root / raw).resolve()
+            if not video_owned.is_relative_to(root):
+                raise HTTPException(status_code=403, detail="视频路径不在允许的媒体目录内")
         else:
             video_owned = _owned_media_path(str(drama_output_root() / raw), user, session)
     except HTTPException:

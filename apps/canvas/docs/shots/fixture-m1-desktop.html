@@ -1,0 +1,42 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · M1 desktop · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--elev:#14151a;--text:#f4f6f7;--muted:#8b8e98;--line:#25262c;--accent:#4A7FC1}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;right:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{height:100vh;display:flex;flex-direction:column;background:radial-gradient(1200px 600px at 10% -10%,rgba(74,127,193,.08),transparent 55%),var(--bg)}
+.stage{flex:1;position:relative;min-height:0}
+.icons{position:absolute;inset:16px;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;gap:8px 12px}
+.icon{width:72px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:10px}
+.glyph{width:40px;height:40px;border-radius:10px;background:var(--elev);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:11px;font-weight:700}
+.lbl{font-size:11px;text-align:center;text-shadow:0 1px 2px #000}
+.task{height:48px;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--elev) 92%,#000)}
+.start{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--elev);font-weight:650;font-size:12px}
+.tb{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);font-size:12px}
+.tb.active{box-shadow:inset 0 -2px 0 var(--accent)}
+.clock{margin-left:auto;font-size:11px;color:var(--muted)}
+.note{position:absolute;left:110px;top:40px;max-width:420px;color:var(--muted);font:12px/1.5 ui-monospace,Menlo,monospace}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · M1 desktop · themeId=toiv-noir</div>
+<div class="shell"><div class="stage">
+<div class="icons">
+<div class="icon"><div class="glyph">创</div><div class="lbl">创作</div></div>
+<div class="icon"><div class="glyph">剧</div><div class="lbl">短剧项目</div></div>
+<div class="icon"><div class="glyph">任</div><div class="lbl">任务中心</div></div>
+<div class="icon"><div class="glyph">工</div><div class="lbl">工具台</div></div>
+<div class="icon"><div class="glyph">库</div><div class="lbl">媒体库</div></div>
+<div class="icon"><div class="glyph">店</div><div class="lbl">应用商店</div></div>
+<div class="icon"><div class="glyph">设</div><div class="lbl">设置</div></div>
+<div class="icon"><div class="glyph">布</div><div class="lbl">画布库</div></div>
+<div class="icon"><div class="glyph">新</div><div class="lbl">新建画布</div></div>
+<div class="icon"><div class="glyph">Ag</div><div class="lbl">外部 Agent</div></div>
+<div class="icon"><div class="glyph">KPI</div><div class="lbl">学习看板</div></div>
+</div>
+<p class="note">DesktopShell · 预装 11 · A6 accent 仅任务栏指示<br/>App 内容区仍 BeefTV+A6 · 皮肤只动 chrome</p>
+</div>
+<footer class="task"><button class="start">开始</button>
+<button class="tb">创作</button><button class="tb">短剧项目</button><button class="tb">任务中心</button>
+<button class="tb">工具台</button><button class="tb">媒体库</button><button class="tb">应用商店</button><button class="tb">设置</button>
+<span class="clock">10:42</span></footer></div>
+</body></html>

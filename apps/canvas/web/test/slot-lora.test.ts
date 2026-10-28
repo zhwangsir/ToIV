@@ -103,6 +103,20 @@ describe("slot-lora hangers", () => {
         expect(store.get(SLOT_LORA_STORAGE_KEY)).toContain("image");
         expect(SLOT_LORA_CAP).toBe(3);
     });
+
+    test("write reports storage failure instead of claiming a saved preference", () => {
+        // @ts-expect-error test stub
+        globalThis.window = {
+            localStorage: {
+                getItem: () => null,
+                setItem: () => { throw new Error("quota exceeded"); },
+            },
+        };
+        expect(writeSlotLoras("image", [{ name: "a.safetensors", strength: 0.6 }])).toBe(false);
+        // @ts-expect-error test stub
+        globalThis.window = undefined;
+        expect(writeSlotLoras("image", [])).toBe(false);
+    });
 });
 
 describe("slot-lora P1 generate resolve", () => {

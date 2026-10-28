@@ -1,0 +1,53 @@
+<!doctype html>
+<html class="dark" lang="zh-CN"><head><meta charset=utf-8>
+<title>FIXTURE · A5 create · 非现网硬刷</title>
+<style>
+:root{--bg:#0b0c0f;--raised:#14151a;--panel:#101116;--text:#f4f6f7;--muted:#8b8e98;--line:rgba(255,255,255,.10);--accent:#E11D48}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,sans-serif}
+.badge{position:fixed;top:10px;left:10px;z-index:9;font:600 10px/1.2 ui-monospace,Menlo,monospace;color:#f4f6f7;background:var(--accent);padding:5px 8px;border-radius:4px}
+.shell{display:grid;grid-template-rows:40px 1fr 160px;height:100vh}
+.top{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line)}
+.brand{font:650 13px ui-monospace,Menlo,monospace}.spacer{flex:1}
+.chip{height:24px;padding:0 8px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--muted);font-size:11px}
+.chip.primary{background:var(--accent);border-color:var(--accent);color:#f4f6f7;font-weight:600}
+.main{display:grid;grid-template-columns:210px 1fr 260px;min-height:0}
+.rail,.insp{background:var(--raised);border-right:1px solid var(--line);padding:10px;overflow:auto}
+.insp{border-right:0;border-left:1px solid var(--line)}
+.h{margin:0 0 8px;font-size:11px;color:var(--muted);font-weight:600}
+.row{display:flex;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line)}
+.row.is-on{box-shadow:inset 2px 0 0 var(--accent);background:rgba(225,29,72,.08)}
+.thumb{width:40px;height:40px;border-radius:4px;background:var(--panel);border:1px solid var(--line);flex:none}
+.row b{font-size:12px;font-weight:560}.row span{display:block;font-size:11px;color:var(--muted)}
+.stage{display:grid;place-items:center;background:#07080b;position:relative}
+.frame{width:min(380px,68%);aspect-ratio:9/16;border:1px solid var(--line);border-radius:6px;background:linear-gradient(180deg,#14151a,#0b0c0f);display:grid;place-items:center;color:var(--muted);font-size:12px}
+.play{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:#f4f6f7;display:grid;place-items:center;position:absolute;bottom:18px;left:50%;transform:translateX(-50%);box-shadow:none}
+.play svg{width:14px;height:14px;fill:currentColor}
+.insp li{list-style:none;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.tl{border-top:1px solid var(--line);background:var(--raised);padding:8px 12px}
+.tracks{position:relative;height:88px;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin-top:8px}
+.ph{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);left:110px;z-index:2}
+.clip{position:absolute;height:20px;border-radius:4px;border:1px solid rgba(225,29,72,.45);background:rgba(225,29,72,.14)}
+.clip.a{border-color:rgba(255,255,255,.14);background:rgba(139,142,152,.12)}
+.meta{font:11px ui-monospace,Menlo,monospace;color:var(--muted)}
+</style></head><body>
+<div class="badge">FIXTURE · 非现网硬刷 · A5 create</div>
+<div class="shell">
+<header class="top"><span class="brand">ToIV</span><span class="chip">分镜</span><span class="chip">成片</span><span class="spacer"></span><button class="chip primary">生成</button></header>
+<div class="main">
+<aside class="rail"><p class="h">媒体池</p>
+<div class="row is-on"><div class="thumb"></div><div><b>镜 01</b><span>图片</span></div></div>
+<div class="row"><div class="thumb"></div><div><b>镜 02</b><span>图片</span></div></div>
+<div class="row"><div class="thumb"></div><div><b>雨声</b><span>音频</span></div></div>
+</aside>
+<section class="stage"><div class="frame">预览</div>
+<button class="play" aria-label="播放"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg></button></section>
+<aside class="insp"><p class="h">属性</p><p style="font-size:12px;color:var(--muted)">当前：普通</p>
+<p class="h">区段</p><ul style="margin:0;padding:0"><li>剧本</li><li>分镜</li><li>参考</li></ul></aside>
+</div>
+<footer class="tl"><div class="meta">00:04 / 00:54 · playhead #E11D48</div>
+<div class="tracks"><div class="ph"></div>
+<div class="clip" style="left:12px;top:24px;width:130px"></div>
+<div class="clip" style="left:150px;top:24px;width:90px"></div>
+<div class="clip a" style="left:12px;top:52px;width:200px"></div>
+</div></footer>
+</div></body></html>

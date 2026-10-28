@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-27T03:30:00+08:00",
+  "updated_at": "2026-10-28T10:14:00+08:00",
   "session_checkpoint_2026_10_15": {
     "status": "active_fu2_done_2026_10_15",
     "commits": [
@@ -16282,7 +16282,7 @@
   "ui_remediation": "done",
   "tip_remediation": "c452d284",
   "target_tip": "c452d284",
-  "local_head": "c452d284",
+  "local_head": "0a426713",
   "local_chain": [
     "2f6ad65b",
     "090e2176",
@@ -16292,22 +16292,22 @@
   "tip_curtain_shrink": "2f6ad65b",
   "tip_curtain": "2f6ad65b",
   "ui_quality_replan": "locked",
-  "prod_tip": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
-  "push_authorized": true,
-  "await_user": "push_then_deploy",
+  "prod_tip": "0a426713e0b7025403260db3d59faca3aa14511f",
+  "push_authorized": false,
+  "await_user": "shell_rebuild_full_site",
   "pending_dispatch": null,
   "gap_table": "done",
   "evidence": "技术负责人 R12 关账+R1–R12 归档：final_tip=ebf8cdf1（含走查 ae158cce+补）；安全/运维/调研途中交付已入；carryover 已挂；routine toiv-30=paused；未 push",
   "local_ahead_of_prod": 0,
   "shipping_target_tip": "c452d284",
-  "remote_tip": "8bd97534",
+  "remote_tip": "0a426713",
   "remote_tip_gitee": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
   "remote_tip_github": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
   "remote_ahead": {
     "origin": 0,
     "github": 0
   },
-  "push_landed": false,
+  "push_landed": true,
   "tip_remediation_pushed": true,
   "deploy_window_2026_10_26_c452d284": {
     "status": "closed_done",
@@ -16353,14 +16353,15 @@
   "deploy_status": "closed_done",
   "deploy_result": {
     "status": "done",
-    "prod_tip": "8bd97534",
-    "prod_tip_full": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
-    "from_tip": "c452d284",
-    "build_id": "20261026-174816-8bd97534",
-    "closed_at": "2026-10-27T01:50:00+08:00",
+    "prod_tip": "0a426713",
+    "prod_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
+    "from_tip": "8bd97534",
+    "build_id": "20261026-193533-0a426713",
+    "closed_at": "2026-10-27T03:37:00+08:00",
+    "p0_fix": "studioGuard 302 resolved",
     "source": "技术负责人"
   },
-  "prev_prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
+  "prev_prod_tip": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
   "BUILD_ID": "20261026-054140-c452d284",
   "web_build_id": "20261026-054140-c452d284",
   "smoke": 0,
@@ -16417,16 +16418,16 @@
     "refactor_mode": "local_tips_no_push_default",
     "refactor_deadline": "2026-10-26T22:05:00+08:00",
     "refactor_cadence": "every_30min",
-    "await_user": "push_then_deploy",
-    "push_authorized": true,
+    "await_user": "shell_rebuild_full_site",
+    "push_authorized": false,
     "ui_remediation": "done",
-    "prod_tip": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
+    "prod_tip": "0a426713e0b7025403260db3d59faca3aa14511f",
     "deploy_status": "closed_done",
     "note": "本地 tips 默认不 push；勿改生产；等 round1 产出",
     "evidence": "2026-10-27 用户改口径（经 TL）：限制/红线仅前端，禁后端加闸；挂账已删 BE P0 R12-3 / R12-1·2·4 / media 部分闸；保留 P1-3、P2×5、前端 redline(R12-5)；push_authorized=false。 | 前证：技术负责人 R12 关账+R1–R12 归档：final_tip=ebf8cdf1（含走查 ae158cce+补）；安全/运维/调研途中交付已入；carryover 已挂；routine toiv-30=paused；未 push",
     "source": "技术负责人",
     "started_at": "2026-10-26T14:06:40+08:00",
-    "updated_at": "2026-10-27T03:30:00+08:00",
+    "updated_at": "2026-10-28T06:45:00+08:00",
     "round1_license_gate": "done",
     "license_gate_A": [
       "Toonflow-app",
@@ -16449,7 +16450,7 @@
     "license_gate_risk": "redline.ts/.py 当前硬 import；『缺失不影响主功能』不成立；另轮 soft-optional",
     "license_gate_evidence": "docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
     "license_gate_evidence_on_disk": true,
-    "await_user_note": "用户口令 push+deploy tip 50252fe7；已派跨端 push；运维待 remote 齐后 deploy",
+    "await_user_note": "用户厅内卡点亲口：现在开全站壳推倒，对照 BeefTV/DramaClaw/Toonflow 重定视觉，不微调（非候选）。跨端 A0–A3 拆单进行中；REA 委托链 verify=paused；push/deploy=false。",
     "license_gate_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
     "license_gate_evidence_authority": "file+chat",
     "round1_visual_dna": "done",
@@ -16571,7 +16572,7 @@
     "round7_calibration_tip_full": "e8391a957ec39fd7427277a03650162d0453d79e",
     "round7_handback": "apps/canvas/docs/GENERATION_QUEUE_R7_HANDBACK.md",
     "round7_handback_on_disk": true,
-    "notes": "2026-10-27 03:30 用户口令（经 TL）：push+deploy tip 50252fe7；已派跨端 push；运维待 remote 齐后 deploy；await=push_then_deploy。",
+    "notes": "2026-10-27 03:37 P0 deploy 关账：prod tip=0a426713 BUILD=20261026-193533-0a426713；/studio/create 公网 200 不再→home；rollback=`deploy.sh --rollback core`（窗内 8bd97534）；deploy_authorized=false；await=user_studio_visual_check；A 仍等观感确认后再开。",
     "round7_notes": "生成队列坞顶栏（光幕左）+/create 底栏；--toiv-job-* 硬表（行92/缩略84×60/进度3px #5ba0ff 420ms/重试32/抽屉736/侧320）；禁假满条；普通 NSFW 灰锁；未 push",
     "round8_opened_at": "2026-10-26T14:38:55+08:00",
     "round8_license_gate": "done",
@@ -16832,14 +16833,14 @@
     "closed_at": "2026-10-26T15:06:28+08:00",
     "carryover_policy": "限制/红线仅前端；禁后端加闸",
     "carryover_policy_at": "2026-10-27T01:05:18+08:00",
-    "deploy_authorized": true,
+    "deploy_authorized": false,
     "push_target_tip": "50252fe7",
     "push_target_branch": "work/p0-fusion-20261016",
     "push_auth_at": "2026-10-27T01:03:00+08:00",
     "push_auth_source": "技术负责人转述用户口令 2026-10-27",
     "push_landed": true,
-    "remote_tip": "8bd97534",
-    "remote_tip_full": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
+    "remote_tip": "0a426713",
+    "remote_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
     "remote_tip_remotes": {
       "origin": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
       "github": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
@@ -16855,45 +16856,51 @@
     "round6_tip_pushed": true,
     "round8_tip_pushed": true,
     "round12_tip_pushed": true,
-    "deploy_auth_at": "2026-10-27T01:47:00+08:00",
-    "deploy_target_tip": "50252fe7",
-    "deploy_closed_at": "2026-10-27T01:50:00+08:00",
-    "prev_prod_tip": "c452d28402b0a783f30c076cc84aeb63dd4fc69e",
-    "build_id": "20261026-174816-8bd97534",
+    "deploy_auth_at": "2026-10-27T03:34:00+08:00",
+    "deploy_target_tip": "0a426713",
+    "deploy_closed_at": "2026-10-27T03:37:00+08:00",
+    "prev_prod_tip": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
+    "build_id": "20261026-193533-0a426713",
     "deploy_health": {
-      "api": "ok",
-      "web": "ok",
-      "public_version": "ok",
-      "canvas_lan": "ok"
+      "studio_create_public": "200",
+      "no_redirect_to_home": true
     },
     "deploy_rollback": {
       "cmd": "deploy.sh --rollback core",
-      "backup": "pre-8bd97534 时戳备份"
+      "window_tip": "8bd97534"
     },
     "p0_incident": {
       "id": "p0_studio_create_302_20261027",
       "severity": "P0",
-      "status": "push_deploy_authorized",
+      "status": "deployed_await_visual",
       "symptom": "/studio/create 被 302 打回 /?view=home；创作台不可达",
-      "prod_tip": "8bd97534",
-      "build_id": "20261026-174816-8bd97534",
+      "prod_tip": "0a426713",
+      "build_id": "20261026-193533-0a426713",
       "opened_at": "2026-10-27T03:24:00+08:00",
       "source": "技术负责人",
       "executor": "跨端设计",
-      "await": "push_then_deploy",
+      "await": "user_studio_visual_check",
       "push_authorized": true,
-      "deploy_authorized": true,
+      "deploy_authorized": false,
       "note": "热修 tip 到后仍等用户口令再 push/deploy",
       "fe_fix_tip": "50252fe7",
       "fe_fix_tip_at": "2026-10-27T03:28:00+08:00",
       "root_cause": "studioGuard SPA 无 cookie→踢 home",
       "local_ahead": 1,
-      "option_a": "暂缓",
+      "option_a": "仍暂缓；等用户确认观感后再开",
       "auth_at": "2026-10-27T03:30:00+08:00",
       "executors": {
         "push": "跨端设计",
         "deploy": "网络运维（remote 齐后）"
-      }
+      },
+      "remote_tip": "0a426713",
+      "remote_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
+      "push_landed": true,
+      "deploy_started": false,
+      "deploy_paused_reason": "tip 从 50252fe7 变为 0a426713，运维等用户亲口确认",
+      "deploy_auth_at": "2026-10-27T03:34:00+08:00",
+      "studio_create_public": "200",
+      "closed_at": "2026-10-27T03:37:00+08:00"
     },
     "fe_fix_tip": "50252fe7"
   },
@@ -16928,7 +16935,7 @@
   "accent_cyan": "#00bdcf",
   "license_gate_evidence_abs": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/ops/WAVE2_LICENSE_GATE_R1_20261026.md",
   "license_gate_evidence_authority": "file+chat",
-  "await_user_note": "用户口令 push+deploy tip 50252fe7；已派跨端 push；运维待 remote 齐后 deploy",
+  "await_user_note": "壳波 A0–A6+A4.1 本地完；A6 黑白壳+#4A7FC1；A4.1 create 空态 quieter 审过。tip 仍 0a426713 未 commit/push/deploy。挂账：FeaturedWorks 源码未删、线程 Sparkles、node-glow、cyan 旧名、现网硬刷缺会话。REA verify=paused。等用户下一步。",
   "round1_status": "done",
   "round1_closed": true,
   "round1_tip": "c87a6a02",
@@ -17336,13 +17343,111 @@
       },
       {
         "id": "p0_studio_create_302",
-        "item": "studioGuard 热修 tip=50252fe7；push+deploy 已授权进行中",
-        "status": "push_then_deploy"
+        "item": "已上线 tip=0a426713；公网 /studio/create 200",
+        "status": "pass",
+        "passed_at": "2026-10-28T06:16:00+08:00",
+        "evidence": {
+          "source": "网络运维只读（经技术负责人）",
+          "at": "2026-10-28T06:16:00+08:00",
+          "checks": [
+            "/studio/create → 200 无 Location",
+            "/create → 308 → /studio/create",
+            "BUILD=20261026-193533-0a426713",
+            "/api/health ok"
+          ],
+          "prod_tip": "0a426713",
+          "build_id": "20261026-193533-0a426713"
+        },
+        "tracked_as": "rea_studio_create",
+        "rea_updated_at": "2026-10-28T06:18:00+08:00"
+      },
+      {
+        "id": "ext_login_delegation",
+        "item": "真实 ToIV 登录委托链未验",
+        "status": "blocked",
+        "tracked_as": "rea_login_delegation",
+        "rea_updated_at": "2026-10-28T06:18:00+08:00"
+      },
+      {
+        "id": "ext_gpu_paid",
+        "item": "生产 GPU/Comfy/付费生成链未验",
+        "status": "external_boundary"
+      },
+      {
+        "id": "ext_nle",
+        "item": "达芬奇/Premiere/FCP NLE 真机导入未验",
+        "status": "blocked",
+        "tracked_as": "rea_nle_sample",
+        "rea_updated_at": "2026-10-28T06:18:00+08:00"
+      },
+      {
+        "id": "ext_zip_unpack",
+        "item": "多轨 ZIP 文件结构未实包校验",
+        "status": "pass_non_prod",
+        "tracked_as": "rea_multitrack_unpack",
+        "rea_updated_at": "2026-10-28T06:18:00+08:00"
+      },
+      {
+        "id": "ext_public_keypath",
+        "item": "公网现网 BUILD/关键路径实测未验",
+        "status": "pass",
+        "tracked_as": "rea_studio_create",
+        "passed_at": "2026-10-28T06:16:00+08:00",
+        "evidence": {
+          "source": "网络运维只读（经技术负责人）",
+          "at": "2026-10-28T06:16:00+08:00",
+          "checks": [
+            "/studio/create → 200 无 Location",
+            "/create → 308 → /studio/create",
+            "BUILD=20261026-193533-0a426713",
+            "/api/health ok"
+          ],
+          "prod_tip": "0a426713",
+          "build_id": "20261026-193533-0a426713"
+        },
+        "rea_updated_at": "2026-10-28T06:18:00+08:00"
+      },
+      {
+        "id": "redline_py_dual_gate_vs_fe_only",
+        "item": "apps/api/app/redline.py 仍为旧 dual-gate；与 FE-only 口径差，是否清理待用户定",
+        "status": "deferred"
       }
     ],
-    "updated_at": "2026-10-27T03:30:00+08:00"
+    "updated_at": "2026-10-28T06:45:00+08:00",
+    "governance_ae": {
+      "status": "completed_local_external_boundaries_recorded",
+      "remaining_stages": [],
+      "local_verify": "FastAPI 4936p；Canvas web 3795p；Go/agent-host/Next 绿；未 push/deploy"
+    },
+    "real_env_acceptance": {
+      "status": "partial",
+      "login_delegation_verify": "paused",
+      "pass": [
+        "rea_studio_create"
+      ],
+      "pass_non_prod": [
+        "rea_multitrack_unpack"
+      ],
+      "blocked": [
+        "rea_login_delegation",
+        "rea_nle_sample"
+      ]
+    },
+    "out_of_scope_this_round": [
+      {
+        "id": "ext_gpu_paid",
+        "item": "生产 GPU/Comfy/付费生成链",
+        "note": "本轮四项不含；仍挂账"
+      }
+    ],
+    "visual_redirect_pending": {
+      "status": "in_progress",
+      "await_user": "shell_rebuild_full_site",
+      "workstream": "A0–A3",
+      "at": "2026-10-28T06:45:00+08:00"
+    }
   },
-  "deploy_authorized": true,
+  "deploy_authorized": false,
   "push_target_tip": "50252fe7",
   "push_target_tip_full": "ebf8cdf1c8565b1b8b19b3f95e16e90f84c648d8",
   "push_target_branch": "work/p0-fusion-20261016",
@@ -17353,70 +17458,1175 @@
     "后端开发"
   ],
   "push_auth_booked_at": "2026-10-27T01:06:40+08:00",
-  "remote_tip_full": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
+  "remote_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
   "remote_tip_branch": "work/p0-fusion-20261016",
   "remote_tip_remotes": {
-    "origin": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
-    "github": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
-    "ahead": 0
+    "note": "TL: Gitee+GitHub ahead0",
+    "tip": "0a426713"
   },
   "remote_tip_contains": [
-    "ebf8cdf1",
-    "docs archive R9–R12"
+    "50252fe7",
+    "studioGuard P0 hotfix"
   ],
   "remote_tip_verified_at": "2026-10-27T01:09:49+08:00",
   "remote_tip_verified_local": true,
-  "push_closed_at": "2026-10-27T01:09:49+08:00",
+  "push_closed_at": "2026-10-27T03:31:30+08:00",
   "workspace_dirty_docs": [
     "STATE.json",
     "TEST_LOG.md"
   ],
   "workspace_dirty_note": "五件套 STATE/TEST_LOG 工作区未提交（本波 push 关账写入）；未 commit",
-  "deploy_auth_at": "2026-10-27T03:30:00+08:00",
-  "deploy_auth_source": "技术负责人转述用户口令 2026-10-27 03:30",
-  "deploy_target_tip": "50252fe7",
-  "deploy_target_tip_full": "8bd9753441ffa3a7f449dc723cb177cf0a9d3367",
+  "deploy_auth_at": "2026-10-27T03:34:00+08:00",
+  "deploy_auth_source": "用户亲口确认（经 TL）deploy tip 0a426713",
+  "deploy_target_tip": "0a426713",
+  "deploy_target_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
   "deploy_executor": "网络运维",
-  "status": "deployed_live_8bd97534",
-  "build_id": "20261026-174816-8bd97534",
+  "status": "shell_rebuild_full_site_in_progress",
+  "build_id": "20261026-193533-0a426713",
   "tip": "8bd97534",
-  "deploy_closed_at": "2026-10-27T01:50:00+08:00",
-  "prod_tip_short": "8bd97534",
+  "deploy_closed_at": "2026-10-27T03:37:00+08:00",
+  "prod_tip_short": "0a426713",
   "deploy_health": {
-    "api": "ok",
-    "web": "ok",
-    "public_version": "ok",
-    "canvas_lan": "ok"
+    "studio_create_public": "200",
+    "no_redirect_to_home": true
   },
   "deploy_rollback": {
     "cmd": "deploy.sh --rollback core",
-    "backup": "pre-8bd97534 时戳备份"
+    "window_tip": "8bd97534"
   },
   "p0_incident": {
     "id": "p0_studio_create_302_20261027",
     "severity": "P0",
-    "status": "push_deploy_authorized",
+    "status": "deployed_visual_check_open_absorbed",
     "symptom": "/studio/create 被 302 打回 /?view=home；创作台不可达",
-    "prod_tip": "8bd97534",
-    "build_id": "20261026-174816-8bd97534",
+    "prod_tip": "0a426713",
+    "build_id": "20261026-193533-0a426713",
     "opened_at": "2026-10-27T03:24:00+08:00",
     "source": "技术负责人",
     "executor": "跨端设计",
-    "await": "push_then_deploy",
+    "await": "superseded_by_governance_ae_user_choose_next",
     "push_authorized": true,
-    "deploy_authorized": true,
-    "note": "热修 tip 到后仍等用户口令再 push/deploy",
+    "deploy_authorized": false,
+    "note": "P0 热修已上线；目视确认挂起被生产治理 A–E 本地收口交接吸收，下一步由用户三选一",
     "fe_fix_tip": "50252fe7",
     "fe_fix_tip_at": "2026-10-27T03:28:00+08:00",
     "root_cause": "studioGuard SPA 无 cookie→踢 home",
     "local_ahead": 1,
-    "option_a": "暂缓",
+    "option_a": "仍暂缓；等用户确认观感后再开",
     "auth_at": "2026-10-27T03:30:00+08:00",
     "executors": {
       "push": "跨端设计",
       "deploy": "网络运维（remote 齐后）"
-    }
+    },
+    "remote_tip": "0a426713",
+    "remote_tip_full": "0a426713e0b7025403260db3d59faca3aa14511f",
+    "push_landed": true,
+    "deploy_started": false,
+    "deploy_paused_reason": "tip 从 50252fe7 变为 0a426713，运维等用户亲口确认",
+    "deploy_auth_at": "2026-10-27T03:34:00+08:00",
+    "studio_create_public": "200",
+    "closed_at": "2026-10-27T03:37:00+08:00",
+    "updated_at": "2026-10-28T06:12:00+08:00"
   },
   "fe_fix_tip": "50252fe7",
-  "fe_fix_tip_p0": "50252fe7"
+  "fe_fix_tip_p0": "50252fe7",
+  "deploy_pending_tip_confirm": null,
+  "deploy_pending_tip_contains": "50252fe7",
+  "autonomous_refactor_2026_10_27": {
+    "status": "legacy_round_15_done_new_plan_b1_next",
+    "updated_at": "2026-10-27T10:05:20+08:00",
+    "base_tip": "0a426713e0b7025403260db3d59faca3aa14511f",
+    "branch": "work/p0-fusion-20261016",
+    "budget_hours": 8,
+    "rounds_planned": 16,
+    "rounds_done": 15,
+    "cadence_cron_id": null,
+    "goal_reset": "production_governance_plan_2026_10_27；旧 8h cron 已按用户新口令删除",
+    "push_authorized": false,
+    "deploy_authorized": false,
+    "round_1": {
+      "theme": "Freezone 全局视觉系统重置",
+      "sidebar_px": [
+        334,
+        216
+      ],
+      "topbar_px": [
+        89,
+        56
+      ],
+      "create_stage_px_at_1600": [
+        650,
+        768
+      ],
+      "muted_color": [
+        "#6f7079",
+        "#9298a6"
+      ],
+      "canvas_focused_tests": "8 pass / 0 fail",
+      "web_focused_tests": "95 pass / 0 fail",
+      "web_typecheck": "pass",
+      "browser_page_errors": 0,
+      "screenshots": "apps/canvas/web/test-results/freezone-r1/",
+      "reference_repos_done": 13,
+      "runninghub_research": "done_in_round_2",
+      "light_theme_followup": "浅色外壳已恢复；创作左右栏与时间线仍深色，R3 继续",
+      "full_build_blockers": [
+        "Canvas 原有 5 个 TypeScript 错误（R2 已清理）",
+        "Web 旧 designTokens.test.ts 仍引用已归档 docs/DESIGN.md"
+      ]
+    },
+    "round_2": {
+      "theme": "顶栏与光幕拨片",
+      "switch_height_px": [
+        28,
+        32
+      ],
+      "mobile_switch_width_px": 56,
+      "focus_ring": "2px 实色内环，不被轨道裁剪",
+      "contrast": "普通/成人文本与焦点预算通过",
+      "confirm_dialog": "自动聚焦、Escape、外点关闭、焦点归还、aria-describedby",
+      "underage": "成人按钮 disabled + 统一提示",
+      "light_theme": "拨片与确认层真实浅色映射；其余创作面板待 R3",
+      "confirm_cta": "#4f8cff；紫色仅保留 NSFW 锁标",
+      "canvas_focused_tests": "21 pass / 0 fail（251 assertions）",
+      "web_focused_tests": "96 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "browser_page_errors": 0,
+      "screenshots": "apps/canvas/web/test-results/freezone-r2/",
+      "baseline_typescript_errors_fixed": 5,
+      "runninghub_public_research": "done；公开详情可读，执行/导出 401 未绕过",
+      "wan_lora_ledger": "NSFW-22-H/L-e8 version/license/SHA256 已回写 docs/MODEL_SOURCES.json",
+      "nas_sha256_verified": true,
+      "mcnl_license_correction": "Civitai 字段需署名；HF OpenRAIL++；不再采用二手 Any service 口径",
+      "model_generation_ab_test": "completed_in_round_13_single_smoke"
+    },
+    "round_3": {
+      "theme": "单一创作台布局与浅色治理",
+      "create_stage_px_at_1280": [
+        448,
+        568
+      ],
+      "medium_panes": "左 200 / 右 280；宽屏保持左 280 / 右 320",
+      "heading": "营销式大标题改为 20px 左对齐自由创作",
+      "quick_actions": "4 列压缩卡改 3 列可读卡，窄屏自适应",
+      "inspector": "去除重复卡片壳；双闸旧文案改前端显示规则",
+      "light_theme": "三栏、主舞台、Inspector、时间线统一语义浅色",
+      "canvas_focused_tests": "8 pass / 0 fail（50 assertions）",
+      "web_focused_tests": "96 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "browser_page_errors": 0,
+      "screenshots": "apps/canvas/web/test-results/freezone-r3/"
+    },
+    "round_4": {
+      "theme": "分镜卡深浅色均跟随语义 token",
+      "grid": "auto-fit minmax 220；768px 三列、568px 两列",
+      "shot_metadata": "SHOT 编号、运镜、角色、时长、台词引用与衔接",
+      "selection": "鼠标/Enter 可选；右栏 420px 内联扩宽，无中栏浮层",
+      "script_stage": "正文优先，参数说明改用户向文案",
+      "canvas_focused_tests": "10 pass / 0 fail（61 assertions）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "screenshots": "apps/canvas/web/test-results/freezone-r4/",
+      "web_design_md_stale_test_fixed": true
+    },
+    "round_5": {
+      "theme": "节点编排引擎外观与交互",
+      "node_surface": "暗色节点保持 #15161d 语义表面；muted 提升 #9298a6",
+      "selection": "accent 内描边 + 24px glow；类型色映射实测",
+      "ports": "键盘 focus 强制可见并显示 2px 焦点环",
+      "edges": "活跃连线 #5ba0ff；普通命中区保持 24px",
+      "canvas_focused_tests": "11 pass / 0 fail（70 assertions）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "screenshots": "apps/canvas/web/test-results/freezone-r5/"
+    },
+    "round_6": {
+      "theme": "导演台空间结构纠偏（用户反馈 UI 怪）",
+      "global_sidebar": "创作页默认 56px，可手动扩至 216px；其他路由不受影响",
+      "asset_rail": "默认 240px",
+      "inspector": "默认收起；手动打开或选中镜头自动恢复；320/420px",
+      "timeline": "无项目默认 40px，可展开 260px",
+      "create_stage_px_at_1600": [
+        768,
+        1296
+      ],
+      "stage_with_inspector_px": 968,
+      "canvas_focused_tests": "12 pass / 0 fail（72 assertions）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "browser_page_errors": 0,
+      "screenshots": "apps/canvas/web/test-results/freezone-r6/"
+    },
+    "round_7": {
+      "theme": "生成队列与任务状态",
+      "panel_width_px": [
+        300,
+        420
+      ],
+      "progress": "服务端 42% 精确显示；未知进度保持 indeterminate，不伪造 100%",
+      "task_copy": "显示提示词，任务不再只有类型",
+      "feedback": "日志可见；重试失败显示操作未完成而非队列不可用",
+      "trigger": "补 focus-visible 焦点环",
+      "canvas_focused_tests": "7 pass / 0 fail（43 assertions）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "screenshots": "apps/canvas/web/test-results/freezone-r7/"
+    },
+    "round_8": {
+      "theme": "视频预览与时间线播放器",
+      "preview_monitor": "当前镜头真实 media_url 视频、preview_url 海报、无媒体与错误反馈；桌面 240px，窄屏隐藏",
+      "clip_switch": "暂停并定位所选片段起点；预览时间按 playhead-selectedStartSec 计算",
+      "frame_step": "播放与暂停定位解耦；逐帧同步推进播放头和媒体，修复浮点阈值与旧偏移回写",
+      "media_test": "真实 MP4 + HTTP Range；验证播放、下一帧与音频空态",
+      "canvas_focused_tests": "15 pass / 0 fail（76 assertions；六文件串行）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "parallel_test_note": "一次并发整组浏览器测试无进展已停止；独立重跑通过，不记作整组通过",
+      "screenshots": "apps/canvas/web/test-results/freezone-r8/"
+    },
+    "round_9": {
+      "theme": "空态、加载态与反馈统一",
+      "media_recovery": "无匹配一键清空关键词/类型/标签；空库直达上传素材",
+      "storyboard_recovery": "空分镜直达剧本解析；导航保留 project 等查询参数",
+      "content_mode_semantics": "筛选无结果不误报内容隐藏；已知 NSFW 可见锁定，未评级普通态隐藏",
+      "feedback": "32px CTA + 键盘焦点；reduced-motion 关闭 shimmer；移除空态多余光晕",
+      "canvas_focused_tests": "19 pass / 0 fail（98 assertions；七文件串行）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "visual_review": "截图固定到动画终态；不采用半透明中间帧",
+      "screenshots": "apps/canvas/web/test-results/freezone-r9/"
+    },
+    "round_10": {
+      "theme": "设置与模型管理",
+      "compatibility": "LoRA 钉选复用生成前校验；基座不匹配显式提示，保留原选择",
+      "inventory_fallback": "在线引擎清单失败与真空候选分离；本地调研库存可用，支持重试",
+      "persistence": "writeSlotLoras 返回真实写入结果；失败不关弹层、不更新摘要、不假报成功",
+      "canvas_settings_tests": "38 pass / 0 fail",
+      "canvas_focused_tests": "21 pass / 0 fail（104 assertions；八文件串行）",
+      "web_full_tests": "355 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass",
+      "web_build": "pass",
+      "test_maintenance": "两个过期角色槽文案断言按现行 UI 校准；Ant reset 与 Modal 可见截图证据",
+      "screenshots": "apps/canvas/web/test-results/freezone-r10/"
+    },
+    "round_11": {
+      "theme": "跨端一致性与 Strangler 关键路径",
+      "redirect_fix": "旧 /toiv/ws 根/项目/六段进入 /studio/create；Next 与 Canvas 均保留 project/section/query",
+      "http_evidence": "生产 Next + /studio/ Canvas dist：create/version 200，旧 create/ws 308 参数正确",
+      "browser_evidence": "旧 ws 进入 Canvas workbench，project/section/foo 完整，pageerror=0",
+      "anonymous_auth": "匿名初始 200 后进入现有登录页，next=/studio/create；未伪称完成凭据登录验收",
+      "test_environment": "dist 路径与 /studio/ 基座纠偏后资源恢复；临时 Next 已关闭，未 deploy",
+      "canvas_focused_tests": "21 pass / 0 fail（104 assertions；八文件串行）",
+      "web_full_tests": "356 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass（默认基座与 /studio/ 部署基座分别构建）",
+      "web_build": "pass",
+      "http_log": "apps/web/test-results/strangler-r11/http-routes.txt",
+      "screenshots": "apps/canvas/web/test-results/freezone-r11/"
+    },
+    "round_12": {
+      "theme": "全局交互硬化",
+      "cross_clip_preview": "seek 同步镜头选择与监视器偏移；播放中跟随活动视频段",
+      "boundaries": "片段结束停在切点；首末帧与首尾跳转真实 disabled",
+      "load_recovery": "加载失败明确显示并可重试；实测恢复真实 MP4",
+      "canvas_focused_tests": "23 pass / 0 fail（113 assertions；八文件串行）",
+      "web_full_tests": "356 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass（/studio/ 部署基座）",
+      "web_build": "pass",
+      "visual_review": "测试壳补齐空态 CSS，重拍加载失败终态",
+      "screenshots": "apps/canvas/web/test-results/freezone-r12/"
+    },
+    "round_13": {
+      "theme": "模型生成质量 A/B 与证据补强",
+      "integration": "NSFW-22-L-e8 补入 Wan I2V 低噪注册表与引擎标签；HIGH+LOW 配方 7 项",
+      "generation_ab": "真实 :8197，同参考/seed/参数，A 基座 vs B HIGH+LOW 各 0.8；两段均 832x480/49帧/3.0625s",
+      "prompt_ids": [
+        "4c93bbd3-4085-4ef4-9e55-60c4522894a5",
+        "524c075b-5415-4930-bd51-d8460df68723"
+      ],
+      "visual_review": "人物与窗景一致；B 成人语义更明显；采样帧未见灾难性脸/背景崩坏；单样本不作全场景认证",
+      "timing_note": "216.1s vs 45.8s 含加载/缓存差异，不作速度结论；默认未改",
+      "initial_validation_failure": ":8197 缺 Seko 加速文件首次 400，未采样；两组改 accel=off 后通过",
+      "api_focused_tests": "114 pass / 0 fail",
+      "web_full_tests": "356 pass / 0 fail",
+      "canvas_typecheck": "pass",
+      "web_typecheck": "pass",
+      "canvas_build": "pass（/studio/ 部署基座）",
+      "web_build": "pass",
+      "model_generation_ab_test": "completed_single_smoke",
+      "evidence": "test-results/freezone-r13/wan-nsfw22-ab/；docs/MODEL_SOURCES.json 已回写"
+    },
+    "round_14": {
+      "theme": "全量回归与剩余质量门禁",
+      "fixes": "App 上下文 modal；角色表 templates 拆分桥接；fusion 裸产物名 sidecar 回退；过期测试契约逐项校准",
+      "api_full_tests": "4724 pass / 0 fail / 41 skip（后续 A1 新增 2 测试后 4726）",
+      "canvas_full_tests": "3508 pass / 0 fail / 16 skip",
+      "go_full_tests": "go vet ./... && go test ./... pass",
+      "web_full_tests": "356 pass / 0 fail",
+      "builds": "Canvas/Next 正式 build 与双端 typecheck pass"
+    },
+    "round_15": {
+      "theme": "旧 Agent 会话连续性",
+      "agent_view": "/create?view=agent 承载旧会话；草稿与 pending session 只消费一次；⌘K 新对话有效",
+      "routes": "Next 与 Canvas 旧 /toiv/agent 均迁移至工作台 Agent 视图",
+      "canvas_full_tests": "3509 pass / 0 fail / 16 skip",
+      "web_full_tests": "356 pass / 0 fail",
+      "builds": "Canvas/Next 正式 build 与双端 typecheck pass",
+      "screenshots": "apps/canvas/web/test-results/freezone-r15/"
+    },
+    "next_round": "B1 统一任务中心、跨集资产对账与模型能力单源",
+    "policy": "本地学习；仅前端 redline；不新增后端 content_mode/NSFW 硬闸"
+  },
+  "production_governance_plan_2026_10_27": {
+    "status": "completed_local_external_boundaries_recorded",
+    "updated_at": "2026-10-28T06:05:00+08:00",
+    "completed_stages": [
+      "A 基线收口",
+      "B 统一任务、资产对账与能力单源",
+      "C1a 提示词修订、回滚与 stale 基座",
+      "C1b 用户配方与修订复用",
+      "C1c 阶段确认与待复核联动（本地切片）",
+      "D0 渲染前成本准入与写路径联动",
+      "D1a 跨源任务健康与统一队列",
+      "D1b Inspector take 对比与唯一拍板",
+      "D1b2 Agent 生产协作",
+      "E 多轨导出、模型质量矩阵与最终审计"
+    ],
+    "current_stage": "全站壳推倒 in_progress（A0–A3）",
+    "e3_final_audit": {
+      "scope": "A-D 归档阶段与 E 多轨导出/模型矩阵/导出 UI 逐项对照目标；任务/dock、对账/stale、配方、成本/能力、take、Agent 提案、导出切点、模型质量均有真实功能与证据",
+      "final_counts": "FastAPI 4936 passed/41 skipped；Go 56 ok/3 no-tests exit 0；agent-host 93 pass；Canvas Web 3811 total/3795 pass/16 skip；Next web 356 pass；矩阵 10 entries self_check_passed=true；矩阵测试 8 passed",
+      "builds_checks": "Canvas lint/typecheck//studio build；Next typecheck；git diff --check 均通过",
+      "policy": "未新增后端 content_mode/NSFW 内容闸；未 commit/push/deploy；历史 apps/api/app/redline.py 旧 dual-gate 未改，作为已知历史口径差异挂账",
+      "external_boundaries": [
+        "真实 ToIV 登录委托链/生产 FastAPI/PG 未验",
+        "GPU/Comfy/付费生成未验",
+        "NLE 导入抽检未验",
+        "公网 BUILD/关键路径未验",
+        "矩阵未重跑 GPU e2e",
+        "多轨 ZIP 文件结构未实包校验"
+      ]
+    },
+    "e2_export_ui": {
+      "frontend": "multitrack-export.ts 统一 EDL/FCPXML/多轨包导出与 X-Toiv 计数/JSON 错误解析；StudioExportMenu 下拉含剪映草稿/EDL/FCPXML/多轨包，无成片禁用、问题计数 warning 明示",
+      "tests": "单测 15 pass / 40 expects；真实组件浏览器 5 pass / 10 expects（本地 mock API，chromium --disable-gpu）",
+      "builds": "lint、typecheck、/studio/ 正式 build、diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-e-export/export-menu-dark.png、export-success-issues-dark.png、export-error-dark.png、export-disabled-dark.png",
+      "known_limits": [
+        "本地 mock API，未连真实 FastAPI/PG/GPU",
+        "多轨 ZIP 内文件结构未实包校验",
+        "后端 require_video_clips 422 未在 UI 预判，靠错误透出"
+      ]
+    },
+    "e1_multitrack_export_matrix": {
+      "multitrack_export": "export_timeline.py 四轨投影（视频/台词/字幕/BGM），切点与 jianying_draft.clips_from_studio_shots 一致；原创 CMX3600 EDL 与 FCPXML，多轨/时码/clip-shot 可追溯",
+      "endpoints": "GET /api/studio/projects/{pid}/export/edl、/export/fcpxml、/export/multitrack；ZIP 含 timeline.edl、timeline.fcpxml、toiv_manifest.json、cut_list.json、missing_assets.json、duration_issues.json；空项目/无 final_clip_url 422，跨租户 404，剪映主链零改动",
+      "model_quality_matrix": "scripts/eval/model_quality_matrix.py 离线生成 test-results/model-quality/matrix.json 与 matrix.md；10 条目（NSFW 6/SFW 4），identity/source/license/NSFW-SFW/离线证据与指标分列；单样本最高 single_sample_smoke，production_certified 恒 false，GPU/付费链 unverified，缺证据显式 unknown",
+      "api_full_tests": "4936 passed / 41 skipped（uv run pytest -q，202.85s）",
+      "focused_tests": "多轨+剪映 F4 23 passed；assemble 相关 53 passed；模型矩阵生成 self_check_passed=true problems=[]；矩阵测试 8 passed",
+      "evidence": "apps/api/app/services/studio/export_timeline.py；apps/api/app/routes/studio.py export edl/fcpxml/multitrack；apps/api/tests/test_studio_multitrack_export.py；test-results/model-quality/matrix.{json,md}",
+      "known_limits": [
+        "EDL/FCPXML 为公开格式原创 best-effort，未做达芬奇/Premiere/FCP 真机导入抽检",
+        "真实 PG/GPU/付费链未验；矩阵未重跑 GPU e2e"
+      ]
+    },
+    "d1b2_agent_production": {
+      "boundary": "官方 pi 助手只读 Studio 上下文；只提出人工处理的阶段复核、渲染估价、take 对比提案；不自动确认阶段、不启渲染、不选 take、不恢复旧 Agent 循环",
+      "delegation": "Studio gateway 仅 CANVAS_TOIV_AUTH_BASE；15s/4MiB/禁重定向与 userinfo；ToivAuthenticated 的 Authorization bearer 仅内存保存 30 分钟，不落盘、不进响应；无委托 studio_delegation_required",
+      "proposals": "studio.project.get / estimate.preview / review.propose 只读；真实 detail 派生 stage_review / render_estimate / take_compare；requiresHuman=true；不建任务、不改项目、不扣费；scope 保存项目引用不保存 token",
+      "frontend": "提案卡标注待人工处理；三类深链只聚焦阶段或打开估价/对比面板，不触发渲染；非法 stage、requiresHuman 非 true、take 缺 shot 不生成链接",
+      "api_full_tests": "Canvas Go go vet ./... && go test ./... -count=1 exit 0；56 包 ok / 3 无测试 / 0 fail",
+      "agent_host_tests": "93 pass / 0 fail / 356 expects（13 文件）",
+      "canvas_web_tests": "3795 total / 3779 pass / 0 fail / 16 skip / 23454 expects",
+      "focused_and_builds": "Web 委托契约专项 25 pass；perf 冷启动 872ms < 5000ms 且 idle_outbound_requests=0；lint、typecheck、/studio/ 正式 build 与 diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-d1b2/；backend/internal/handler/studio_d1b2_test.go；agent-host/studio-production.test.mjs",
+      "acceptance_fixes": "Bun freeSockets 改 Node 真值探针但保留 keepalive/EOF 不变量；ensure/replace 合法微任务顺序白名单但保留互斥/唯一会话/单次 dispose；Web token 只走 Authorization 不进 body；desktopupdate helper 完成信道替代 sleep；5s 墙钟预算移入显式 perf 串行验证，默认保留零出站与样本日志，预算未删未放宽未跳过",
+      "known_limits": [
+        "真实 ToIV 登录到 Go delegated token 再到 FastAPI 的线上完整委托链未验",
+        "未接生产执行动作；真实 PG/GPU/付费链未验",
+        "测试媒体为中性本地文件"
+      ]
+    },
+    "d1b_take_compare": {
+      "cas": "candidates_digest 可选基线；done+URL 才能拍板；数据库 candidates_json 条件 UPDATE，409 不覆盖/不触发 transcript；旧客户端兼容",
+      "invariants": "每镜最多一个 is_picked；video/final URL 与候选一致；rendered_revision 跟随候选；final 来源清空；双 SQLite 独立连接竞争验证",
+      "ui": "Inspector AppDrawer 两列真实视频、真实元数据、全部播放/暂停、pending 防重；onSaved 刷新真源，409 保留草稿，旧 shot/digest 回包失效",
+      "api_full_tests": "4920 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3769 pass / 0 fail / 16 skip",
+      "focused_tests": "后端 take/修订/项目/transcript 78 pass；D1b 前端专项 13 pass；D0+take 组合 19 pass；lint、typecheck、正式 build 与 diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-d1b/（真实视频并排、唯一采用、409 冲突）",
+      "test_environment": "两份浏览器测试因本机 GPU 合成异常改 --disable-gpu，组合与全量复验通过；拍板断言等待真实 DOM，不改业务语义",
+      "known_limits": [
+        "真实 PG/活集群/生产拍板未验；CAS 以本地 SQLite 双连接验证",
+        "测试媒体为中性本地 MP4，未调真实模型或付费生成"
+      ]
+    },
+    "d1a_runtime_health": {
+      "api": "Job.progress.updated_at + job_phase 同源；/jobs、lookup、active 增量 progress/runtime；无网络热路径，不新建任务表",
+      "semantics": "fresh/watch/stalled/waiting/terminal/unknown 仅描述进度证据；老 queued 不判死；终态保留最后进度时间；不宣称 worker 存活",
+      "batch_progress": "Studio 批量写真实 Unix 时间与 phase；终态后不刷新时间戳",
+      "shared_projection": "Toiv 适配复用 generationTaskProjection artifact/nextAction；/tasks 与 dock 双源合并，Canvas updatedAt 仅状态证据，stalled 仍轮询",
+      "reliability": "分源错误、畸形 200、取消/重试 false 均可见；sourceId 唯一；AB/ABA 慢响应隔离；项目过滤一致；真实 results 与既有前端锁",
+      "api_full_tests": "4915 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3756 pass / 0 fail / 16 skip",
+      "focused_tests": "后端专项 91 pass；前端专项 50 pass / 235 assertions；lint、typecheck、正式 build 与 diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-d1a/（双源健康、任务页同口径、分源/操作错误、ABA 最新结果）",
+      "known_limits": [
+        "未连接生产 FastAPI 执行取消/重试；真实 PG/GPU/活集群未验",
+        "统一读模型/动作不等于统一 Go/FastAPI 持久化任务表",
+        "健康是进度证据评估，不承诺自动恢复"
+      ]
+    },
+    "d0_cost_preflight": {
+      "api": "单镜/整批 render-estimate；预览与提交共用确定性准入；stage/keyframe/费率/预算在提交重算，预览不调 worker",
+      "workload": "待渲染镜、候选上限、目标时长/帧、pixel-frame；明确不是实际 GPU 计量或耗时",
+      "pricing": "默认未定价不表示免费；族/精确管线费率、Decimal 字符串、未知不部分求和；启用预算后未定价/超限阻断，坏配置 503，显式零价可区分",
+      "fingerprint_and_audit": "覆盖规格/驱动/引擎/参考/修订/stage_revision/费率/预算；批量 Job.params 存估算摘要，单镜存 render revision；指纹不代替提交校验",
+      "frontend": "整批确认与单镜 Inspector 报价卡；失败/超限禁止提交，陈旧响应失效，在途连点防重，KEYFRAME_REQUIRED 结构化错误保留；批量 wait=false + Job 轮询",
+      "invalidation": "补角色创建/删除、设定卡参考写入、分镜回滚、配方真实应用的 needs_review；保持 CAS 和租户隔离",
+      "api_full_tests": "4889 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3741 pass / 0 fail / 16 skip",
+      "focused_tests": "D0 后端相关专项 123 pass；D0 API/纯函数/浏览器/真实联调 27 pass；lint、typecheck、正式 build 与 diff check pass",
+      "live_evidence": "真实 FastAPI + 临时 SQLite + 无 GPU 替身 + 真实客户端/浏览器：阶段阻断→确认→估价→202 job_id→done→rendered；keyframe 422 且新增任务 0",
+      "evidence": "apps/canvas/web/test-results/production-d0/（暗色未定价/超限/关键帧与 live-batch-estimate 非零工作量）",
+      "known_limits": [
+        "真实 PG/活集群/GPU/供应商费率与结算/登录完整创作台未验",
+        "请求估算不是预扣/结算或耗时承诺；c_chain 等专门链未纳入本切片报价",
+        "后续 D1 继续任务运行时健康、跨源写路径和轮询收敛"
+      ]
+    },
+    "c1c_stage_gates": {
+      "state_model": "六阶段人工态与 ready/blockers 产物投影分离；旧项目不自动 confirmed；不可变历史按项目租户校验",
+      "transitions": "confirm/skip/reopen；skip 必填说明；阶段历史新到旧；空批次/单镜迭代与旧缺片语义保留；raw final 视觉线归属不再卡无对白",
+      "concurrency": "stage_revision 数据库条件 UPDATE CAS；冲突审计回滚；失效重读合并、稳定序去重、真实 from_state；双 SQLite 独立连接测试",
+      "invalidation_scope": "premise/style/ckpt、分镜保存/删除最后镜/重排、角色视觉/音色 PATCH；不杀在途、不删媒体、无变化不误标",
+      "gates": "非空批量 render 要 storyboard confirmed/skipped；assemble 要 voice confirmed/skipped 且 final 不 stale",
+      "ui": "右栏 Inspector + slots detail/load 单真源；六阶段操作、历史、409 刷新、阻断定位、pid 隔离；旧四阶段回退；真实三栏暗色证据",
+      "api_full_tests": "4867 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3714 pass / 0 fail / 16 skip",
+      "focused_tests": "后端阶段/修订/合成/批量 71 pass；前端 HTTP/纯函数/浏览器 43 pass / 208 assertions；Go vet+test pass",
+      "builds": "Canvas lint、typecheck、/studio/ 正式 build pass；diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-c1c/（真实 CreationStudioThreePane 暗色三栏、操作/409/历史/旧四阶段）",
+      "known_limits": [
+        "真实 PG/活集群/付费生成/登录真机全链未验",
+        "失效重试耗尽保留已提交业务变更并显式 409，须重读重试",
+        "角色删除/直接参考采用等其他写路径的失效钩子列入 D 前置审计，未宣称全写路径统一"
+      ]
+    },
+    "c1b_recipes": {
+      "snapshot": "真实 render/content/legacy 快照；模型/参数/prompt/参考位/auto_best|manual；不虚构历史，不带 worker/上下文/父任务/签名",
+      "library": "用户隔离的创建/编辑/克隆/每引擎默认/删除/toiv_generation_recipe_v1 导入导出；默认事务与部分唯一索引",
+      "apply": "字段 from/to diff；expected_revision 防覆盖；剧情/roster 保留；ref/引擎变更留修订；项目规格显式校验应用；auto_pick 全链接通，ltx 缺省不被改 h3",
+      "security": "裸路径与未知 worker 拒绝；公网参考下载拒绝私网/环回/linklocal/userinfo；resolve_worker 复用；定位参数保留；TOIV_REF_FETCH_ALLOWED_HOSTS 模板空默认",
+      "api_full_tests": "4844 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3671 pass / 0 fail / 16 skip",
+      "focused_tests": "配方+参考安全 59 pass；配方 API/UI/浏览器 44 pass / 203 assertions",
+      "builds": "Canvas lint、typecheck、/studio/ 正式 build pass；diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-c1b/（暗色组件/操作/真实下载 JSON 可重导入）",
+      "known_limits": [
+        "真实 PG/Comfy/TTS/付费生成未验",
+        "c_hybrid 首帧派生未入配方",
+        "批量 RenderProjectBody 未加 auto_pick",
+        "私网参考需显式白名单；在线 DNS 间隙与供应商行为未验"
+      ]
+    },
+    "c1a_revision_stale": {
+      "storage": "StudioShotRevision + (shot_id,version) 唯一约束与幂等迁移；current/rendered/voiced/final 来源指针；旧行 unknown",
+      "revisions": "真实内容变化才建版；历史 diff、rollback 新修订、expected_revision 409；渲染/配音保存实际输入快照",
+      "stale_axes": "视觉=提示词/参考/引擎/时长；音频=台词/说话人/音色；final=视频与配音双来源。旧媒体保留，在途放弃分支 superseded，不杀上游",
+      "concurrency": "修订冲突 SAVEPOINT 保留外层编辑；仅版本唯一冲突重试；后台规划原子推进不覆盖取消",
+      "ui": "Inspector 编辑/历史 diff/回滚/三轴 stale/重渲/重配音/重对口型；单一口型主操作；409 不覆盖",
+      "api_full_tests": "4784 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3627 pass / 0 fail / 16 skip",
+      "focused_tests": "后端修订与 Agent Team 55 pass；Inspector/API/浏览器/看板 40 pass / 165 assertions",
+      "builds": "Canvas lint、typecheck、/studio/ 正式 build pass；diff check pass",
+      "evidence": "apps/canvas/web/test-results/production-c1a/（真实组件 + 暗色 CSS；API TestClient/替身 worker）",
+      "known_limits": [
+        "C1c 才做合成前强制阶段确认",
+        "旧非 pipeline-c 渲染不都有 Job.params revision",
+        "PG 真并发/活集群/付费模型未验",
+        "同 URL 音频内容替换未做在线指纹验证"
+      ]
+    },
+    "b1c_model_capabilities": {
+      "local_engines": "engine_registry + app/limits 纯常量源；/models/engines 与 /apps 详情/run 同源下发 max_chars/max_bytes/max_items；H3 与上传约束有对拍",
+      "channels": "复用 GET /api/model-catalog，Go 规范化 capabilityConfig 在线入 modelProfiles；TS 仅离线回退，system 只读，自定义显式 override；账号切换不串数据",
+      "validation": "文本/LoRA 提交前校验与后端有效 schema 同源；上传字节按声明拦截；未安装协议拒绝提交；不虚构未知/RH 能力",
+      "api_full_tests": "4750 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3594 pass / 0 fail / 16 skip",
+      "focused_tests": "46 pass / 151 assertions；暗色设置 2 pass / 17 assertions（对比度 >=4.5）",
+      "builds": "Canvas lint、typecheck、/studio/ 正式 build pass",
+      "evidence": "apps/canvas/web/test-results/production-b1c/（真实组件 + 完整 CSS；API TestClient/替身 worker，非付费模型实测）",
+      "known_limits": [
+        "source=frontend 逻辑模型映射未做",
+        "在线目录未做活实例端到端验收",
+        "普通 generate LoRA=8 与市场=3 按真实作用域保留",
+        "任务运行时健康和跨源写路径治理后续继续"
+      ],
+      "base_tip": "0a426713e0b7025403260db3d59faca3aa14511f"
+    },
+    "b1b_asset_reconciliation": {
+      "api": "GET /projects/:id/asset-reconciliation；POST /projects/:id/asset-reconciliation/apply；确定性名称/别名闭包，不虚构 AI 置信度或 ref_epoch",
+      "safety": "逐集版本/六类漂移；冲突与跨分类拒绝；同实体一次落点；角色人工设定不被覆盖；幂等重放不加资产或版本",
+      "ui": "项目资产区跨集对账页签；merge/create 行内改判、同分类目标、一键确认、50 条分批、镜头深链与中文回执",
+      "focused_tests": "34 pass / 0 fail / 140 assertions；真实 Gin GET/POST/foreign/replay 路由测试通过",
+      "canvas_full_tests": "3548 pass / 0 fail / 16 skip",
+      "go_full_tests": "go vet ./... 与 go test ./... 全过",
+      "builds": "Canvas lint、typecheck、/studio/ 正式 build pass",
+      "evidence": "apps/canvas/web/test-results/production-b1b/（真实组件/CSS + HTTP mock，未作活集群验收）",
+      "known_limits": [
+        "FastAPI 短剧与 Go 项目资产仍是两个数据面",
+        "presence-check/qa_gate 未并入",
+        "批量写入保留逐候选 CAS 的 N+1 开销",
+        "未对真实 PG/活集群联调"
+      ]
+    },
+    "b1a_task_center": {
+      "scope": "Canvas GenerationTask 与队列 dock 共用产物/下一步投影；/tasks 恢复；重试与取消真实调用；未统一 Job/AgentRun 领域状态机",
+      "focused_tests": "7 pass / 0 fail / 26 assertions",
+      "checks": "lint、typecheck、/studio/ 正式 build pass",
+      "evidence": "apps/canvas/web/test-results/production-b1/tasks-center.png（功能 harness，非完整视觉验收）",
+      "runtime_health": "not_implemented"
+    },
+    "a_baseline": {
+      "llm": "账号上下文贯通 chat/chat_layered/Harness Provider/optimize；普通与成人路由不串线",
+      "api_full_tests": "4726 pass / 0 fail / 41 skip",
+      "canvas_full_tests": "3509 pass / 0 fail / 16 skip",
+      "go_full_tests": "pass",
+      "web_full_tests": "356 pass / 0 fail",
+      "builds": "双端 typecheck 与正式 build pass"
+    },
+    "remaining_stages": [],
+    "push_authorized": false,
+    "deploy_authorized": false,
+    "steward_booked_at": "2026-10-28T06:12:00+08:00",
+    "steward_booked_by": "项目管家",
+    "steward_source": "技术负责人厅交接 2026-10-28",
+    "await_user": "shell_rebuild_full_site",
+    "local_head": "0a426713",
+    "branch": "work/p0-fusion-20261016",
+    "dirty_tree": true,
+    "dirty_tree_policy": "禁 reset/clean",
+    "next_options": [
+      "①真环境验收",
+      "②创作台壳推倒 A",
+      "③redline.py 处理",
+      "④仅本地 commit",
+      "⑤先停"
+    ],
+    "choice_card_at": "2026-10-28T06:13:00+08:00",
+    "choice_card_source": "技术负责人用户厅选路卡",
+    "deferred": [
+      {
+        "id": "ui_shell_a",
+        "item": "创作台壳推倒 A",
+        "status": "opened_as_full_site",
+        "note": "用户亲口：全站壳推倒，对照参考仓重定视觉，不微调",
+        "opened_at": "2026-10-28T06:44:00+08:00"
+      },
+      {
+        "id": "redline_py_cleanup",
+        "item": "redline.py dual-gate 清理",
+        "status": "deferred"
+      }
+    ],
+    "real_env_acceptance": {
+      "authorized_at": "2026-10-28T06:15:00+08:00",
+      "source": "技术负责人回传（执行报告）",
+      "choice": "①真环境验收",
+      "scope": [
+        "登录委托链",
+        "/studio/create",
+        "多轨解包",
+        "NLE 抽检"
+      ],
+      "items": [
+        {
+          "id": "rea_studio_create",
+          "item": "/studio/create 公网/现网关键路径",
+          "status": "pass",
+          "passed_at": "2026-10-28T06:16:00+08:00",
+          "confirmed_at": "2026-10-28T06:18:00+08:00",
+          "evidence": {
+            "report": "/workspace/toiv-real-env-acceptance.md",
+            "checks": [
+              "/studio/create → 200 无 Location；body 无 view=home",
+              "/create → 308 → /studio/create",
+              "BUILD=20261026-193533-0a426713",
+              "/studio/api/health/live ok"
+            ]
+          }
+        },
+        {
+          "id": "rea_login_delegation",
+          "item": "真实 ToIV 登录委托链",
+          "status": "blocked",
+          "blocked_reason": "blocked_need_user_jwt_and_live_canvas_auth_base",
+          "detail": "代码链+Go单测+公网400/401契约OK；缺用户有效 JWT/session；线上 login→exchange→Go→FastAPI 完整链未验",
+          "unblock": "用户现网登录后说「已登录可验」，或短时提供 JWT（勿长期粘贴聊天）",
+          "partial_ok": [
+            "exchange 无 Bearer→400",
+            "invalid Bearer→401",
+            "Go 委托单测 ok"
+          ],
+          "at": "2026-10-28T06:18:00+08:00",
+          "backend_supplement_at": "2026-10-28T06:19:00+08:00",
+          "partial": {
+            "local_core_8090_login_me_projects": "pass",
+            "go_delegation_unit": "pass",
+            "live_canvas_ui_session_gateway": "blocked",
+            "online_full_chain": "blocked"
+          },
+          "live_canvas_block": ":8080 无 /assistant/*、无 CANVAS_TOIV_AUTH_BASE",
+          "evidence_dirs": {
+            "matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+            "box": "/workspace/toiv-accept-export/"
+          },
+          "verify_status": "paused",
+          "paused_at": "2026-10-28T06:43:00+08:00",
+          "pause_reason": "用户改向：现网 UI/视觉优先；委托链验暂停",
+          "do_not_resume_without_user_order": true
+        },
+        {
+          "id": "rea_multitrack_unpack",
+          "item": "多轨 ZIP 解包结构校验",
+          "status": "pass_non_prod",
+          "label": "pass_non_prod_fixture",
+          "detail": "六文件齐全；本地脏树纯函数/pytest；非现网 API 实包（E 未部署）",
+          "sample_matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/",
+          "sample_box": "/workspace/toiv-rea-multitrack/",
+          "members": [
+            "timeline.edl",
+            "timeline.fcpxml",
+            "toiv_manifest.json",
+            "cut_list.json",
+            "missing_assets.json",
+            "duration_issues.json"
+          ],
+          "pytest": "16 passed + fixture edl/fcpxml/zip",
+          "at": "2026-10-28T06:18:00+08:00",
+          "backend_supplement_at": "2026-10-28T06:19:00+08:00",
+          "live_core_8090_export": "404 OpenAPI 无路由（脏树未 deploy）",
+          "evidence_dirs": {
+            "matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+            "box": "/workspace/toiv-accept-export/"
+          },
+          "note": "维持 pass_non_prod；现网实包待口令 commit/deploy"
+        },
+        {
+          "id": "rea_nle_sample",
+          "item": "NLE 真机抽检（达芬奇/Premiere/FCP）",
+          "status": "blocked",
+          "blocked_reason": "blocked_no_nle_app",
+          "detail": "MateBook /Applications 无 Resolve/PR/FCP；已备 EDL/FCPXML + 手检步骤（见报告 §4）",
+          "sample_edl": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/timeline.edl",
+          "sample_fcpxml": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/timeline.fcpxml",
+          "handcheck_in_report": "/workspace/toiv-real-env-acceptance.md §4",
+          "at": "2026-10-28T06:18:00+08:00"
+        }
+      ],
+      "push_authorized": false,
+      "deploy_authorized": false,
+      "status": "partial",
+      "updated_at": "2026-10-28T06:43:00+08:00",
+      "studio_create_evidence": {
+        "source": "网络运维只读（经技术负责人）",
+        "at": "2026-10-28T06:16:00+08:00",
+        "checks": [
+          "/studio/create → 200 无 Location",
+          "/create → 308 → /studio/create",
+          "BUILD=20261026-193533-0a426713",
+          "/api/health ok"
+        ],
+        "prod_tip": "0a426713",
+        "build_id": "20261026-193533-0a426713"
+      },
+      "dispatch_at": "2026-10-28T06:17:00+08:00",
+      "await_user": "real_env_acceptance_partial",
+      "report": "/workspace/toiv-real-env-acceptance.md",
+      "summary": {
+        "pass": [
+          "rea_studio_create"
+        ],
+        "pass_non_prod": [
+          "rea_multitrack_unpack"
+        ],
+        "blocked": [
+          "rea_login_delegation",
+          "rea_nle_sample"
+        ]
+      },
+      "unblock_needed": [
+        "登录委托链：用户现网登录可验或短时 JWT",
+        "NLE：本机安装 Resolve/PR/FCP 后手检，或指定有 NLE 的机器"
+      ],
+      "deferred_still": [
+        "创作台壳推倒 A",
+        "redline.py 清理"
+      ],
+      "note": "未把 pass_non_prod / blocked 冒充生产认证；现网 tip 仍 0a426713，E 未上线",
+      "backend_supplement": {
+        "at": "2026-10-28T06:19:00+08:00",
+        "source": "后端开发补证（经技术负责人）",
+        "evidence_matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+        "evidence_box": "/workspace/toiv-accept-export/",
+        "rea_login_delegation": {
+          "overall": "blocked",
+          "local_core_8090": "pass",
+          "go_delegation_unit": "pass",
+          "live_canvas_ui_session_gateway": "blocked",
+          "live_canvas_block_detail": ":8080 无 /assistant/*、无 CANVAS_TOIV_AUTH_BASE",
+          "online_full_chain": "blocked",
+          "note": "本机 core 切片 pass ≠ 线上完整委托链"
+        },
+        "rea_multitrack_unpack": {
+          "overall": "pass_non_prod",
+          "pytest": "16 passed + 夹具 edl/fcpxml/zip pass",
+          "live_core_8090_export": "404",
+          "live_detail": "OpenAPI 无路由；脏树未 deploy",
+          "note": "维持 pass_non_prod；现网实包待口令 commit/deploy"
+        }
+      },
+      "login_delegation_verify": {
+        "status": "paused",
+        "at": "2026-10-28T06:43:00+08:00",
+        "source": "用户改口（经技术负责人）",
+        "note": "厅内 Stop 为误伤，非停管家；REA 登录委托链暂停；勿自行 resume",
+        "prior_choice": "已登录可验委托链（随即改向，未完成线上完整链）",
+        "redirect": "现网 UI 配色乱、几乎没吃进参考仓，不像完整项目；下一刀看是否开壳推倒/全站视觉"
+      },
+      "next_knife_pending": "壳推倒/全站视觉（等用户是否开口令）"
+    },
+    "shell_rebuild_full_site": {
+      "status": "in_progress",
+      "at": "2026-10-28T06:44:00+08:00",
+      "source": "用户亲口（经技术负责人）",
+      "scope": "全站壳推倒",
+      "mode": "重定视觉，不微调",
+      "references": [
+        "BeefTV",
+        "DramaClaw",
+        "Toonflow"
+      ],
+      "executor": "跨端设计",
+      "steward_note": "TL 汇总后再归档；管家先开账改 await",
+      "push_authorized": false,
+      "deploy_authorized": false,
+      "rea_login_delegation": "paused",
+      "confirmed_at": "2026-10-28T06:45:00+08:00",
+      "confirmation": "用户厅内卡点亲口（非候选）",
+      "workstream": "A0–A3 拆单进行中"
+    }
+  },
+  "local_head_full": "0a426713e0b7025403260db3d59faca3aa14511f",
+  "local_head_note": "work/p0-fusion-20261016 HEAD 0a426713；脏树大量未提交；禁 reset/clean",
+  "steward_book_governance_ae_2026_10_28": {
+    "at": "2026-10-28T06:12:00+08:00",
+    "by": "项目管家",
+    "source": "技术负责人厅交接",
+    "path": "ToIV",
+    "branch": "work/p0-fusion-20261016",
+    "HEAD": "0a426713",
+    "dirty_tree": true,
+    "no_reset_clean": true,
+    "production_governance": "completed_local_external_boundaries_recorded",
+    "remaining_stages": [],
+    "E": "export_timeline + /export/edl|fcpxml|multitrack + studio-export-menu；model_quality_matrix 本地 smoke",
+    "local_verify": "FastAPI 4936p、Canvas web 3795p、Go/agent-host/Next 绿；未 push/deploy",
+    "deploy_authorized": false,
+    "push_authorized": false,
+    "await_user": "real_env_acceptance_in_progress",
+    "next_options": [
+      "①真环境验收",
+      "②创作台壳推倒 A",
+      "③redline.py 处理",
+      "④仅本地 commit",
+      "⑤先停"
+    ],
+    "hangover_external": [
+      "登录委托链",
+      "生产 GPU/付费链",
+      "NLE 真机",
+      "ZIP 解包",
+      "公网关键路径实测",
+      "redline.py dual-gate 与 FE-only 口径差"
+    ],
+    "choice_card_at": "2026-10-28T06:13:00+08:00",
+    "user_choice_at": "2026-10-28T06:15:00+08:00",
+    "user_choice": "①真环境验收"
+  },
+  "real_env_acceptance_2026_10_28": {
+    "status": "partial_superseded_by_shell_rebuild",
+    "await_user": "real_env_acceptance_partial",
+    "updated_at": "2026-10-28T06:45:00+08:00",
+    "report": "/workspace/toiv-real-env-acceptance.md",
+    "source": "技术负责人回传（执行报告）",
+    "items": [
+      {
+        "id": "rea_studio_create",
+        "item": "/studio/create 公网/现网关键路径",
+        "status": "pass",
+        "passed_at": "2026-10-28T06:16:00+08:00",
+        "confirmed_at": "2026-10-28T06:18:00+08:00",
+        "evidence": {
+          "report": "/workspace/toiv-real-env-acceptance.md",
+          "checks": [
+            "/studio/create → 200 无 Location；body 无 view=home",
+            "/create → 308 → /studio/create",
+            "BUILD=20261026-193533-0a426713",
+            "/studio/api/health/live ok"
+          ]
+        }
+      },
+      {
+        "id": "rea_login_delegation",
+        "item": "真实 ToIV 登录委托链",
+        "status": "blocked",
+        "blocked_reason": "blocked_need_user_jwt_and_live_canvas_auth_base",
+        "detail": "代码链+Go单测+公网400/401契约OK；缺用户有效 JWT/session；线上 login→exchange→Go→FastAPI 完整链未验",
+        "unblock": "用户现网登录后说「已登录可验」，或短时提供 JWT（勿长期粘贴聊天）",
+        "partial_ok": [
+          "exchange 无 Bearer→400",
+          "invalid Bearer→401",
+          "Go 委托单测 ok"
+        ],
+        "at": "2026-10-28T06:18:00+08:00",
+        "backend_supplement_at": "2026-10-28T06:19:00+08:00",
+        "partial": {
+          "local_core_8090_login_me_projects": "pass",
+          "go_delegation_unit": "pass",
+          "live_canvas_ui_session_gateway": "blocked",
+          "online_full_chain": "blocked"
+        },
+        "live_canvas_block": ":8080 无 /assistant/*、无 CANVAS_TOIV_AUTH_BASE",
+        "evidence_dirs": {
+          "matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+          "box": "/workspace/toiv-accept-export/"
+        },
+        "verify_status": "paused",
+        "paused_at": "2026-10-28T06:43:00+08:00",
+        "pause_reason": "用户改向：现网 UI/视觉优先；委托链验暂停",
+        "do_not_resume_without_user_order": true
+      },
+      {
+        "id": "rea_multitrack_unpack",
+        "item": "多轨 ZIP 解包结构校验",
+        "status": "pass_non_prod",
+        "label": "pass_non_prod_fixture",
+        "detail": "六文件齐全；本地脏树纯函数/pytest；非现网 API 实包（E 未部署）",
+        "sample_matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/",
+        "sample_box": "/workspace/toiv-rea-multitrack/",
+        "members": [
+          "timeline.edl",
+          "timeline.fcpxml",
+          "toiv_manifest.json",
+          "cut_list.json",
+          "missing_assets.json",
+          "duration_issues.json"
+        ],
+        "pytest": "16 passed + fixture edl/fcpxml/zip",
+        "at": "2026-10-28T06:18:00+08:00",
+        "backend_supplement_at": "2026-10-28T06:19:00+08:00",
+        "live_core_8090_export": "404 OpenAPI 无路由（脏树未 deploy）",
+        "evidence_dirs": {
+          "matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+          "box": "/workspace/toiv-accept-export/"
+        },
+        "note": "维持 pass_non_prod；现网实包待口令 commit/deploy"
+      },
+      {
+        "id": "rea_nle_sample",
+        "item": "NLE 真机抽检（达芬奇/Premiere/FCP）",
+        "status": "blocked",
+        "blocked_reason": "blocked_no_nle_app",
+        "detail": "MateBook /Applications 无 Resolve/PR/FCP；已备 EDL/FCPXML + 手检步骤（见报告 §4）",
+        "sample_edl": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/timeline.edl",
+        "sample_fcpxml": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/test-results/rea-multitrack/timeline.fcpxml",
+        "handcheck_in_report": "/workspace/toiv-real-env-acceptance.md §4",
+        "at": "2026-10-28T06:18:00+08:00"
+      }
+    ],
+    "summary": {
+      "pass": [
+        "rea_studio_create"
+      ],
+      "pass_non_prod": [
+        "rea_multitrack_unpack"
+      ],
+      "blocked": [
+        "rea_login_delegation",
+        "rea_nle_sample"
+      ]
+    },
+    "push_authorized": false,
+    "deploy_authorized": false,
+    "unblock_needed": [
+      "登录委托链：用户现网登录可验或短时 JWT",
+      "NLE：本机安装 Resolve/PR/FCP 后手检，或指定有 NLE 的机器"
+    ],
+    "deferred_still": [
+      "创作台壳推倒 A",
+      "redline.py 清理"
+    ],
+    "note": "未把 pass_non_prod / blocked 冒充生产认证；现网 tip 仍 0a426713，E 未上线",
+    "backend_supplement": {
+      "at": "2026-10-28T06:19:00+08:00",
+      "source": "后端开发补证（经技术负责人）",
+      "evidence_matebook": "/Users/wangzhenyu/Desktop/ALLProject/ToIV/.local/toiv-accept-export-20261028/",
+      "evidence_box": "/workspace/toiv-accept-export/",
+      "rea_login_delegation": {
+        "overall": "blocked",
+        "local_core_8090": "pass",
+        "go_delegation_unit": "pass",
+        "live_canvas_ui_session_gateway": "blocked",
+        "live_canvas_block_detail": ":8080 无 /assistant/*、无 CANVAS_TOIV_AUTH_BASE",
+        "online_full_chain": "blocked",
+        "note": "本机 core 切片 pass ≠ 线上完整委托链"
+      },
+      "rea_multitrack_unpack": {
+        "overall": "pass_non_prod",
+        "pytest": "16 passed + 夹具 edl/fcpxml/zip pass",
+        "live_core_8090_export": "404",
+        "live_detail": "OpenAPI 无路由；脏树未 deploy",
+        "note": "维持 pass_non_prod；现网实包待口令 commit/deploy"
+      }
+    },
+    "login_delegation_verify": {
+      "status": "paused",
+      "at": "2026-10-28T06:43:00+08:00",
+      "source": "用户改口（经技术负责人）",
+      "note": "厅内 Stop 为误伤，非停管家；REA 登录委托链暂停；勿自行 resume",
+      "prior_choice": "已登录可验委托链（随即改向，未完成线上完整链）",
+      "redirect": "现网 UI 配色乱、几乎没吃进参考仓，不像完整项目；下一刀看是否开壳推倒/全站视觉",
+      "do_not_resume_without_user_order": true
+    },
+    "next_knife_pending": "壳推倒/全站视觉（等用户是否开口令）",
+    "await_user_note": "顶层 await 已切 shell_rebuild_full_site；REA 四项挂账保留；委托链验仍 paused",
+    "await_note": "壳推倒进行中；login_delegation.verify=paused；勿自行 resume"
+  },
+  "steward_pause_login_verify_2026_10_28": {
+    "at": "2026-10-28T06:43:00+08:00",
+    "source": "用户改口（经技术负责人）",
+    "note": "厅内 Stop 为误伤，非停管家；REA 登录委托链暂停；勿自行 resume",
+    "prior_choice": "已登录可验委托链（随即改向，未完成线上完整链）",
+    "redirect": "现网 UI 配色乱、几乎没吃进参考仓，不像完整项目；下一刀看是否开壳推倒/全站视觉"
+  },
+  "shell_rebuild_full_site_2026_10_28": {
+    "status": "local_waves_complete_await_user",
+    "at": "2026-10-28T06:44:00+08:00",
+    "source": "用户亲口（经技术负责人）",
+    "scope": "全站壳推倒",
+    "mode": "重定视觉，不微调",
+    "references": [
+      "BeefTV",
+      "DramaClaw",
+      "Toonflow"
+    ],
+    "executor": "跨端设计",
+    "steward_note": "A0–A6+A4.1 本地完已入账；禁 commit/push/deploy；等用户下一步",
+    "push_authorized": false,
+    "deploy_authorized": false,
+    "rea_login_delegation": "paused",
+    "confirmed_at": "2026-10-28T06:45:00+08:00",
+    "confirmation": "用户厅内卡点亲口（非候选）",
+    "workstream": "A0–A6+A4.1 本地完；等用户",
+    "updated_at": "2026-10-28T08:57:00+08:00",
+    "worktree_only": true,
+    "tip": "0a426713",
+    "tip_note": "全波未 commit；prod tip 仍 0a426713",
+    "palette": {
+      "shell": "v2_black_white",
+      "accent": "#4A7FC1",
+      "accent_hover": "#6B96D0",
+      "supersedes_a5_accent": "#E11D48",
+      "nsfw_lock": "#6B7280",
+      "tl_fixture_sample": "rgb(74,127,193) hit"
+    },
+    "waves": {
+      "A0": {
+        "status": "local_done",
+        "note": "desk CTA→#5ba0ff；光幕 h28；创作台调试文案/青抢戏清理；根因=壳已在、错在青抢 CTA",
+        "docs": "apps/canvas/docs/ PLAN/HANDBACK/shots"
+      },
+      "A1": {
+        "status": "local_done",
+        "note": "desk 原语+home/短剧/任务/工具/作品/设置布局重做",
+        "docs": "HANDBACK+shots/a1-*"
+      },
+      "A2": {
+        "status": "local_done",
+        "note": "zoom 读 CSS var；motion 220；创作台残色/文案扫尾",
+        "docs": "HANDBACK+shots/a2-*"
+      },
+      "A3": {
+        "status": "v2_passed_local",
+        "note": "v1 仅换色收单蓝被打回（AI 海报骨架）；v2 未登录门结构去 AI 感本地过；主残在登录后 create"
+      },
+      "A4": {
+        "status": "partial_carry",
+        "note": "quieter+distill 结构保留（见 A6 handback）；灵感墙开 A4.1",
+        "a41": "reviewed_local_done"
+      },
+      "A4_1": {
+        "status": "reviewed_local_done",
+        "at": "2026-10-28T08:57:00+08:00",
+        "source": "技术负责人【归档 · A4.1 审过】",
+        "note": "create 空态 quieter 本地过",
+        "handback": "apps/canvas/docs/FULL_SHELL_TEARDOWN_A41_QUIET_EMPTY_HANDBACK.md"
+      },
+      "A5": {
+        "status": "superseded_by_a6",
+        "accent_was": "#E11D48"
+      },
+      "A6": {
+        "status": "reviewed_local_done",
+        "at": "2026-10-28T08:53:00+08:00",
+        "source": "技术负责人【归档 · A6 审结】",
+        "palette": "黑白壳 + 交互蓝 #4A7FC1",
+        "handback": "apps/canvas/docs/FULL_SHELL_TEARDOWN_A6_BW_BLUE_HANDBACK.md",
+        "shots": [
+          "apps/canvas/docs/shots/a6-home.png",
+          "apps/canvas/docs/shots/a6-create.png"
+        ],
+        "fixture_only": true,
+        "tl_review": "fixture 采样命中 #4A7FC1"
+      }
+    },
+    "carryover": [
+      {
+        "id": "featured_works_source_not_deleted",
+        "note": "FeaturedWorks 源码未删"
+      },
+      {
+        "id": "thread_sparkles",
+        "note": "线程 Sparkles 余量"
+      },
+      {
+        "id": "node_glow",
+        "note": "node-glow 余量"
+      },
+      {
+        "id": "cyan_token_old_name",
+        "note": "--toiv-accent-cyan* 名仍在，值已指向蓝 accent"
+      },
+      {
+        "id": "prod_hard_refresh_needs_session",
+        "note": "现网硬刷缺登录会话"
+      }
+    ]
+  },
+  "p0_materials_project_bible_api_skeleton_2026_10_28": {
+    "status": "local_skeleton_passed",
+    "at": "2026-10-28T09:03:00+08:00",
+    "source": "技术负责人【归档 · P0 API 骨架本地过】",
+    "scope": "材料库 + ProjectBible API-only 骨架",
+    "tests": "契约测 20 passed",
+    "tip": "0a426713",
+    "committed": false,
+    "pushed": false,
+    "deployed": false,
+    "paths": {
+      "routes": [
+        "apps/api/app/routes/materials.py",
+        "apps/api/app/routes/project_bibles.py"
+      ],
+      "tests": [
+        "apps/api/tests/test_materials_api.py",
+        "apps/api/tests/test_project_bibles_api.py"
+      ],
+      "design_draft": ".local/design-drafts/PROJECT_BIBLE_AND_MATERIAL_API_DRAFT.md"
+    },
+    "paths_exist_asof": {
+      "apps/api/app/routes/materials.py": true,
+      "apps/api/app/routes/project_bibles.py": true,
+      "apps/api/tests/test_materials_api.py": true,
+      "apps/api/tests/test_project_bibles_api.py": true,
+      ".local/design-drafts/PROJECT_BIBLE_AND_MATERIAL_API_DRAFT.md": true
+    },
+    "steward_note": "仅入账；未改业务代码；未 commit"
+  },
+  "moke_aigc_handbook_coverage_2026_10_28": {
+    "status": "coverage_rewritten",
+    "at": "2026-10-28T10:14:00+08:00",
+    "source": "AI短剧导演交接 · 项目管家接管",
+    "path": "/workspace/moke-aigc-handbook/",
+    "ssot": "/workspace/moke-aigc-handbook/COVERAGE_STATUS.md",
+    "skills": {
+      "attempted": 185,
+      "read": 185,
+      "partial": 0,
+      "blocked": 0
+    },
+    "prompts": {
+      "index": 941,
+      "bodies": 941,
+      "categories": 31,
+      "partial": 0,
+      "blocked": 0
+    },
+    "web_login_wall": {
+      "status": "not_fetched",
+      "pages": [
+        "tutorial",
+        "videos",
+        "film-stills",
+        "cinematique"
+      ],
+      "note": "raw/page-* 四页同 SHA SPA 壳；需用户补登录后再抓"
+    },
+    "bilibili_ep1_5": {
+      "status": "hard_subtitle_sample_only",
+      "path": "deep/courses/",
+      "claimed_full_watch": false
+    },
+    "page": {
+      "title": "MOKE AIGC · AI完整视觉世界手册",
+      "canvas_id": "c97c040e-ca03-49b6-9812-0f87d33736b3",
+      "updated": true
+    },
+    "push_authorized": false,
+    "deploy_authorized": false,
+    "commit_authorized": false
+  },
+  "toiv_milestones_from_moke_2026_10_28": {
+    "status": "content_handed_to_tl_await_engineering",
+    "at": "2026-10-28T10:14:00+08:00",
+    "source": "AI短剧导演 · 已交技术负责人",
+    "path": "/workspace/moke-aigc-handbook/toiv-milestones/",
+    "artifacts": [
+      "ProjectBible_yellow_submarine_4B.0.0.json",
+      "ProjectBible_yellow_submarine_4B.0.0.sha256.json",
+      "P1-3_INTERNAL_SKILLS_INVENTORY.md"
+    ],
+    "steward_note": "工程侧等 TL；不催导演；禁 commit/push/deploy"
+  }
 }

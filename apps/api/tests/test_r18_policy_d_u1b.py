@@ -1,6 +1,6 @@
 """D-U1=B R18 统一口径不变量 —— 账号全局 content_mode(2026-10-26 TL)。
 
-对照:app.redline。不生成任何成人内容;只锁门控/fail-closed/未成年硬阻断与策略常量。
+对照:app.redline。不生成任何成人内容;只锁策略常量/fail-closed/前端-only(含未成年)。
 """
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import nsfw_ctx, r18_policy
@@ -19,6 +17,9 @@ from app.redline import (
     CONTENT_MODE_ADULT,
     CONTENT_MODE_ORDINARY,
     adult_at_submit,
+    adult_mode_enabled,
+    require_not_underage,
+    require_nsfw_context,
     should_apply_softening,
 )
 
@@ -36,8 +37,8 @@ def test_policy_constants_encode_d_u1b():
     assert r18_policy.CANVAS_IS_SOLE_MAIN_UI is True
     assert r18_policy.WEB_INDEPENDENT_NSFW_ZONE_RETIRED is True
     assert r18_policy.ACCOUNT_CONTENT_MODE_IS_SOLE_ALLOW is True
-    assert r18_policy.FAIL_CLOSED_WITHOUT_ADULT_MODE is True
-    assert r18_policy.UNDERAGE_HARD_BLOCK is True
+    assert r18_policy.FAIL_CLOSED_WITHOUT_ADULT_MODE is False  # R3
+    assert r18_policy.UNDERAGE_HARD_BLOCK is False  # P0-5 R5
     assert r18_policy.REQUEST_HEADER == "X-NSFW"
     assert r18_policy.REQUEST_HEADER_VALUE == "1"
     assert r18_policy.CONTENT_MODE_ORDINARY == "ordinary"
@@ -77,7 +78,8 @@ def test_header_alone_never_allows():
         nsfw_intent_var.reset(token)
 
 
-def test_underage_hard_block_beats_adult_mode():
+def test_underage_no_longer_backend_gate_r5():
+    """P0-5 R5:未成年不再后端 403;nsfw_allowed 只跟 content_mode。"""
     minor = SimpleNamespace(
         birthdate=date.today() - timedelta(days=365 * 12),
         content_mode=CONTENT_MODE_ADULT,
@@ -85,22 +87,43 @@ def test_underage_hard_block_beats_adult_mode():
     assert is_underage(minor) is True
     token = nsfw_intent_var.set(True)
     try:
-        assert nsfw_allowed(minor) is False
+        assert nsfw_allowed(minor) is True  # 只跟 adult content_mode
     finally:
         nsfw_intent_var.reset(token)
+    require_not_underage(minor)  # no-op
+    require_nsfw_context(minor)  # no-op
+
+
+def test_adult_mode_enabled_splits_underage_from_ux_mode():
+    """P0-5 R5:adult_mode_enabled / nsfw_allowed 都只看 content_mode。"""
+    minor_adult_flag = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ADULT,
+    )
+    assert adult_mode_enabled(minor_adult_flag) is True
+    assert nsfw_allowed(minor_adult_flag) is True  # R5:不再因 underage 拒
+    assert adult_mode_enabled(_ordinary()) is False
+    assert adult_mode_enabled(_adult()) is True
+    assert adult_mode_enabled(None) is False
+    require_not_underage(_adult())  # no-op
+    require_not_underage(minor_adult_flag)  # no-op
 
 
 def test_job_nsfw_from_intent_fail_closed_and_explicit_only():
     ordinary = _ordinary()
     assert job_nsfw_from_intent(ordinary, explicit=False) is False
-    with pytest.raises(HTTPException) as ei:
-        job_nsfw_from_intent(ordinary, explicit=True)
-    assert ei.value.status_code == 403
-    assert "R18" in ei.value.detail or "成人" in ei.value.detail
+    # P0-5 R5:普通态显式 R18 意图可打标,不再 403(未成年也不拦)
+    assert job_nsfw_from_intent(ordinary, explicit=True) is True
 
     adult = _adult()
     assert job_nsfw_from_intent(adult, explicit=True) is True
     assert job_nsfw_from_intent(adult, explicit=False) is False
+
+    minor = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ORDINARY,
+    )
+    assert job_nsfw_from_intent(minor, explicit=True) is True
 
 
 def test_adult_at_submit_snapshot_and_softening_gate():
@@ -109,6 +132,19 @@ def test_adult_at_submit_snapshot_and_softening_gate():
     assert should_apply_softening(_ordinary()) is True
     assert should_apply_softening(_adult()) is False
     assert should_apply_softening(None) is False
+    # P0-5 R5:underage 不硬拐;跟 content_mode
+    minor_ord = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ORDINARY,
+    )
+    minor_ad = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ADULT,
+    )
+    assert adult_at_submit(minor_ad) is True
+    assert adult_at_submit(minor_ord) is False
+    assert should_apply_softening(minor_ord) is True
+    assert should_apply_softening(minor_ad) is False
 
 
 def test_middleware_still_wires_x_nsfw_for_audit_only():
@@ -143,13 +179,16 @@ def test_http_roundtrip_header_does_not_alone_allow():
         ]
 
 
-def test_ltx_gate_detail_mentions_adult_mode():
+def test_ltx_gate_ordinary_and_underage_ok_r5():
+    """P0-5 R5:LTX 闸对普通态/未成年均不再 403。"""
     from app.routes.video import _gate_ltx_nsfw
 
-    with pytest.raises(HTTPException) as ei:
-        _gate_ltx_nsfw(_ordinary())
-    assert ei.value.status_code == 403
-    assert "R18" in ei.value.detail or "成人" in ei.value.detail
+    _gate_ltx_nsfw(_ordinary())  # 不抛
+    minor = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ADULT,
+    )
+    _gate_ltx_nsfw(minor)  # R5 no-op
 
 
 def test_redline_is_decision_ssot():
@@ -160,11 +199,13 @@ def test_redline_is_decision_ssot():
     assert redline.CONTENT_MODE_ADULT == "adult"
     assert redline.FAIL_CLOSED is True
     assert redline.ACCOUNT_CONTENT_MODE_IS_SOLE_ALLOW is True
-    assert redline.UNDERAGE_HARD_BLOCK is True
+    assert redline.UNDERAGE_HARD_BLOCK is False  # P0-5 R5
     assert nsfw_ctx.nsfw_allowed is redline.nsfw_allowed
     assert nsfw_ctx.nsfw_intent_var is redline.nsfw_intent_var
     assert nsfw_ctx.is_underage is redline.is_underage
     assert nsfw_ctx.job_nsfw_from_intent is redline.job_nsfw_from_intent
+    assert nsfw_ctx.require_not_underage is redline.require_not_underage
+    assert nsfw_ctx.adult_mode_enabled is redline.adult_mode_enabled
 
 
 def test_sfw_main_path_usable_without_adult_mode():
@@ -194,6 +235,20 @@ def test_sfw_main_path_usable_without_adult_mode():
 def test_dual_gate_runtime_flags():
     from app import redline
 
-    assert redline.BACKEND_RUNTIME_GATE is True
-    assert redline.POLICY_ENFORCEMENT == "dual-gate-account"
-    assert redline.FAIL_CLOSED_WITHOUT_ADULT_MODE is True
+    # P0-5 R5:一切限制只前端(含未成年)
+    assert redline.BACKEND_RUNTIME_GATE is False
+    assert redline.POLICY_ENFORCEMENT == "frontend-only"
+    assert redline.FAIL_CLOSED_WITHOUT_ADULT_MODE is False
+    assert redline.UNDERAGE_HARD_BLOCK is False
+    assert redline.FAIL_CLOSED is True
+
+
+def test_require_nsfw_context_ordinary_ok_r3():
+    """P0-5 R3/R5:require_nsfw_context 对普通态/未成年均不再 403。"""
+    require_nsfw_context(_ordinary())
+    require_nsfw_context(_adult())
+    minor = SimpleNamespace(
+        birthdate=date.today() - timedelta(days=365 * 12),
+        content_mode=CONTENT_MODE_ORDINARY,
+    )
+    require_nsfw_context(minor)

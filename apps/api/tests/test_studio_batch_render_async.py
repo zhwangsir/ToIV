@@ -63,6 +63,29 @@ def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _gate_stages_for_batch(client, H, pid):
+    """C1c 门禁:批量渲染前显式完成 storyboard 阶段(测试夹具,非放宽生产门禁)。
+    空项目(无分镜)不设防——生产门禁对空批次/空项目本就不拦。"""
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    if not detail.get("shots"):
+        return
+    states = detail["stage_states"]
+    script_action = "confirm" if states["script"]["ready"] else "skip"
+    for stage, action in (("script", script_action), ("assets", "skip"), ("storyboard", "confirm")):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": action, "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
+def _gate_stages_for_assemble(client, H, pid):
+    """C1c 门禁:合成前显式完成 storyboard/generate/voice 阶段。"""
+    _gate_stages_for_batch(client, H, pid)
+    for stage in ("generate", "voice"):
+        r = client.post(f"/api/studio/projects/{pid}/stage-transition", headers=H,
+                        json={"stage": stage, "action": "skip", "note": "测试夹具"})
+        assert r.status_code == 200, r.text
+
+
 def _mk(client, H):
     pid = client.post(
         "/api/studio/projects", headers=H, json={"title": "断连", "premise": "x"}
@@ -78,6 +101,10 @@ def _mk(client, H):
         },
     )
     assert r.status_code == 200, r.text
+    direct = client.patch(f"/api/studio/projects/{pid}", headers=H,
+                          json={"preferred_drive_mode": "direct"})
+    assert direct.status_code == 200, direct.text
+    _gate_stages_for_batch(client, H, pid)
     return pid, r.json()["shots"]
 
 
@@ -266,3 +293,46 @@ def test_batch_render_wait_true_compat_counts(ctx, monkeypatch):
     body = r.json()
     assert body["rendered"] == 2 and body["failed"] == 0
     assert body.get("job_id"), "兼容响应也应带 job_id"
+
+
+def test_batch_progress_has_real_timestamp_and_terminal_does_not_refresh_it(ctx, monkeypatch):
+    client, token, _engine = ctx
+    H = _h(token)
+    pid, _shots = _mk(client, H)
+
+    async def ok(session, shot, pool=None, request=None, **kw):
+        shot.status = "rendered"
+        shot.video_url = f"/api/studio/files/{shot.id}.mp4"
+        session.add(shot)
+        session.commit()
+        return shot
+
+    monkeypatch.setattr(orch, "render_shot", ok)
+    before = time.time()
+    r = client.post(
+        f"/api/studio/projects/{pid}/render",
+        headers=H,
+        json={"wait": False},
+    )
+    assert r.status_code == 202, r.text
+    job_id = r.json()["job_id"]
+    final = None
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        final = client.get(
+            "/api/jobs/lookup", headers=H, params={"job_id": job_id}
+        ).json()
+        if final["status"] == "done":
+            break
+        time.sleep(0.05)
+    assert final and final["status"] == "done", final
+    progress = final["progress"]
+    assert before <= progress["updated_at"] <= time.time()
+    assert progress["phase"] == "queued"
+    first_updated_at = progress["updated_at"]
+    time.sleep(0.02)
+    status = client.get(f"/api/studio/projects/{pid}/render/{job_id}", headers=H)
+    assert status.status_code == 200, status.text
+    again = client.get("/api/jobs/lookup", headers=H, params={"job_id": job_id}).json()
+    assert again["runtime"]["state"] == "terminal"
+    assert again["progress"]["updated_at"] == first_updated_at

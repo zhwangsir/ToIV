@@ -2,28 +2,31 @@ import { ArrowRight, Clapperboard, Loader2, Plus, RefreshCw } from "lucide-react
 import { Link, useNavigate } from "react-router";
 import { useCallback, useState } from "react";
 
-import { beefTVCapabilityItems, homeIntentBarItems } from "./home-data";
+import type { CanvasLibrarySummary } from "@/services/api/workspace-data";
+import { ProjectPreview } from "@/components/canvas/canvas-project-card";
 import { ComputeStatusStrip } from "@/components/toiv/compute-status-strip";
-import { createStudioProject, seedRainNightSample, type ToivDramaProject } from "@/services/toiv/client";
-import "@/styles/toiv-freezone-desk.css";
+import { createStudioProject, seedRainNightSample } from "@/services/toiv/client";
+import { beefTVCapabilityItems } from "./home-data";
 import "./home-dashboard.css";
 
-function formatDate(value?: string) {
-    if (!value) return "刚刚更新";
+function formatDate(value: string) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "刚刚更新";
     return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replaceAll("/", "-");
 }
 
-const PHASE_PIPS = ["剧本", "资产", "分镜", "成片"] as const;
-
+/**
+ * BF0 · BeefTV 初始首页形态。
+ * Hero = 新建画布；capability 单行；最近 = 画布预览卡。
+ * homeIntentBarItems / HOME_INTENT_ENTRIES 禁止整墙铺首页（export 仍留给工具台/市场）。
+ */
 export function HomeDashboard({
     projects,
     loading,
     error,
     onRetry,
 }: {
-    projects: ToivDramaProject[];
+    projects: CanvasLibrarySummary[];
     loading: boolean;
     error: boolean;
     onRetry: () => void;
@@ -62,96 +65,96 @@ export function HomeDashboard({
     }, [navigate, seeding]);
 
     return (
-        <main className="toiv-home fz-desk fz-desk-page" aria-label="ToIV 首页">
-            <header className="fz-desk-toolbar" aria-label="工作台工具条">
-                <h1>工作台</h1>
-                <div className="fz-desk-actions">
-                    <button type="button" className="fz-btn is-primary" onClick={() => void createDrama()} disabled={creating} aria-label="新建短剧">
-                        {creating ? <Loader2 className="animate-spin" /> : <Plus />}
+        <main className="beeftv-home toiv-home" aria-label="ToIV 首页">
+            <section className="beeftv-home-hero" aria-label="新建画布">
+                <span className="beeftv-home-dot-base" aria-hidden />
+                <span className="beeftv-home-dot-flow" aria-hidden />
+                <span className="beeftv-home-dot-flow beeftv-home-dot-flow-delay" aria-hidden />
+                <button type="button" className="beeftv-home-create" onClick={() => navigate("/canvas?mode=new")}>
+                    <span className="beeftv-home-create-icon"><Plus /></span>
+                    <span className="beeftv-home-create-title">新建画布创作</span>
+                </button>
+            </section>
+
+            <div className="beeftv-home-meta" aria-label="算力与次入口">
+                <ComputeStatusStrip variant="compact" className="beeftv-home-compute" />
+                <div className="beeftv-home-secondary">
+                    <button type="button" className="beeftv-home-secondary-btn" onClick={() => void createDrama()} disabled={creating} aria-label="新建短剧">
+                        {creating ? <Loader2 className="animate-spin" /> : <Clapperboard />}
                         新建短剧
                     </button>
-                    <button type="button" className="fz-btn" onClick={() => void openRainNight()} disabled={seeding} aria-label="打开雨夜示例">
+                    <button type="button" className="beeftv-home-secondary-btn" onClick={() => void openRainNight()} disabled={seeding} aria-label="打开雨夜示例">
                         {seeding ? <Loader2 className="animate-spin" /> : <Clapperboard />}
                         雨夜示例
                     </button>
-                    <Link to="/create" className="fz-btn">去创作</Link>
+                    <Link to="/create" className="beeftv-home-secondary-btn">去创作台</Link>
                 </div>
-                <p>密台 · 最近项目优先 · Freezone 暗壳</p>
-            </header>
-
-            <ComputeStatusStrip variant="full" className="toiv-home-fleet-hint" />
+            </div>
 
             {actionError ? (
-                <button className="toiv-home-error" type="button" onClick={() => setActionError(null)}>
+                <button className="beeftv-home-error" type="button" onClick={() => setActionError(null)}>
                     {actionError}（点击关闭）
                 </button>
             ) : null}
 
-            <section className="toiv-home-section toiv-recents" aria-label="最近短剧">
-                <header className="fz-section-head">
-                    <h2>最近短剧</h2>
-                    <Link to="/toiv/drama">全部 <ArrowRight className="inline size-3.5" /></Link>
+            <nav className="beeftv-capabilities" aria-label="创作能力">
+                {beefTVCapabilityItems.map(({ id, label, detail, to, icon: Icon, disabled, external }) => (
+                    disabled ? (
+                        <span key={id} className="beeftv-capability is-disabled" aria-disabled="true" title={`${label}：${detail}`}>
+                            <span className="beeftv-capability-icon"><Icon /></span>
+                            <strong>{label}</strong>
+                        </span>
+                    ) : external ? (
+                        <a key={id} href={to} className="beeftv-capability" title={detail}>
+                            <span className="beeftv-capability-icon"><Icon /></span>
+                            <strong>{label}</strong>
+                        </a>
+                    ) : (
+                        <Link key={id} to={to} className="beeftv-capability" title={detail}>
+                            <span className="beeftv-capability-icon"><Icon /></span>
+                            <strong>{label}</strong>
+                        </Link>
+                    )
+                ))}
+            </nav>
+
+            <section className="beeftv-home-section beeftv-recents" aria-label="最近项目">
+                <header className="beeftv-section-heading">
+                    <h2>最近项目</h2>
+                    <Link to="/project">查看全部 <ArrowRight /></Link>
                 </header>
                 {error ? (
-                    <button className="toiv-home-error" type="button" onClick={onRetry}>
-                        <RefreshCw />短剧列表读取失败，点击重试
+                    <button className="beeftv-home-error" type="button" onClick={onRetry}>
+                        <RefreshCw />画布读取失败，点击重试
                     </button>
                 ) : (
-                    <div className="fz-dense-grid">
-                        {loading
-                            ? Array.from({ length: 6 }, (_, index) => <div className="fz-card is-loading toiv-recent-card is-loading" key={index} />)
-                            : projects.length
-                              ? projects.map((project) => (
-                                    <Link to={`/create?project=${encodeURIComponent(project.id)}`} className="fz-card" key={project.id}>
-                                        <p className="fz-card-title">{project.title || project.premise?.slice(0, 24) || "未命名短剧"}</p>
-                                        <p className="fz-card-meta">{formatDate(project.updated_at)}</p>
-                                        <div className="fz-phase-row" aria-hidden>
-                                            {PHASE_PIPS.map((label, i) => (
-                                                <span key={label} className={i === 0 ? "fz-phase-pip is-done" : "fz-phase-pip"}>
-                                                    {label}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </Link>
-                                ))
-                              : (
-                                    <button type="button" className="fz-card" onClick={() => void createDrama()} disabled={creating}>
-                                        <p className="fz-card-title">创建第一个短剧</p>
-                                        <p className="fz-card-meta">进入六段工作区</p>
-                                    </button>
-                                )}
+                    <div className="beeftv-recent-grid">
+                        {loading ? (
+                            Array.from({ length: 4 }, (_, index) => <div className="beeftv-recent-card is-loading" key={index} />)
+                        ) : projects.length ? (
+                            projects.map((project) => (
+                                <Link to={`/canvas/${project.id}`} className="beeftv-recent-card" key={project.id}>
+                                    <span className="beeftv-recent-preview">
+                                        <ProjectPreview project={{ id: project.id, nodes: project.previewNodes }} emptyVariant="libtv" />
+                                    </span>
+                                    <span className="beeftv-recent-copy">
+                                        <strong>{project.title || "未命名"}</strong>
+                                        <small>{formatDate(project.updatedAt)}</small>
+                                    </span>
+                                    <ArrowRight className="beeftv-recent-arrow" />
+                                </Link>
+                            ))
+                        ) : (
+                            <button type="button" className="beeftv-recent-card is-empty" onClick={() => navigate("/canvas?mode=new")}>
+                                <span className="beeftv-recent-preview"><Plus /></span>
+                                <span className="beeftv-recent-copy">
+                                    <strong>创建第一个画布</strong>
+                                    <small>让灵感有一个开始的地方</small>
+                                </span>
+                            </button>
+                        )}
                     </div>
                 )}
-            </section>
-
-            <section className="toiv-home-section" aria-label="快捷入口">
-                <header className="fz-section-head">
-                    <h2>快捷</h2>
-                </header>
-                <div className="fz-chip-row">
-                    {homeIntentBarItems.map(({ id, label, detail, to, icon: Icon }) => (
-                        <Link key={id} to={to} className="fz-chip" title={detail}>
-                            <Icon aria-hidden />
-                            {label}
-                        </Link>
-                    ))}
-                    {beefTVCapabilityItems
-                        .filter((x) => !x.disabled)
-                        .slice(0, 6)
-                        .map(({ id, label, to, icon: Icon, external }) =>
-                            external ? (
-                                <a key={id} href={to} className="fz-chip">
-                                    <Icon aria-hidden />
-                                    {label}
-                                </a>
-                            ) : (
-                                <Link key={id} to={to} className="fz-chip">
-                                    <Icon aria-hidden />
-                                    {label}
-                                </Link>
-                            ),
-                        )}
-                </div>
             </section>
         </main>
     );

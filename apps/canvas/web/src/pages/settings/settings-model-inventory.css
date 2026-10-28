@@ -22,7 +22,7 @@
 .toiv-model-inventory-head p {
   margin: 4px 0 0;
   font-size: var(--toiv-model-mgr-meta-fs, var(--toiv-model-meta-fs, 12px));
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-model-inventory-list {
@@ -32,7 +32,7 @@
   flex-direction: column;
   gap: var(--toiv-model-mgr-row-gap, var(--toiv-model-row-gap, 4px));
   padding: 4px;
-  border: 1px solid var(--toiv-settings-card-border, var(--toiv-border, #22232c));
+  border: 1px solid var(--toiv-settings-card-border, var(--toiv-border, rgba(255, 255, 255, 0.10)));
   border-radius: var(--toiv-settings-card-radius, 12px);
   background: var(--toiv-settings-card-bg);
 }
@@ -70,8 +70,8 @@
   width: var(--toiv-model-mgr-icon-d, var(--toiv-model-icon-d, 40px));
   height: var(--toiv-model-mgr-icon-d, var(--toiv-model-icon-d, 40px));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 12%, transparent);
-  color: var(--toiv-accent, #5ba0ff);
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 12%, transparent);
+  color: var(--toiv-accent, #4A7FC1);
 }
 
 .toiv-model-row-icon svg { width: var(--toiv-model-mgr-provider-logo, 24px); height: var(--toiv-model-mgr-provider-logo, 24px); }
@@ -90,7 +90,7 @@
 .toiv-model-row-meta {
   margin: 2px 0 0;
   font-size: var(--toiv-model-mgr-meta-fs, var(--toiv-model-meta-fs, 12px));
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -111,14 +111,14 @@
   border-radius: 999px;
   font-size: var(--toiv-model-mgr-badge-fs, var(--toiv-model-badge-fs, 10px));
   font-weight: 600;
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 16%, transparent);
-  color: var(--toiv-accent, #5ba0ff);
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 16%, transparent);
+  color: var(--toiv-accent, #4A7FC1);
 }
 
 .toiv-model-drawer .ant-drawer-body {
   padding: var(--toiv-settings-drawer-pad, 20px) !important;
-  background: var(--toiv-surface, #15161d);
-  color: var(--toiv-text, #e8eaf0);
+  background: var(--toiv-surface, #14151a);
+  color: var(--toiv-text, #f4f6f7);
 }
 
 .toiv-model-drawer-block {
@@ -132,7 +132,7 @@
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
   text-transform: none;
 }
 
@@ -147,18 +147,18 @@
   align-items: center;
   justify-content: center;
   height: 36px;
-  border: 1px solid var(--toiv-border, #22232c);
+  border: 1px solid var(--toiv-border, rgba(255, 255, 255, 0.10));
   border-radius: 10px;
   background: color-mix(in srgb, var(--toiv-text) 4%, transparent);
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
   font-size: 13px;
   cursor: pointer;
 }
 
 .toiv-model-drawer-actions button.is-primary {
   border-color: transparent;
-  background: var(--toiv-accent, #5ba0ff);
-  color: #0a0c12;
+  background: var(--toiv-accent, #4A7FC1);
+  color: #0b0c0f;
 }
 
 .toiv-model-drawer-actions button:disabled {
@@ -170,5 +170,5 @@
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }

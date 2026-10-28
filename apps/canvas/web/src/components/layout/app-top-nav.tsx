@@ -14,11 +14,13 @@ import { isLocalWorkspaceMode } from "@/services/workspace-mode";
 
 const WorkspaceCommandPalette = lazy(() => import("@/components/layout/workspace-command-palette").then((module) => ({ default: module.WorkspaceCommandPalette })));
 
+/** ToIV 登录后根壳（B1 250/67/56 · A6 配色）。DesktopShell 属 Cosmos 种子，默认不套。 */
 export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const [mobileSidebarExpanded, setMobileSidebarExpanded] = useState(false);
     const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(readWorkspaceSidebarCollapsed);
+    const [creationSidebarExpanded, setCreationSidebarExpanded] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
     const sessionHydrated = useUserStore((state) => state.hydrated);
     const storageMode = useUserStore((state) => state.storageMode);
@@ -29,12 +31,17 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     const hideChrome = pathname.startsWith("/admin") || /^\/canvas\/[^/]+/.test(pathname);
     const spatialWorkbench = isSpatialWorkbenchPath(pathname);
     const creationWorkspace = pathname === "/create";
+    const sidebarCollapsed = creationWorkspace ? !creationSidebarExpanded : desktopSidebarCollapsed;
 
     const isMobileViewport = () => window.innerWidth < 1024;
 
     const toggleSidebar = () => {
         if (isMobileViewport()) {
             setMobileSidebarExpanded((current) => !current);
+            return;
+        }
+        if (creationWorkspace) {
+            setCreationSidebarExpanded((current) => !current);
             return;
         }
         setDesktopSidebarCollapsed((current) => {
@@ -45,11 +52,13 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
     };
 
     const expandDesktopSidebar = () => {
+        setCreationSidebarExpanded(true);
         setDesktopSidebarCollapsed(false);
         writeWorkspaceSidebarCollapsed(false);
     };
 
     const collapseDesktopSidebar = () => {
+        setCreationSidebarExpanded(false);
         setDesktopSidebarCollapsed(true);
         writeWorkspaceSidebarCollapsed(true);
     };
@@ -83,7 +92,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
 
     return (
         <WorkspaceTopBarExtensionProvider>
-            <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")}>
+            <div className={cn("app-workspace-shell flex h-full min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")} data-window-chrome="1">
                 {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label="收起侧栏" onClick={() => setMobileSidebarExpanded(false)} /> : null}
 
                 <div className="app-workspace-main-row flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -92,11 +101,11 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
                             className={cn(
                                 "app-workspace-sidebar flex h-full shrink-0 flex-col overflow-hidden",
                                 mobileSidebarExpanded && "is-mobile-expanded",
-                                desktopSidebarCollapsed && "is-collapsed",
+                                sidebarCollapsed && "is-collapsed",
                             )}
                         >
                             <WorkspaceSidebarNav
-                                collapsed={desktopSidebarCollapsed}
+                                collapsed={sidebarCollapsed}
                                 onNavigate={handleNavClick}
                                 onOpenSearch={() => setPaletteOpen(true)}
                                 onExpand={expandDesktopSidebar}
@@ -108,7 +117,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
                     <div className="app-workspace-stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                         {!hideChrome ? (
                             <WorkspaceTopBar
-                                sidebarOpen={mobileSidebarExpanded || !desktopSidebarCollapsed}
+                                sidebarOpen={mobileSidebarExpanded || !sidebarCollapsed}
                                 onToggleSidebar={toggleSidebar}
                             />
                         ) : null}

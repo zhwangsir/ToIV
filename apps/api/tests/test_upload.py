@@ -171,3 +171,31 @@ def test_upload_rate_limited_after_10_in_a_minute(ctx):
     r = _upload(client, h, _PNG, "ref.png", "image/png")
     assert r.status_code == 429
     assert "Retry-After" in r.headers
+
+
+def test_size_limits_same_source_and_enforced(ctx):
+    """字节上限与 app.limits 同源;边界:恰好 20MB 过大小闸(替身 worker → 200),+1 → 413。"""
+    from app.limits import AUDIO_MAX_BYTES, IMAGE_MAX_BYTES, VIDEO_MAX_BYTES
+    from app.routes import upload as upload_route
+
+    assert upload_route._MAX_BYTES == IMAGE_MAX_BYTES == AUDIO_MAX_BYTES == 20 * 1024 * 1024
+    assert upload_route._MAX_VIDEO_BYTES == VIDEO_MAX_BYTES == 200 * 1024 * 1024
+
+    client, h = ctx
+    ok = _PNG + b"\x00" * (IMAGE_MAX_BYTES - len(_PNG))
+    assert len(ok) == IMAGE_MAX_BYTES
+    r = _upload(client, h, ok, "big.png", "image/png")
+    assert r.status_code == 200, r.text
+    r = _upload(client, h, ok + b"\x00", "big.png", "image/png")
+    assert r.status_code == 413
+
+
+def test_video_size_limit_413_over_200mb(ctx):
+    """视频类(mp4)上限 200MB:超限 413;与图/音频 20MB 分流不变。"""
+    from app.limits import VIDEO_MAX_BYTES
+
+    client, h = ctx
+    mp4 = b"\x00" * 4 + b"ftypisom" + b"\x00" * VIDEO_MAX_BYTES  # 200MB+8
+    r = _upload(client, h, mp4, "drive.mp4", "video/mp4", kind="wan_animate")
+    assert r.status_code == 413
+    assert "200" in r.json()["detail"]

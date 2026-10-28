@@ -75,8 +75,10 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
   // R12: /create 与 /create/* 一律到正式创作台（不留 /studio/create/foo）
   [/^\/create(?:\/.*)?$/, "/studio/create"],
+  // R11: 旧六段工作区保留项目与段落，进入单一创作台（先于 /toiv 通配）
+  [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/studio/create?project=$1&section=$2"],
   // R11: 助手 / 引擎工具孤面 → 创作台（先于 /toiv 通配）
-  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create"],
+  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create?view=agent"],
   [/^\/toiv\/audio(?:\/.*)?$/, "/studio/create"],
   [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/create"],
   [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/create"],

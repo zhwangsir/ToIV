@@ -480,6 +480,8 @@ def test_multishot_marks_job_nsfw_and_swaps_unet(client, monkeypatch):
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ms-nsfw")
+        s.get(User, uid).content_mode = "adult"  # D-U1=B:R18 放行按账号成人态
+        s.commit()
     fake = _FakeH3Client()
     _install_h3(monkeypatch, fake)
     r = c.post(

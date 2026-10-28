@@ -1,0 +1,15 @@
+/* W3-A · P1-2: ToIV 任务时间线进度绑 --toiv-job-*（与 create 队列同几何） */
+.toiv-job-progress-track {
+  height: var(--toiv-job-progress-h, 3px);
+  max-width: var(--toiv-job-progress-max-w, 420px);
+  border-radius: var(--toiv-job-progress-radius, 999px);
+  background: var(--toiv-job-progress-track, color-mix(in srgb, var(--foreground) 9%, transparent));
+}
+.toiv-job-progress-fill {
+  border-radius: inherit;
+  background: var(--toiv-job-progress-fill, var(--toiv-accent, #4A7FC1));
+  transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+@media (prefers-reduced-motion: reduce) {
+  .toiv-job-progress-fill { transition: none; }
+}

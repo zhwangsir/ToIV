@@ -1,4 +1,4 @@
-/* R9 Freezone empty / skeleton / soft motion — accent glow only (#5ba0ff) */
+/* R9 Freezone empty / skeleton / soft motion — accent glow only (#4A7FC1) */
 
 .toiv-empty {
   display: flex;
@@ -40,7 +40,7 @@
   margin: 0;
   font-size: var(--toiv-empty-title-fs, 14px);
   font-weight: var(--toiv-empty-title-fw, 560);
-  color: var(--toiv-text, #e8eaf0);
+  color: var(--toiv-text, #f4f6f7);
 }
 
 .toiv-empty-desc {
@@ -48,11 +48,11 @@
   max-width: var(--toiv-empty-desc-max, 36ch);
   font-size: var(--toiv-empty-desc-fs, 12px);
   line-height: 1.5;
-  color: var(--toiv-text-muted, #6f7079);
+  color: var(--toiv-text-muted, #8b8e98);
 }
 
 .toiv-empty-desc a {
-  color: var(--toiv-accent, #5ba0ff);
+  color: var(--toiv-accent, #4A7FC1);
   text-decoration: none;
 }
 
@@ -73,15 +73,21 @@
   padding: 0 14px;
   border: 0;
   border-radius: var(--toiv-empty-cta-radius, 999px);
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 18%, transparent);
-  color: var(--toiv-text, #e8eaf0);
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 18%, transparent);
+  color: var(--toiv-text, #f4f6f7);
   font-size: 12px;
+  text-decoration: none;
   cursor: pointer;
   transition: background var(--toiv-motion-enter-ms, 220ms) var(--toiv-motion-ease);
 }
 
 .toiv-empty-cta:hover {
-  background: color-mix(in srgb, var(--toiv-accent, #5ba0ff) 28%, transparent);
+  background: color-mix(in srgb, var(--toiv-accent, #4A7FC1) 28%, transparent);
+}
+
+.toiv-empty-cta:focus-visible {
+  outline: 2px solid var(--toiv-accent, #4A7FC1);
+  outline-offset: 2px;
 }
 
 /* Skeleton — local pulse/shimmer, never full-screen spinner */
@@ -157,35 +163,10 @@
   height: 56px;
 }
 
-/* Soft pointer glow — restrained; accent only */
-.toiv-soft-glow {
-  position: relative;
-  isolation: isolate;
-}
-
+/* W1-B: ToivSoftGlow deleted — keep fail-closed hide if stale class ever appears */
 .toiv-soft-glow::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0;
-  background: radial-gradient(
-    var(--toiv-glow-radius, 140px) circle at var(--toiv-glow-x, 50%) var(--toiv-glow-y, 40%),
-    var(--toiv-glow-color),
-    transparent 70%
-  );
-  transition: opacity var(--toiv-motion-enter-ms, 220ms) var(--toiv-motion-ease);
-}
-
-.toiv-soft-glow.is-active::before,
-.toiv-soft-glow:hover::before {
-  opacity: var(--toiv-glow-opacity, 0.55);
-}
-
-.toiv-soft-glow > * {
-  position: relative;
-  z-index: 1;
+  content: none !important;
+  display: none !important;
 }
 
 @keyframes toiv-motion-enter {
@@ -210,9 +191,6 @@
     opacity: 0;
     transform: none;
     background: transparent;
-  }
-  .toiv-soft-glow::before {
-    display: none;
   }
   .toiv-spinner,
   .toiv-spinner-md {

@@ -60,10 +60,10 @@ export const WORKSPACE_COMMAND_ROUTES: ReadonlyArray<Omit<WorkspaceCommandEntry,
     { id: "toiv:market", title: "工具台", icon: Store, hint: "页面", to: "/toiv/market" },
     { id: "toiv:tasks", title: "任务中心", icon: ListChecks, hint: "页面", to: "/toiv/tasks" },
     // 工具页(F3–F7 自经典 web 收编,侧栏未平铺)
-    { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/create" },
-    { id: "toiv:image-tools", title: "图片工具", icon: Image, hint: "工具", to: "/create" },
-    { id: "toiv:video-tools", title: "视频工具", icon: Film, hint: "工具", to: "/create" },
-    { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/create" },
+    { id: "toiv:audio", title: "音频工具", icon: Music, hint: "工具", to: "/toiv/market#tools-intent-audio" },
+    { id: "toiv:image-tools", title: "图片工具", icon: Image, hint: "工具", to: "/toiv/market#tools-intent-image" },
+    { id: "toiv:video-tools", title: "视频工具", icon: Film, hint: "工具", to: "/toiv/market#tools-intent-video" },
+    { id: "toiv:dub-tools", title: "译制工具", icon: Mic, hint: "工具", to: "/toiv/market#tools-intent-drama" },
     // 高级 / 云端可选
     { id: "agents", title: "外部 Agent", icon: Plug, hint: "页面", to: "/agents" },
     // 设置段
@@ -92,9 +92,9 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                 return {
                     ...entry,
                     run: () => {
-                        // 已在对话页时由页面监听重置;未挂载时挂载初态即新会话。
-                        window.dispatchEvent(new CustomEvent(EV_AGENT_NEW_SESSION));
-                        navigate(entry.to ?? "/create");
+                        const agentOpen = window.location.pathname.endsWith("/create") && new URLSearchParams(window.location.search).get("view") === "agent";
+                        navigate("/create?view=agent");
+                        if (agentOpen) window.dispatchEvent(new CustomEvent(EV_AGENT_NEW_SESSION));
                     },
                 };
             }
