@@ -38,8 +38,9 @@ function StudioPipelineRoute() {
             "take-pick": "Take 已设为采用",
             "take-new": "新 Take 生成中 · 满血档",
             "stage-change": "阶段切换请求已记录",
+            "scene-detect": "场景识别已入队 · 从剧本自动拆分",
         };
-        if (text[action.type]) push(text[action.type], action.type === "view-replace" || action.type === "take-new");
+        if (text[action.type]) push(text[action.type], action.type === "view-replace" || action.type === "take-new" || action.type === "scene-detect");
     };
     return (
         <StudioShell face="pipeline" projectLabel={`${model.projectName} / ${model.stages[model.stageIndex].label}`}

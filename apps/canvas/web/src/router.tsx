@@ -140,6 +140,15 @@ function devRoutes() {
 export const router = createWorkspaceRouter([
     ...(import.meta.env.DEV ? devRoutes() : []),
     {
+        // studio 新壳三面：不套旧 WorkspaceLayout chrome（strangler 外层）
+        path: "/create",
+        element: deferred(<StudioCreateRoute />),
+    },
+    { path: "/edit", element: deferred(<StudioEditRoute />) },
+    { path: "/canvas", element: deferred(<StudioCanvasRoute />) },
+    { path: "/projects", element: deferred(<StudioCanvasRoute />) },
+    { path: "/project", element: deferred(<StudioCanvasRoute />) },
+    {
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
         children: [
@@ -151,8 +160,6 @@ export const router = createWorkspaceRouter([
             { path: "/desktop/store", element: <Navigate to="/create" replace /> },
             { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
             { path: "/desktop/*", element: <Navigate to="/create" replace /> },
-            { path: "/create", element: deferred(<StudioCreateRoute />) },
-            { path: "/edit", element: deferred(<StudioEditRoute />) },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
             { path: "/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/library", element: deferred(<MediaLibraryPage />) },
@@ -188,16 +195,8 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/ws/:id/:section", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws/:id", element: <ToivWsToCreateRedirect /> },
             { path: "/toiv/ws", element: <ToivWsToCreateRedirect /> },
-            {
-                path: "/projects",
-                element: deferred(<StudioCanvasRoute />),
-            },
             // LibTV 使用单数 `/project` 作为项目库入口；直接渲染本地项目库，
             // 保留原始 URL，避免像素复刻时出现一次重定向造成的布局/加载闪烁。
-            {
-                path: "/project",
-                element: deferred(<StudioCanvasRoute />),
-            },
             {
                 path: "/projects/:projectId",
                 element: <LocalAwareProjectRoute />,
@@ -216,7 +215,6 @@ export const router = createWorkspaceRouter([
                 path: "/projects/:projectId/workflow/:unitId/:stage",
                 element: <LocalAwareProjectRoute />,
             },
-            { path: "/canvas", element: deferred(<StudioCanvasRoute />) },
             { path: "/canvas/:id", element: <CanvasProjectPage /> },
         ],
     },

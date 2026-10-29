@@ -183,6 +183,10 @@ describe("PipelineFace", () => {
     test("renders take strip with active", () => {
         expect(html).toContain("ACTIVE");
     });
+    test("empty scenes render detect action", () => {
+        const empty = renderToStaticMarkup(<PipelineFace model={{ ...model, scenes: [] }} onAction={() => {}} />);
+        expect(empty).toContain("从剧本识别场景");
+    });
 });
 
 describe("ShotStrip", () => {

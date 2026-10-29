@@ -7,7 +7,7 @@ import { Button } from "@/studio/ui/Button";
 import type { PipelineModel } from "./model";
 
 export type PipelineAction = {
-    type: "view-select" | "view-preview" | "view-replace" | "view-download" | "take-pick" | "take-new" | "stage-change";
+    type: "view-select" | "view-preview" | "view-replace" | "view-download" | "take-pick" | "take-new" | "stage-change" | "scene-detect";
     sceneId?: string;
     viewId?: string;
     shotId?: string;
@@ -50,6 +50,12 @@ export function PipelineFace({ model, onAction }: { model: PipelineModel; onActi
                 <div className="stv-bar">
                     <h2>场景</h2><span className="meta">{model.scenes.length} 场景 · 每场景 4 视图</span>
                 </div>
+                {model.scenes.length === 0 ? (
+                    <div className="stv-empty">
+                        <p>这个项目还没有场景。从剧本自动识别场景与多视图。</p>
+                        <Button variant="primary" onClick={() => onAction({ type: "scene-detect" })}>从剧本识别场景</Button>
+                    </div>
+                ) : null}
                 {model.scenes.map((group) => (
                     <ViewGroup key={group.id} scene={group} views={group.views}
                         selectedViewId={group.id === scene?.id ? viewId : undefined}
