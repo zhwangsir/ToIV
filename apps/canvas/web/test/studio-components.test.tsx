@@ -19,6 +19,8 @@ import { ExportMenu } from "../src/studio/ui/ExportMenu";
 import { studioExportMenuModel } from "../src/services/toiv/multitrack-export";
 import { EditFace } from "../src/studio/faces/edit/EditFace";
 import type { EditModel } from "../src/studio/faces/edit/model";
+import { ProjectCard } from "../src/studio/ui/ProjectCard";
+import { ProjectGrid } from "../src/studio/ui/ProjectGrid";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -245,5 +247,28 @@ describe("EditFace", () => {
     });
     test("hints missing bgm track", () => {
         expect(html).toContain("BGM 未绑定");
+    });
+});
+
+describe("ProjectCard", () => {
+    const card = { id: "p1", title: "草船借箭", status: "active", stillSeed: 1, shotCount: 6 };
+    const html = renderToStaticMarkup(<ProjectCard card={card} onOpen={() => {}} />);
+    test("exposes open semantics with title", () => {
+        expect(html).toContain('aria-label="打开项目 草船借箭"');
+        expect(html).toContain("草船借箭");
+        expect(html).toContain("6 镜");
+    });
+});
+
+describe("ProjectGrid", () => {
+    test("empty state offers create action", () => {
+        const html = renderToStaticMarkup(<ProjectGrid cards={[]} onOpen={() => {}} onCreate={() => {}} />);
+        expect(html).toContain("新建项目");
+    });
+    test("renders one card per project", () => {
+        const cards = [{ id: "p1", title: "甲", status: "active", stillSeed: 0, shotCount: 1 }, { id: "p2", title: "乙", status: "draft", stillSeed: 2, shotCount: 0 }];
+        const html = renderToStaticMarkup(<ProjectGrid cards={cards} onOpen={() => {}} onCreate={() => {}} />);
+        expect(html).toContain("甲");
+        expect(html).toContain("乙");
     });
 });
