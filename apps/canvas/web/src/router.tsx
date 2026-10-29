@@ -14,7 +14,7 @@ const HomePage = lazy(loadHomePage);
 /** COSMOS_SEED：Desktop 页源码保留（pages/desktop、components/desktop）；W6 默认路由不可达，见 docs/COSMOS_APP_SHELL_SEED.md */
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
-const CreationWorkbenchPage = lazy(() => import("@/pages/create/creation-workbench"));
+const StudioCreateRoute = lazy(() => import("@/studio/routes/studio-create-route"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
@@ -150,7 +150,7 @@ export const router = createWorkspaceRouter([
             { path: "/desktop/store", element: <Navigate to="/create" replace /> },
             { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
             { path: "/desktop/*", element: <Navigate to="/create" replace /> },
-            { path: "/create", element: deferred(<CreationWorkbenchPage />) },
+            { path: "/create", element: deferred(<StudioCreateRoute />) },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
             { path: "/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/library", element: deferred(<MediaLibraryPage />) },
