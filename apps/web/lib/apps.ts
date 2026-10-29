@@ -1,3 +1,5 @@
+import { contentPolicy } from "@content-lock";
+
 import { API_BASE, apiFetch, authHeaders, apiErrorMessage } from "./api";
 import type { H3AccelLevel } from "./h3Accel";
 import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
@@ -1141,7 +1143,7 @@ export interface AppFilterOpts {
   q?: string;
   /** 分类;"all"/空 = 不过滤 */
   category?: string;
-  /** R18 模式:on 才放行 is_nsfw 应用(NSFW 客户端过滤) */
+  /** 成人上下文:是否放行 is_nsfw 应用由 @content-lock 策略决定(无锁时全部放行) */
   r18?: boolean;
   /** 产物类型;"all"/空 = 不过滤(图片/视频创作页按 output_kind 收窄) */
   outputKind?: string;
@@ -1149,14 +1151,14 @@ export interface AppFilterOpts {
   useCase?: string;
 }
 
-/** 客户端过滤:搜索 + 分类 + 用途 + 产物类型 + NSFW(r18 off 时 is_nsfw 应用整卡隐藏)。 */
+/** 客户端过滤:搜索 + 分类 + 用途 + 产物类型 + 内容可见性(策略来自 @content-lock)。 */
 export function filterApps(apps: AppItem[], opts: AppFilterOpts = {}): AppItem[] {
   const q = (opts.q ?? "").trim().toLowerCase();
   const category = opts.category ?? "all";
   const outputKind = opts.outputKind ?? "all";
   const useCase = opts.useCase ?? "all";
   return apps.filter((a) => {
-    if (a.is_nsfw && !opts.r18) return false;
+    if (!contentPolicy.isAppVisible(a.is_nsfw, !!opts.r18)) return false;
     if (category !== "all" && a.category !== category) return false;
     if (outputKind !== "all" && a.output_kind !== outputKind) return false;
     if (useCase !== "all" && a.use_case !== useCase) return false;

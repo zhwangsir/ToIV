@@ -223,9 +223,8 @@ async def chat(
 ) -> dict:
     """一次对话补全;返回 assistant message(可能含 tool_calls)。
 
-    NSFW 路由:成人账号且配了 NSFW 专用 LLM(settings.llm_nsfw_model)
-    时,优先用 NSFW LLM;失败则 fallback 到主 LLM(默认模型也 uncensored,可兜底)。
-    非 NSFW 请求走主备路由:主模型重试 _MAX_ATTEMPTS 次,全失败且配了备用模型时切备用。
+    所有内容模式共用同一个主 LLM(2026-10-29 统一:不再有 NSFW 专用端点)。
+    主模型重试 _MAX_ATTEMPTS 次,全失败且配了备用模型时切备用。
 
     Args:
         messages: 对话消息列表。
@@ -241,40 +240,6 @@ async def chat(
     primary_url = settings.llm_base_url.rstrip("/")
     primary_key = settings.llm_api_key
     primary_model = settings.llm_model
-
-    # NSFW 模式:优先用 NSFW 专用 LLM;未配则复用主 LLM
-    from app.redline import nsfw_allowed
-    if nsfw_allowed(user) and settings.llm_nsfw_model.strip():
-        nsfw_url = (settings.llm_nsfw_base_url or settings.llm_base_url).rstrip("/")
-        nsfw_key = settings.llm_nsfw_api_key or settings.llm_api_key
-        nsfw_model = settings.llm_nsfw_model.strip()
-        nsfw_same_as_primary = (
-            nsfw_url == primary_url and nsfw_model == primary_model
-        )
-        try:
-            return await _call_with_retry(
-                nsfw_url, nsfw_model, nsfw_key,
-                messages, tools, max_tokens, temperature,
-                label=f"NSFW 模型 {nsfw_model}",
-                enable_thinking=enable_thinking,
-            )
-        except LLMError as nsfw_err:
-            # NSFW 与主模型同一端点时再调一次只会复现同一个 400(上下文溢出等)
-            if nsfw_same_as_primary:
-                raise
-            # NSFW LLM 不可用 → fallback 到主 LLM(默认模型也 uncensored,可兜底)
-            try:
-                return await _call_with_retry(
-                    primary_url, primary_model, primary_key,
-                    messages, tools, max_tokens, temperature,
-                    label=f"主模型 {primary_model}(NSFW fallback)",
-                    enable_thinking=enable_thinking,
-                )
-            except LLMError as primary_err:
-                raise LLMError(
-                    f"NSFW LLM 主备均不可用。NSFW({nsfw_model}@{nsfw_url}): {nsfw_err}; "
-                    f"主({primary_model}@{primary_url}): {primary_err}"
-                ) from primary_err
 
     try:
         return await _call_with_retry(
@@ -337,7 +302,7 @@ async def chat(
 # L1 初稿: settings.llm_base_url/llm_model @ workstation (实时交互)
 # L2 主力润色: settings.llm_l2_* @ EXO (关键场景;未就绪自动降级 L1)
 # L3 终稿精修: settings.llm_l3_* @ EXO (异步批量;降级链 L3→L2→L1)
-# L4 NSFW: settings.llm_nsfw_* (空则回落主模型,无审查)
+# L4: 与主模型同源(2026-10-29 起成人/长文不再单独路由;见 resolve_llm_endpoint)
 #
 # thinking 抑制(2026-07-27 实测):EXO 认顶层 enable_thinking=false(原生字段,PR #1654),
 # 不认 chat_template_kwargs(Pydantic 静默丢弃未知字段)。L2/L3 路径默认传 enable_thinking=False:
@@ -359,7 +324,7 @@ async def chat_layered(
 
     Args:
         messages: 对话消息列表。
-        layer: 模型层级 — "L1"(初稿) / "L2"(润色) / "L3"(精修) / "L4"(NSFW)。
+        layer: 模型层级 — "L1"(初稿) / "L2"(润色) / "L3"(精修) / "L4"(长文/成人文案,与主模型同源)。
         max_tokens: 最大输出 token;L2/L3 默认增大补偿 reasoning 消耗。
         temperature: 采样温度。
 
@@ -373,7 +338,7 @@ async def chat_layered(
     api_key = settings.llm_api_key
 
     if layer == "L4":
-        # L4 NSFW: 复用现有 NSFW 路由
+        # L4: 与主模型同源(不再有 NSFW 专用端点)
         return await chat(messages, max_tokens=max_tokens, temperature=temperature, user=user,
                           enable_thinking=enable_thinking)
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router";
+import { App as AntApp } from "antd";
 
 import CreationWorkbenchPage from "@/pages/create/creation-workbench";
 import { CreationStudioPreviewTimeline } from "@/components/create/creation-studio-preview-timeline";
@@ -27,6 +28,6 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
     params.has("view")
-        ? <MemoryRouter initialEntries={[{ pathname: "/create", search: window.location.search }]}><CreationWorkbenchPage /></MemoryRouter>
+        ? <MemoryRouter initialEntries={[{ pathname: "/create", search: window.location.search }]}><AntApp><CreationWorkbenchPage /></AntApp></MemoryRouter>
         : <App />,
 );

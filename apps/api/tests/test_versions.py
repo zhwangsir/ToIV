@@ -225,8 +225,8 @@ def test_rerun_unsupported_kind_400(ctx):
     assert r.status_code == 400
 
 
-def test_rerun_nsfw_source_hidden_on_main_site(ctx):
-    """主站(无 X-NSFW 头)对 R18 作业 rerun → 404,不泄露存在性。"""
+def test_rerun_nsfw_source_allowed_for_ordinary(ctx):
+    """普通账号可 rerun 自己的 R18 作业(后端无内容门;归属校验不变)。"""
     client, token, engine, uid, tid = ctx
     src = _mk_job(engine, uid, tid, nsfw=True, params=_SNAPSHOT)
     r = client.post(
@@ -234,11 +234,11 @@ def test_rerun_nsfw_source_hidden_on_main_site(ctx):
         json={"seed_mode": "keep"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert r.status_code == 404
+    assert r.status_code == 200, r.text
 
 
-def test_versions_chain_and_nsfw_gate(ctx):
-    """版本链:同根全列(时间升序);普通态过滤 R18 版本,成人态可见(D-U1=B)。"""
+def test_versions_chain_lists_all_rows(ctx):
+    """版本链:同根全列(时间升序);后端不按内容分级过滤。"""
     client, token, engine, uid, tid = ctx
     H = {"Authorization": f"Bearer {token}"}
     a = _mk_job(engine, uid, tid, params=_SNAPSHOT)
@@ -255,17 +255,17 @@ def test_versions_chain_and_nsfw_gate(ctx):
     r = client.get(f"/api/jobs/{c.id}/versions", headers=H)
     assert r.status_code == 200, r.text
     ids = [v["id"] for v in r.json()]
-    assert ids == [a.id, c.id]  # 普通态不见 R18 版本
+    assert ids == [a.id, b.id, c.id]  # 普通态也全列(含 R18 版本)
 
     _set_mode("adult")
     r2 = client.get(f"/api/jobs/{c.id}/versions", headers={**H, "X-NSFW": "1"})
     assert [v["id"] for v in r2.json()] == [a.id, b.id, c.id]
 
-    # 从根寻址得到同一条链(普通态);版本条目带 has_params 标记
+    # 从根寻址得到同一条链;版本条目带 has_params 标记
     _set_mode("ordinary")
     r3 = client.get(f"/api/jobs/{a.id}/versions", headers=H)
     rows = r3.json()
-    assert [v["id"] for v in rows] == [a.id, c.id]
+    assert [v["id"] for v in rows] == [a.id, b.id, c.id]
     assert rows[0]["has_params"] is True
     assert rows[1]["has_params"] is False
 

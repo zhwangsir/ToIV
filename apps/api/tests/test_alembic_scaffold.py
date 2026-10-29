@@ -43,7 +43,8 @@ def test_baseline_revision_is_noop():
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
     assert len(heads) == 1, heads
-    rev = script.get_revision(heads[0])
+    # 后续增量 revision(head 前移)不影响 baseline 的 noop 契约。
+    rev = script.get_revision("20261018_0001")
     assert rev is not None
     # 源码契约:upgrade/downgrade 体为空操作(pass 或仅 docstring)
     path = Path(rev.path)

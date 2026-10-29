@@ -211,8 +211,7 @@ async def submit_longcat_job(
     """提交 LongCat 作业:开关检查 → 就绪检查 → 资源预算预检 → queue_prompt → 落 Job
     → 后台追踪(结果落库进作品库)。
 
-    nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库);调用方须先过 R18 门控
-    (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
+    nsfw=True 时 Job 打 R18 标(元数据,便于作品库分类);后端不做内容门控。
     prechecked=True 表示调用方已做过显存/RAM 预检(Wan 路由的 ensure_wan_vram,
     阈值语义独立),此处跳过避免重复拦截。
     hold_exc:调用方预检已失败(Wan 路由 ensure_wan_vram 的 503)且 hold 开关开时

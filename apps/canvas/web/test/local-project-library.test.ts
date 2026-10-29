@@ -19,7 +19,7 @@ test("local project library exposes the complete local workspace lifecycle", () 
     expect(libraryPage).toContain("回收站");
     expect(libraryPage).toContain("导入");
     expect(libraryPage).toContain("exportCanvasProjects");
-    expect(libraryPage).toContain("搜索项目");
+    expect(libraryPage).toContain("搜索自由画布");
     expect(libraryPage).toContain('createCanvasLibraryFolder("未命名文件夹")');
     expect(libraryPage).toContain('title="重命名文件夹"');
     expect(libraryPage).not.toContain('title={editingFolderId ? "重命名文件夹" : "新建文件夹"}');

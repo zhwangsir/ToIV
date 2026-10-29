@@ -9,13 +9,13 @@
   L1 初稿: settings.llm_base_url / llm_model(实时交互,响应快)
   L2 主力润色: settings.llm_l2_*(关键场景;EXO 未就绪时 chat_layered 自动降级 L1)
   L3 终稿精修: settings.llm_l3_*(异步批量;降级链 L3→L2→L1)
-  L4 NSFW: settings.llm_nsfw_*(空则回落主模型;无审查内容)
+  L4 长文/成人文案: 与 L1 同源(2026-10-29 统一为同一个主 LLM)
 
 路由原则:
   - 实时对话/快速草稿 → L1
   - 剧本/分镜/营销文案 → L2
   - 终稿润色/长文/高质量 → L3
-  - NSFW 内容生成 → L4
+  - 长文/成人文案 → L4(= 主模型)
 """
 from __future__ import annotations
 
@@ -73,13 +73,13 @@ def resolve_llm_endpoint(
             enable_thinking=False,
         )
     if ly is LLMLayer.L4_NSFW:
-        # NSFW 专用端点未配时回落主模型(与 agent/llm.py chat() 的 NSFW 路由一致)
+        # 2026-10-29 统一:成人/长文与普通内容共用主 LLM,不再有专用端点
         return LLMEndpoint(
             layer=ly,
-            base_url=(s.llm_nsfw_base_url or s.llm_base_url).rstrip("/"),
-            model_id=(s.llm_nsfw_model or s.llm_model).strip(),
+            base_url=s.llm_base_url.rstrip("/"),
+            model_id=s.llm_model,
             timeout=180.0,
-            description="无审查/NSFW 内容(settings.llm_nsfw_*,空则回落主模型)",
+            description="长文/成人文案(与主模型同源)",
             enable_thinking=False,
         )
     # L1 = 主模型
@@ -148,7 +148,7 @@ def route_llm(
     Args:
         content_type: 内容类型(ContentType 枚举或字符串)
         force_layer: 强制指定层(覆盖自动路由)
-        is_nsfw: 是否 NSFW 内容(强制路由到 L4)
+        is_nsfw: 历史参数(成人内容也走 L4 = 主模型,不再改变端点)
     """
     if is_nsfw:
         return resolve_llm_endpoint(LLMLayer.L4_NSFW)

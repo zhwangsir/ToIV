@@ -737,7 +737,7 @@ def test_animate_source_worker_read_failure_502(client, monkeypatch):
 
 
 def test_animate_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
-    """/nsfw 专区(X-NSFW: 1)提交 animate:Job 打 nsfw 标,主站作品库不可见。"""
+    """X-NSFW 头仅审计:不带显式成人意图时 Job 不打 nsfw 标。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "wansfw")

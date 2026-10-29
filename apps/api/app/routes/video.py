@@ -1,7 +1,7 @@
 """POST /api/generate/video —— Wan 2.2 图生视频(i2v)。
-POST /api/generate/ltx-t2v —— LTX2.3 文生视频(NSFW 专区)
-POST /api/generate/ltx-i2v —— LTX2.3 图生视频(NSFW 专区)
-POST /api/generate/ltx-lipsync —— LTX2.3 口型同步(NSFW 专区)
+POST /api/generate/ltx-t2v —— LTX2.3 文生视频(10Eros 底模)
+POST /api/generate/ltx-i2v —— LTX2.3 图生视频(10Eros 底模)
+POST /api/generate/ltx-lipsync —— LTX2.3 口型同步(10Eros 底模)
 
 图片先经 /api/upload 上传到某 worker,再带 filename + worker 调用本端点。
 """
@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
-from app.redline import adult_at_submit, job_nsfw_from_intent, nsfw_allowed, require_not_underage
+from app.redline import adult_at_submit, job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
@@ -68,7 +68,7 @@ class WanI2VRequest(BaseModel):
     length: int = Field(default=81, ge=9, le=121)
     fps: int = Field(default=16, ge=4, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
-    # NSFW LoRA 叠加链(仅 R18 上下文生效;SFW 请求带了一律剔除,防绕过)
+    # LoRA 叠加链:name 须在注册表内;分级只影响成品 nsfw 标,后端不剔任何条目。
     # None=AI 选配; []=关闭; 非空=钉选(须在策划目录内)。省略与空列表语义不同。
     loras: list[WanLoraInput] | None = Field(default=None, max_length=4)
     # 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量,成片用);默认加速档 8 步
@@ -161,13 +161,11 @@ async def generate_video(
     if req.effect_preset:
         pos, neg = apply_effect_preset(req.positive, req.negative or "", req.effect_preset)
         req = req.model_copy(update={"positive": pos, "negative": neg})
-    # LoRA:省略=AI 从策划卡选配;空列表=关闭;非空=钉选。SFW 静默不挂 NSFW 卡(既有行为)。
+    # LoRA:省略=AI 从策划卡选配;空列表=关闭;非空=钉选。用户钉选原样生效,后端不按分级剔除。
     nsfw = job_nsfw_from_intent(user, bool(req.nsfw))
     raw = None if req.loras is None else [{"name": l.name, "strength": l.strength} for l in req.loras]
-    if not nsfw and raw:
-        raw = []  # SFW 显式列表静默剔除,不 422
     try:
-        picks, lora_mode, lora_reason = resolve_submit_loras("wan", req.positive, nsfw, raw)
+        picks, lora_mode, lora_reason = resolve_submit_loras("wan", req.positive, raw)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     positive = inject_triggers(req.positive, picks)
@@ -237,24 +235,19 @@ async def generate_video(
 
 
 # ──────────────────────────────────────────────────────────────────
-# LTX2.3 视频生成(NSFW 专区)
+# LTX2.3 视频生成(默认 10Eros 底模)
 # ──────────────────────────────────────────────────────────────────
 
-def _gate_ltx_nsfw(user: User) -> None:
-    """LTX 视频端点:P0-5 R3 仅未成年硬关;成人 UX 403 退役。"""
-    require_not_underage(user)
-
-
-def reject_nsfw_ltx_t2v() -> None:
-    """2026-08-29:R18 LTX t2v 无首帧会塌成色块,普通用户禁止走此路径,改 i2v。"""
+def reject_ltx_t2v_without_first_frame() -> None:
+    """2026-08-29:10Eros t2v 无首帧会塌成色块,一律引导改 i2v(纯质量问题,与内容分级无关)。"""
     raise HTTPException(status_code=422, detail=NSFW_LTX_T2V_BLOCKED)
 
 
-def _resolve_video_loras(engine: str, prompt: str, nsfw: bool, loras: list[WanLoraInput] | None):
+def _resolve_video_loras(engine: str, prompt: str, loras: list[WanLoraInput] | None):
     """省略=auto / 空列表=off / 非空=pin;未知文件名 422。"""
     raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
     try:
-        return resolve_submit_loras(engine, prompt, nsfw, raw)
+        return resolve_submit_loras(engine, prompt, raw)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
@@ -361,17 +354,16 @@ async def generate_ltx_t2v(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """LTX2.3 文生视频(NSFW 专区)。默认 10Eros 底模 + 720p 2 阶段采样。
+    """LTX2.3 文生视频(10Eros 底模)。默认 10Eros 底模 + 720p 2 阶段采样。
 
-    2026-08-29 锁:R18 t2v 无首帧会塌成色块,本端点一律 422,引导改 i2v。
+    2026-08-29 锁:无首帧 t2v 会塌成色块,本端点一律 422,引导改 i2v。
     """
     enforce_generation_rate_limit(user)
-    _gate_ltx_nsfw(user)
-    reject_nsfw_ltx_t2v()
+    reject_ltx_t2v_without_first_frame()
 
     settings = get_settings()
     plan = _resolve_ltx_plan(req)
-    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, True, req.loras)
+    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, req.loras)
     positive = inject_triggers(req.positive, picks)
     params = LtxT2VParams(
         positive=positive,
@@ -405,14 +397,13 @@ async def generate_ltx_i2v(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """LTX2.3 图生视频(NSFW 专区)。"""
+    """LTX2.3 图生视频(10Eros 底模)。"""
     enforce_generation_rate_limit(user)
-    _gate_ltx_nsfw(user)
 
     settings = get_settings()
     plan = _resolve_ltx_plan(req)
     client = resolve_worker(req.worker)
-    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, True, req.loras)
+    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, req.loras)
     positive = inject_triggers(req.positive, picks)
     params = LtxI2VParams(
         positive=positive,
@@ -447,9 +438,8 @@ async def generate_ltx_lipsync(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """LTX2.3 口型同步(NSFW 专区)。图生视频 + 音频驱动 + ID LoRA。"""
+    """LTX2.3 口型同步(10Eros 底模)。图生视频 + 音频驱动 + ID LoRA。"""
     enforce_generation_rate_limit(user)
-    _gate_ltx_nsfw(user)
 
     settings = get_settings()
     plan = _resolve_ltx_plan(req)

@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import type { AssetLibraryPickerItem } from "@/components/assets/asset-library-picker-modal";
 import { generationErrorCode, generationErrorMessage } from "@/lib/generation-error";
-import { creationResultAssetIds } from "@/lib/canvas/canvas-asset-handoff";
+import { creationResultAssetIds, unhydratedCreationResultAssetTasks } from "@/lib/canvas/canvas-asset-handoff";
 import { captureUserScopeEpoch, userScopeEpochMatches } from "@/lib/user-scope";
 import { assertUserScope, captureUserScope, userScopeMatches, type CapturedUserScope } from "@/lib/user-scope-guard";
 import { continueCreationConversationOnCanvas } from "@/services/creation-canvas-conversation";
@@ -136,6 +136,8 @@ export default function CreatePage() {
     const followLatestMessageRef = useRef(true);
     const taskSyncWarningRef = useRef(false);
     const activeGenerationTaskIdsRef = useRef(new Set<string>());
+    const resultAssetHydrationRef = useRef(new Set<string>());
+    const resultAssetHydrationAbortRef = useRef<AbortController | null>(null);
     const retryPreparingRef = useRef(new Set<string>());
     const pendingRetryRef = useRef<{ context: CreationRetryContext; lockKey: string } | null>(null);
     const [retrySequence, setRetrySequence] = useState(0);
@@ -417,6 +419,25 @@ export default function CreatePage() {
             unsubscribe();
         };
     }, [hydrated, recoveryTaskKey, toast]);
+
+    // 刷新后已完成的结果只恢复 resultUrls，素材 store 是空的；按任务把后端已物化
+    // 的素材取回 store，否则「添加到画布」会一直停在「素材保存完成后才能转入画布」。
+    useEffect(() => {
+        if (!hydrated || demoConversation) return;
+        const messages = conversations.flatMap((conversation) => conversation.messages);
+        const awaiting = unhydratedCreationResultAssetTasks(messages, assets).filter((taskId) => !resultAssetHydrationRef.current.has(taskId));
+        if (!awaiting.length) return;
+        awaiting.forEach((taskId) => resultAssetHydrationRef.current.add(taskId));
+        const controller = (resultAssetHydrationAbortRef.current ??= new AbortController());
+        void loadCreationRuntime()
+            .then((runtime) => Promise.all(awaiting.map(async (taskId) => {
+                const task = await runtime.queryGenerationTask(taskId, { signal: controller.signal });
+                if (task.status === "succeeded") await runtime.materializeGenerationTaskAssets(task, controller.signal);
+            })))
+            .catch((error) => console.warn("创作历史结果素材恢复失败", error));
+    }, [hydrated, demoConversation, conversations, assets]);
+
+    useEffect(() => () => resultAssetHydrationAbortRef.current?.abort(), []);
 
     const loadAddedSkills = useCallback(() => {
         if (addedSkillsRequestedRef.current) return;

@@ -72,11 +72,25 @@ class _FakeWorker:
         return _DATA, "image/png"
 
 
-@pytest.fixture
-def ctx(monkeypatch):
-    """两类租户用户 + admin + 假 worker/pool;返回 (client, tokens)。"""
-    from types import SimpleNamespace
+class _FakePool:
+    """假池:记录取件路径是否先刷新了注册表。"""
 
+    def __init__(self, worker, state):
+        self.clients = [worker]
+        self._state = state
+
+    async def refresh_registry(self):
+        self._state["refreshed"] = True
+
+
+@pytest.fixture
+def pool_state():
+    return {"refreshed": False}
+
+
+@pytest.fixture
+def ctx(monkeypatch, pool_state):
+    """两类租户用户 + admin + 假 worker/pool;返回 (client, tokens)。"""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -90,9 +104,16 @@ def ctx(monkeypatch):
 
     app.dependency_overrides[get_session] = override
     fake_worker = _FakeWorker()
-    app.dependency_overrides[get_pool] = lambda: SimpleNamespace(clients=[fake_worker])
+    app.dependency_overrides[get_pool] = lambda: _FakePool(fake_worker, pool_state)
+
+    def _fake_resolve(w):
+        # 取件必须先刷新池注册表:冷池(重启后)看不到 LB 动态成员,会落回同机 LB
+        # 拿到同名陈旧产物(2026-10-29 视频取件实证)。
+        assert pool_state["refreshed"], "resolve_worker 前未刷新池注册表"
+        return fake_worker
+
     # resolve_worker 走白名单/网络无关的替身,直接返回假 worker
-    monkeypatch.setattr(images_mod, "resolve_worker", lambda w: fake_worker)
+    monkeypatch.setattr(images_mod, "resolve_worker", _fake_resolve)
 
     with Session(engine) as s:
         t1 = Tenant(name="t1")
@@ -201,3 +222,16 @@ class TestImageOwnership:
         client, tokens = ctx
         r = client.get(_unsigned_url("nonexistent.png"), headers=_h(tokens["owner"]))
         assert r.status_code == 404
+
+    def test_fetch_refreshes_registry_before_resolve(self, ctx, pool_state):
+        """冷池回归:取件路径必须在 resolve_worker 之前刷新池注册表。
+
+        池成员只在调度 pick() 时按 TTL 跟随注册表;重启后取件看到的是冷池
+        (仅静态 worker_urls),动态成员(如 gpu3 :8263)命中不了精确匹配,
+        回退同机 LB 会拿到同名陈旧产物。
+        """
+        client, tokens = ctx
+        assert pool_state["refreshed"] is False
+        r = client.get(_unsigned_url("own.png"), headers=_h(tokens["owner"]))
+        assert r.status_code == 200
+        assert pool_state["refreshed"] is True

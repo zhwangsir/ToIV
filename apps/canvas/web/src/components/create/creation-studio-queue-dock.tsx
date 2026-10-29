@@ -19,6 +19,8 @@ import {
     getServerR18ModeSnapshot,
     isNsfwAssetSelectable,
     subscribeR18Mode,
+    COPY_MEDIA_LOCKED,
+    COPY_QUEUE_LOCKED_HINT,
 } from "@/redline";
 import {
     cancelGenerationTask,
@@ -276,7 +278,7 @@ export function CreationStudioQueueDock() {
                                 {task.status === "failed" ? <p className="toiv-queue-row-meta toiv-queue-row-error">{task.nextReason}</p> : null}
                                 {locked ? (
                                     <p className="toiv-queue-row-meta">
-                                        当前为{COPY_MODE_NORMAL}：成人任务已锁定。切换到「{COPY_MODE_ADULT}」后可重试/取消。
+                                        {COPY_QUEUE_LOCKED_HINT ? <>当前为{COPY_MODE_NORMAL}：{COPY_QUEUE_LOCKED_HINT}。切换到「{COPY_MODE_ADULT}」后可重试/取消。</> : null}
                                     </p>
                                 ) : null}
                                 {task.source === "canvas-task" && logTaskId === task.sourceId ? (
@@ -307,7 +309,7 @@ export function CreationStudioQueueDock() {
                                         type="button"
                                         className="toiv-queue-action"
                                         disabled={locked || busyId === task.sourceId}
-                                        title={locked ? "成人内容已锁定" : "重试"}
+                                        title={locked ? COPY_MEDIA_LOCKED || "重试" : "重试"}
                                         aria-label="重试"
                                         onClick={() => void onRetry(task)}
                                     >

@@ -1,12 +1,12 @@
-"""LTX-2.3 工作室 —— LTX 视频生成独立板块(SFW 为主,可选 NSFW 底模)。
+"""LTX-2.3 工作室 —— LTX 视频生成独立板块(底模白名单:distilled/dev/10eros)。
 
 GET  /api/ltx2/models —— 板块可用资产清单(白名单底模 + loras/ltx2.3/ LoRA,带 worker 可用性)
 POST /api/ltx2/t2v    —— 文生视频(底模白名单 + LoRA 叠加,最多 3 个)
 POST /api/ltx2/i2v    —— 图生视频(同上 + image/worker)
 POST /api/ltx2/lipdub —— 视频重配音对口型(IC-LoRA 链路,video/audio 文件名 + worker)
 
-与 NSFW 专区(/api/generate/ltx-*)的区别:
-- 底模白名单可选:distilled/dev(SFW)无门槛;10eros(NSFW)仍走 _gate_ltx_nsfw
+与 /api/generate/ltx-* 的区别:
+- 底模白名单可选:distilled/dev/10eros 均可提交,只有打标差异,后端不设门槛
 - 支持 LoRA 叠加:图中在 UNET 之后、采样之前注入 LoraLoader 链(txt2img 同款模式)
 - Job kind 独立(ltx2_t2v / ltx2_i2v / ltx2_lipdub),按所选底模打 nsfw 标(10eros → True)
 """
@@ -27,7 +27,7 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.video import _gate_ltx_nsfw, _raise_from_comfy_error, reject_nsfw_ltx_t2v
+from app.routes.video import _raise_from_comfy_error, reject_ltx_t2v_without_first_frame
 from app.versioning import params_snapshot
 from app.workflows.lora import LoraSpec
 from app.workflows.ltx_video import (
@@ -42,7 +42,7 @@ from app.workflows.ltx_video import (
 router = APIRouter()
 
 # ── 板块资产白名单 ──────────────────────────────────────────────
-# 底模候选:(文件名, 是否 NSFW)。NSFW 底模触发 X-NSFW 门槛并把 Job 打 nsfw 标。
+# 底模候选:(文件名, 是否 NSFW)。NSFW 底模只把 Job 打 nsfw 标(后端不设门槛)。
 _LTX2_UNETS: tuple[tuple[str, bool], ...] = (
     ("ltx-2.3-22b-distilled-1.1.safetensors", False),
     ("ltx-2.3-22b-dev.safetensors", False),
@@ -184,15 +184,14 @@ async def generate_ltx2_t2v(
     session: Session = Depends(get_session),
     pool: WorkerPool = Depends(get_pool),
 ):
-    """LTX-2.3 工作室文生视频。SFW 底模无门槛;选 10eros 走 NSFW 门槛。
+    """LTX-2.3 工作室文生视频。
 
-    2026-08-29 锁:10eros/R18 t2v 无首帧会塌成色块 → 422,引导改 POST /api/ltx2/i2v。
-    SFW distilled/dev t2v 不受此锁。
+    2026-08-29 锁:10eros 无首帧 t2v 会塌成色块 → 422,引导改 POST /api/ltx2/i2v。
+    distilled/dev t2v 不受此锁。
     """
     enforce_generation_rate_limit(user)
     if req.unet_name in _NSFW_UNETS:
-        _gate_ltx_nsfw(user)
-        reject_nsfw_ltx_t2v()
+        reject_ltx_t2v_without_first_frame()
 
     settings = get_settings()
     params = LtxT2VParams(
@@ -226,8 +225,6 @@ async def generate_ltx2_i2v(
 ):
     """LTX-2.3 工作室图生视频。图片先经 /api/upload 上传,带 filename + worker 调本端点。"""
     enforce_generation_rate_limit(user)
-    if req.unet_name in _NSFW_UNETS:
-        _gate_ltx_nsfw(user)
 
     settings = get_settings()
     client = resolve_worker(req.worker)

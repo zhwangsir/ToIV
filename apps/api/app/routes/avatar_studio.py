@@ -190,7 +190,7 @@ async def generate_avatar_talk(
 
     驱动源二选一:audio(上传句柄)或 drive_text(TTS 直通);都给/都不给 → 400。
     drive_text 路径先合成 wav(TTS 失败 502 不半提交),再走与现有音频完全一致的
-    实例上传 → 建图 → submit 链路(NSFW 门控/hold 排队/资源预检零绕行)。
+    实例上传 → 建图 → submit 链路(分级打标/hold 排队/资源预检零绕行)。
     """
     has_audio = bool(req.audio and req.audio.strip())
     has_text = bool(req.drive_text and req.drive_text.strip())

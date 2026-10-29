@@ -1,20 +1,18 @@
 "use client";
 
 /**
- * R18 全局内容模式(M9:NSFW 整合主站)。
+ * R18 全局内容模式(web 薄壳遗留开关)。
  *
- * DEBT(D-U1=B):web 经典壳遗留开关;成人上下文真源在 canvas r18-mode +
- * 后端 app.redline。本文件若无引用可删;勿在此复制未成年判定。
+ * 开关 UI 已撤出 web 薄壳(由 canvas 设置页负责切换);本模块保留键名与广播,
+ * 无人引用时可整文件删除。后端 app.redline 只做审计口径,不按 X-NSFW 头
+ * 放行或拦截任何请求(BACKEND_RUNTIME_GATE=False)。
  *
- * 把「/nsfw 独立专区」改为全局内容模式开关:
- * - 状态持久化在 localStorage(toiv_r18_mode),刷新后由 page.tsx 初始化恢复;
- * - 开启即 setNsfwIntent(true) → 全站请求带 X-NSFW 头,后端 ContextVar 统一判定
- *   (引擎列表/作品库/LLM/反推全部走同一信号,前端不再按页面区分);
- * - 切换时双键全清(models/local-models/jobs 及其 :nsfw 变体),防 SWR 缓存污染;
- * - 广播 toiv:r18-changed 事件,GenerateView 等按需重拉引擎(engines 无缓存)。
+ * - 状态持久化在 localStorage(toiv_r18_mode),调用方用 initR18Mode 恢复;
+ * - 开启即 setNsfwIntent(true) → 全站请求带 X-NSFW 头(后端仅审计打标);
+ * - 切换时清三族缓存键(models/local-models/jobs 及其 :nsfw 变体),防 SWR 缓存污染;
+ * - 广播 toiv:r18-changed 事件,订阅方按需重拉数据。
  *
- * 年龄确认(toiv_nsfw_age_confirmed)与模式开关分离:首开须先过 18+ 声明
- * (AgeGateModal);后端未成年账户硬阻断,前端仅是 UX 层。
+ * 内容可见性限制只来自 @content-lock 策略;本文件不含任何限制逻辑。
  */
 import { useEffect, useState } from "react";
 
@@ -23,22 +21,10 @@ import { useCrossTabSync } from "@/lib/crossTab";
 import { invalidatePrefix } from "@/lib/swr-cache";
 
 const R18_MODE_KEY = "toiv_r18_mode";
-const AGE_CONFIRM_KEY = "toiv_nsfw_age_confirmed";
 export const R18_CHANGED_EVENT = "toiv:r18-changed";
 
 function hasWindow(): boolean {
   return typeof window !== "undefined";
-}
-
-/** 是否已过 18+ 年龄确认(仅客户端可读)。 */
-export function isAgeConfirmed(): boolean {
-  return hasWindow() && window.localStorage.getItem(AGE_CONFIRM_KEY) === "1";
-}
-
-/** 写入年龄确认记录(AgeGateModal 确认时调用)。 */
-export function confirmAge(): void {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(AGE_CONFIRM_KEY, "1");
 }
 
 /** 当前是否 R18 模式(读 localStorage;SSR/无窗口恒 false)。 */

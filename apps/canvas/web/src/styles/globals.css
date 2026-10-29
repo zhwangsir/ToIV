@@ -599,6 +599,7 @@
     --workspace-nav: var(--workspace-navigation);
     --workspace-sidebar: var(--workspace-navigation);
     --workspace-accent: #171717;
+    --workspace-accent-foreground: #ffffff;
     --workspace-accent-soft: rgba(17, 17, 17, 0.07);
     --workspace-nav-active-bg: color-mix(in srgb, var(--workspace-accent) 12%, transparent);
     --workspace-nav-active-hover-bg: color-mix(in srgb, var(--workspace-accent) 16%, transparent);
@@ -773,6 +774,7 @@
     --workspace-nav: var(--workspace-navigation);
     --workspace-sidebar: var(--workspace-navigation);
     --workspace-accent: #f5f5f5;
+    --workspace-accent-foreground: #171717;
     --workspace-accent-soft: rgba(255, 255, 255, 0.09);
     --workspace-nav-active-bg: color-mix(in srgb, var(--workspace-accent) 13%, transparent);
     --workspace-nav-active-hover-bg: color-mix(in srgb, var(--workspace-accent) 18%, transparent);
@@ -17612,6 +17614,21 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .creation-home .creation-media-pending-icon svg { width: var(--space-5); height: var(--space-5); }
+
+.creation-home .creation-media-pending-elapsed {
+    color: var(--creation-text);
+    font-size: var(--fs-caption);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+}
+
+.creation-home .creation-media-pending-hint {
+    max-width: 82%;
+    color: var(--creation-muted);
+    font-size: var(--fs-label);
+    line-height: 1.45;
+    text-align: center;
+}
 
 .creation-home .creation-media-pending > button {
     position: absolute;

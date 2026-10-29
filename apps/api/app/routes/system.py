@@ -55,7 +55,6 @@ async def llm_model(_: User = Depends(get_current_user)) -> dict:
         "model": settings.llm_model,
         "display_model": settings.llm_display_name or settings.llm_model,
         "fallback_model": settings.llm_fallback_model or None,
-        "nsfw_model": settings.llm_nsfw_model or None,
         "l2_model": settings.llm_l2_model or None,
         "l3_model": settings.llm_l3_model or None,
     }

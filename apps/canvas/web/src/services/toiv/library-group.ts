@@ -149,7 +149,7 @@ export function listJobMedia(job: { results?: string[]; kind?: string } | null |
         const url = (raw || "").trim();
         if (!url || seen.has(url)) continue;
         seen.add(url);
-        out.push({ url, kind: classifyMediaUrl(url, job.kind) });
+        out.push({ url, kind: classifyMediaUrl(url, job?.kind) });
     }
     return out;
 }

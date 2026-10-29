@@ -1,3 +1,4 @@
+import { contentPolicy } from "@content-lock";
 import { isLocalRuntimeMode } from "@/lib/runtime-mode";
 import { moderationErrorCopy, persistedModerationCopy } from "./moderation-error";
 import { taskConstraintCopy, persistedTaskConstraintCopy } from "./task-constraint-error";
@@ -55,6 +56,8 @@ export type GenerationFailureExplanation = {
     uncertain: boolean;
     blockAutomaticRetry: boolean;
     moderation: boolean;
+    /** 内容策略是否管辖此失败：为真时重试需改输入并展示策略文案。 */
+    contentGate: boolean;
     /** Wire 分槽标签（输入/参考/输出/需成人/额度…） */
     slot: GenerationFailureSlot;
     slotLabel: string;
@@ -115,6 +118,17 @@ export type GenerationFailureDiagnostics = {
 
 type CategoryCopy = { reason: string; action: string };
 
+// 旧记录里落库的成人闸文案：只用于识别历史数据，展示文案一律取自内容策略。
+const PERSISTED_ADULT_COPY: Record<"r18_context_required" | "route_guard_adult", CategoryCopy> = {
+    r18_context_required: { reason: "当前为普通模式；该内容需切换到成人模式后可见或可生成", action: "请切换到成人模式；确认后本机进入成人内容上下文" },
+    route_guard_adult: { reason: "当前为普通模式，此页需切换到成人模式", action: "请切换到成人模式；确认后由守卫放行" },
+};
+
+// 锁缺失时仍要如实说明上游拒绝原因，只是不再给出切换成人模式的限制性指引。
+const UPSTREAM_ADULT_CONTEXT_REASON = "上游要求成人内容上下文";
+
+const AUTOMATIC_RETRY_CATEGORIES: readonly GenerationErrorCategory[] = ["throttled", "concurrency", "provider_unavailable", "cancelled"];
+
 const LOCAL_TASK_ADMISSION_FAILURE: CategoryCopy = {
     reason: "本地任务保存失败，尚未提交生成",
     action: "请重启应用后重试；若仍失败，请保留排查信息并联系支持",
@@ -131,12 +145,12 @@ const CATEGORY_COPY: Record<GenerationErrorCategory, CategoryCopy> = {
     moderation_reference: { reason: "参考素材未通过内容安全审核", action: "请检查并更换参考素材后重新生成" },
     moderation_output: { reason: "生成结果未通过内容安全审核", action: "请调整提示词或参考素材后重新生成" },
     r18_context_required: {
-        reason: "当前为普通模式；该内容需切换到成人模式后可见或可生成",
-        action: "请切换到成人模式；确认后本机进入成人内容上下文",
+        reason: contentPolicy.copy.adultRequiredReason || UPSTREAM_ADULT_CONTEXT_REASON,
+        action: contentPolicy.copy.adultRequiredAction,
     },
     route_guard_adult: {
-        reason: "当前为普通模式，此页需切换到成人模式",
-        action: "请切换到成人模式；确认后由守卫放行",
+        reason: contentPolicy.copy.guardReason || UPSTREAM_ADULT_CONTEXT_REASON,
+        action: contentPolicy.copy.guardAction,
     },
     invalid_params: { reason: "模型不接受当前参数", action: "请检查模型、尺寸、时长、格式或数量后重试" },
     local_storage: { reason: "本地数据库无法读写", action: "请重启应用；若仍失败，请保留排查信息并联系支持，不要重复生成" },
@@ -305,9 +319,13 @@ export function explainGenerationError(error: unknown, context: GenerationFailur
     const copy = explanationCopy(classified);
     const message = joinSentences(copy.reason, copy.action, debugIdLine(classified.taskId || context.taskId, classified.requestId || context.providerRequestId));
     const moderation = isModerationCategory(classified.category);
-    const r18Required = classified.category === "r18_context_required" || classified.category === "route_guard_adult";
+    const contentGate = contentPolicy.isContentGate(classified.category);
     const uncertain = classified.uncertain || classified.category === "submission_uncertain" || classified.category === "download_failed" || (classified.category === "timeout" && classified.status === 524);
     const slot = generationFailureSlot(classified.category);
+    // 内容类失败是否可按原输入重试由策略决定；其余类别只按技术可重试白名单判断。
+    const contentFailure = moderation || classified.category === "r18_context_required" || classified.category === "route_guard_adult";
+    const contentRetryAllowed = !contentFailure || contentPolicy.allowsAutomaticRetry(classified.category);
+    const automaticRetryAllowed = contentFailure ? contentPolicy.allowsAutomaticRetry(classified.category) : AUTOMATIC_RETRY_CATEGORIES.includes(classified.category);
     return {
         category: classified.category,
         summary: classified.category === "local_storage" ? copy.reason : sanitizeProviderText(error instanceof Error ? error.message : typeof error === "string" ? error : providerPayloadMessage(error)),
@@ -318,10 +336,11 @@ export function explainGenerationError(error: unknown, context: GenerationFailur
         providerCode: classified.providerCode || undefined,
         requestId: sanitizeDebugId(classified.requestId || context.providerRequestId) || undefined,
         taskId: sanitizeDebugId(classified.taskId || context.taskId) || undefined,
-        retryable: Boolean(classified.retryable) && !uncertain && !moderation && !r18Required,
+        retryable: Boolean(classified.retryable) && !uncertain && contentRetryAllowed,
         uncertain,
-        blockAutomaticRetry: uncertain || moderation || r18Required || !["throttled", "concurrency", "provider_unavailable", "cancelled"].includes(classified.category),
+        blockAutomaticRetry: uncertain || !automaticRetryAllowed,
         moderation,
+        contentGate,
         slot,
         slotLabel: generationFailureSlotLabel(slot),
         guideEnableR18: shouldGuideEnableR18(classified.category),
@@ -344,7 +363,7 @@ export function generationErrorCode(error: unknown) {
 export function generationFailureMetadata(error: unknown, prompt: string, references: Array<string | { id?: string; storageKey?: string; url?: string }> = []): GenerationFailureMetadata {
     const explained = explainGenerationError(error);
     const inputFingerprint = generationInputFingerprint(prompt, references);
-    const needsFingerprint = explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult";
+    const needsFingerprint = explained.contentGate;
     if (!needsFingerprint) return { errorDetails: explained.message, generationErrorSummary: explained.summary, generationErrorCode: explained.category === "unknown" ? undefined : explained.errorCode };
     return {
         errorDetails: explained.message,
@@ -368,18 +387,26 @@ export function shouldBlockAutomaticRetry(error: unknown, stage?: string) {
     return explainGenerationError(error, { stage }).blockAutomaticRetry;
 }
 
+/** 策略是否要求「改输入后才能重试」；技术类失败恒为 false。 */
+export function failureRequiresChangedInput(error: unknown): boolean {
+    return explainGenerationError(error).contentGate;
+}
+
+function recordedContentFailureCategory(metadata: { errorDetails?: string; generationErrorCode?: string } | undefined): string | undefined {
+    const code = metadata?.generationErrorCode || "";
+    if (isModerationCategory(code) || code === "r18_context_required" || code === "route_guard_adult") return code;
+    if (isContentModerationError(metadata?.errorDetails)) return "moderation_input";
+    const explained = explainGenerationError(metadata?.errorDetails || "");
+    return isModerationCategory(explained.category) || explained.category === "r18_context_required" || explained.category === "route_guard_adult" ? explained.category : undefined;
+}
+
 export function unchangedModeratedPrompt(
     metadata: { errorDetails?: string; generationErrorCode?: string; failedPromptFingerprint?: string; failedInputFingerprint?: string } | undefined,
     prompt: string,
     references: Array<string | { id?: string; storageKey?: string; url?: string }> = [],
 ) {
-    const moderationFailure =
-        isModerationCategory(metadata?.generationErrorCode || "") ||
-        metadata?.generationErrorCode === "r18_context_required" ||
-        metadata?.generationErrorCode === "route_guard_adult" ||
-        isContentModerationError(metadata?.errorDetails) ||
-        ["r18_context_required", "route_guard_adult"].includes(explainGenerationError(metadata?.errorDetails || "").category);
-    if (!moderationFailure) return false;
+    const category = recordedContentFailureCategory(metadata);
+    if (!category || !contentPolicy.isContentGate(category)) return false;
     if (metadata?.failedInputFingerprint) return metadata.failedInputFingerprint === generationInputFingerprint(prompt, references);
     if (references.length) return false;
     if (!metadata?.failedPromptFingerprint) return false;
@@ -485,7 +512,7 @@ export function generationFailureSlotLabel(slot: GenerationFailureSlot): string 
             return "输出";
         case "r18_context_required":
         case "route_guard_adult":
-            return "需成人";
+            return contentPolicy.copy.slotAdult;
         case "quota":
             return "额度";
         case "rate":
@@ -607,8 +634,8 @@ function classifyHttp(status: number | undefined, body: unknown): Classified {
         classified = {
             category: "r18_context_required",
             fromCode: true,
-            reason: CATEGORY_COPY.r18_context_required.reason,
-            action: CATEGORY_COPY.r18_context_required.action,
+            reason: undefined,
+            action: undefined,
             providerCode: classified.providerCode || sanitizeProviderCode(fields.code),
             requestId: classified.requestId || sanitizeDebugId(fields.requestId),
             taskId: classified.taskId || sanitizeDebugId(fields.taskId),
@@ -667,23 +694,19 @@ function classifyText(raw: string): Classified {
     if (isCanvasSaveConflictText(text)) {
         return { category: "canvas_conflict", fromCode: true, retryable: false };
     }
-    if (text.startsWith(CATEGORY_COPY.route_guard_adult.reason)) {
+    if (text.startsWith(PERSISTED_ADULT_COPY.route_guard_adult.reason)) {
         return {
             category: "route_guard_adult",
             fromCode: true,
-            reason: CATEGORY_COPY.route_guard_adult.reason,
-            action: CATEGORY_COPY.route_guard_adult.action,
             requestId: sanitizeDebugId(text.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
             taskId: sanitizeDebugId(text.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
             retryable: false,
         };
     }
-    if (isR18ContextRequiredText(text) || text.startsWith(CATEGORY_COPY.r18_context_required.reason)) {
+    if (isR18ContextRequiredText(text) || text.startsWith(PERSISTED_ADULT_COPY.r18_context_required.reason)) {
         return {
             category: "r18_context_required",
             fromCode: true,
-            reason: CATEGORY_COPY.r18_context_required.reason,
-            action: CATEGORY_COPY.r18_context_required.action,
             requestId: sanitizeDebugId(text.match(/请求 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
             taskId: sanitizeDebugId(text.match(/任务 ([A-Za-z0-9._:-]{6,127})/)?.[1]),
             retryable: false,
@@ -1242,7 +1265,10 @@ function persistedInvalidParamsDetail(text: string): Classified | undefined {
 function matchPersistedCategory(text: string): GenerationErrorCategory | "" {
     if (text.startsWith("当前账号额度不足")) return "quota_user";
     for (const [category, copy] of Object.entries(CATEGORY_COPY) as Array<[GenerationErrorCategory, CategoryCopy]>) {
-        if (category === "unknown") continue;
+        if (category === "unknown" || !copy.reason) continue;
+        if (text.startsWith(copy.reason)) return category;
+    }
+    for (const [category, copy] of Object.entries(PERSISTED_ADULT_COPY) as Array<[GenerationErrorCategory, CategoryCopy]>) {
         if (text.startsWith(copy.reason)) return category;
     }
     if (text.includes("真人形象")) return "moderation_reference";

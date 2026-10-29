@@ -19,7 +19,7 @@ import { formatDateTime } from "@/lib/time-format";
 import { cancelGenerationTask, listGenerationTasks, retryGenerationTask, type GenerationTask } from "@/services/api/task-center";
 import { cancelJob, fetchAgentRuns, fetchJobs, rerunToivWork, type ToivAgentRun, type ToivJob } from "@/services/toiv/client";
 import { toivMediaUrl } from "@/services/toiv/cover-url";
-import { isNsfwAssetSelectable } from "@/redline";
+import { COPY_ASSET_LOCKED_HINT, COPY_LOCKED_LABEL, COPY_TASK_LOCKED_HINT, isNsfwAssetSelectable } from "@/redline";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { GenerationFailureNotice } from "@/components/generation/generation-failure-notice";
 import { explainGenerationError } from "@/lib/generation-error";
@@ -206,7 +206,7 @@ export default function TasksPage() {
 
     const onGenerationAction = async (item: TimelineItem) => {
         if (item.nextActionKind !== "retry" && item.nextActionKind !== "cancel") return;
-        if (item.nextActionLabel === "已锁定") return;
+        if (COPY_LOCKED_LABEL && item.nextActionLabel === COPY_LOCKED_LABEL) return;
         setCancelingId(`${item.source}:${item.id}`);
         setCancelError(null);
         try {
@@ -253,8 +253,8 @@ export default function TasksPage() {
                 jumpHref: toivJobJumpHref(job),
                 artifactLabel: projection.artifactLabel,
                 nextActionKind: projection.nextAction === "cancel" ? undefined : projection.nextAction,
-                nextActionLabel: actionLocked ? "已锁定" : projection.nextLabel,
-                nextActionReason: actionLocked ? "当前为普通：NSFW 任务已锁定" : projection.nextReason,
+                nextActionLabel: actionLocked ? COPY_LOCKED_LABEL : projection.nextLabel,
+                nextActionReason: actionLocked ? COPY_TASK_LOCKED_HINT : projection.nextReason,
             });
         }
         for (const task of canvasTasks) {
@@ -277,8 +277,8 @@ export default function TasksPage() {
                 requestId: projection.providerRequestId,
                 artifactLabel: projection.artifactLabel,
                 nextActionKind: projection.nextAction,
-                nextActionLabel: actionLocked ? "已锁定" : projection.nextLabel,
-                nextActionReason: actionLocked ? "当前为普通：NSFW 任务已锁定" : projection.nextReason,
+                nextActionLabel: actionLocked ? COPY_LOCKED_LABEL : projection.nextLabel,
+                nextActionReason: actionLocked ? COPY_TASK_LOCKED_HINT : projection.nextReason,
             });
         }
         for (const run of agentRuns) {
@@ -506,7 +506,7 @@ export default function TasksPage() {
                                         <div className={`mt-2 max-w-64 overflow-hidden rounded-lg border border-border ${item.mediaLocked ? "opacity-50 grayscale" : ""}`}>
                                             {item.previewKind === "video"
                                                 ? <video src={item.previewUrl} muted playsInline controls preload="metadata" className="max-h-40 w-full object-contain" />
-                                                : <img src={item.previewUrl} alt={item.mediaLocked ? "NSFW 产物已锁定" : "作业产物"} loading="lazy" className="max-h-40 w-full object-contain" />}
+                                                : <img src={item.previewUrl} alt={item.mediaLocked && COPY_ASSET_LOCKED_HINT ? COPY_ASSET_LOCKED_HINT : "作业产物"} loading="lazy" className="max-h-40 w-full object-contain" />}
                                         </div>
                                     ) : null}
                                     {item.nextActionReason && (item.nextActionKind === "retry" || item.nextActionKind === "cancel" || item.nextActionKind === "diagnose") ? (
@@ -532,7 +532,7 @@ export default function TasksPage() {
                                         icon={<RefreshCw />}
                                         label={item.nextActionLabel || "处理"}
                                         loading={cancelingId === `${item.source}:${item.id}`}
-                                        disabled={item.nextActionLabel === "已锁定"}
+                                        disabled={Boolean(COPY_LOCKED_LABEL) && item.nextActionLabel === COPY_LOCKED_LABEL}
                                         onClick={() => void onGenerationAction(item)}
                                     />
                                 ) : null}

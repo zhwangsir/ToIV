@@ -56,8 +56,8 @@ describe("canvas custom appearance", () => {
         });
 
         const dark = enterCustomCanvasAppearance(canvasAppearanceForTheme("dark"), "dark");
-        // R5（a140e360）Freezone DNA：dark 画布底色与 --toiv-bg 对齐为 #0a0c12（LibTV #141414 灰板退场）。
-        expect(dark.custom).toMatchObject({ baseTheme: "dark", backgroundColor: "#0A0C12", backgroundBrightness: 0, gridColor: "#AFAFAF", gridOpacity: 80 });
+        // A6：dark 画布底色与 --toiv-bg 对齐为 #0b0c0f（LibTV #141414 灰板退场）。
+        expect(dark.custom).toMatchObject({ baseTheme: "dark", backgroundColor: "#0B0C0F", backgroundBrightness: 0, gridColor: "#AFAFAF", gridOpacity: 80 });
     });
 
     test("preserves custom colors and their substrate when trying fixed themes", () => {

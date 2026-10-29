@@ -45,13 +45,13 @@ test("Freezone shell preserves the content stage with compact, readable chrome",
                 action: read('[data-nav-id="new"]'),
             };
         });
-        expect(actual.sidebar.width).toBe(216);
-        expect(actual.sidebar.background).toBe("rgb(19, 20, 27)");
+        expect(actual.sidebar.width).toBe(250);
+        expect(actual.sidebar.background).toBe("rgb(16, 17, 22)");
         expect(actual.topbar.height).toBe(56);
-        expect(actual.stage.width).toBe(width === 1280 ? 568 : 808);
-        expect(actual.muted.color).toBe("rgb(146, 152, 166)");
-        expect(actual.action.background).toBe("rgb(91, 160, 255)");
-        expect(actual.action.color).toBe("rgb(17, 27, 33)");
+        expect(actual.stage.width).toBe(width === 1280 ? 534 : 774);
+        expect(actual.muted.color).toBe("rgb(139, 142, 152)");
+        expect(actual.action.background).toBe("rgb(26, 27, 33)");
+        expect(actual.action.color).toBe("rgb(244, 246, 247)");
     }
 });
 
@@ -70,11 +70,11 @@ test("Freezone creation panels and timeline follow the light semantic palette", 
             muted: read(".toiv-create-rail-meta"),
         };
     });
-    expect(actual.rail).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(29, 29, 33)" });
-    expect(actual.inspector).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(29, 29, 33)" });
-    expect(actual.stage.background).toBe("rgb(244, 244, 245)");
-    expect(actual.timeline).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(29, 29, 33)" });
-    expect(actual.muted.color).toBe("rgb(101, 101, 108)");
+    expect(actual.rail).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(18, 18, 20)" });
+    expect(actual.inspector).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(18, 18, 20)" });
+    expect(actual.stage.background).toBe("rgb(247, 247, 245)");
+    expect(actual.timeline).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(18, 18, 20)" });
+    expect(actual.muted.color).toBe("rgb(107, 110, 118)");
 });
 
 test("selected shot expands the inspector in flow without a stage overlay", async () => {

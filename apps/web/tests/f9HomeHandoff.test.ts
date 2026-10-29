@@ -38,7 +38,7 @@ test("F9 fail-safe:exchange 403/studio 关闭/无 token/网络失败都回落经
   assert.match(src, /const \[studioHandoffFailed, setStudioHandoffFailed\] = useState\(false\)/);
   const failures = src.split("setStudioHandoffFailed(true)").length - 1;
   assert.ok(failures >= 4, `失败出口应 ≥4 处(entry 关闭/无 token/exchange 403/catch),实际 ${failures}`);
-  assert.match(src, /if \(r\.ok\) window\.location\.replace\("\/studio\/"\);\s*else setStudioHandoffFailed\(true\)/, "仅交换成功才跳;403 必须回落(零回退纪律)");
+  assert.match(src, /if \(r\.ok\) window\.location\.replace\("\/studio\/[^"]*"\);\s*else setStudioHandoffFailed\(true\)/, "仅交换成功才跳;403 必须回落(零回退纪律)");
   const gate = src.slice(src.indexOf("const homeHandoffPending ="), src.indexOf("if (homeHandoffPending)"));
   assert.match(gate, /!studioHandoffFailed/, "闸门未消费失败标记(失败后会卡在跳转壳)");
 });

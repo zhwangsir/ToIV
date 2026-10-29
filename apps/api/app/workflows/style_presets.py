@@ -11,7 +11,7 @@
   - 设计类: chinese_text(中文文字渲染,商用首选) / flat_design(扁平设计) / concept_art(概念艺术)
   - 极速类: turbo(8步预览) / draft(草稿快速迭代)
   - 视频类: video_realistic / video_anime / video_fast
-  - NSFW类: nsfw_realistic / nsfw_anime / nsfw_pony / nsfw_wai_shufflenoob / nsfw_noobai_vpred / nsfw_urpm (R18门控由上层处理)
+  - NSFW类: nsfw_realistic / nsfw_anime / nsfw_pony / nsfw_wai_shufflenoob / nsfw_noobai_vpred / nsfw_urpm (分级只作元数据,限制在前端锁)
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class StylePreset:
     commercial_safe: 是否可商用(授权友好)
     sfw_intent: 显式声明本预设是 SFW 意图。底模家族(pony/wai/hassaku 等)虽命中
         model_profiles.is_nsfw 的 hints,但预设定位是主站通用风格(二次元/校园/奇幻等),
-        置 True 后该预设不再因 hints 被打 nsfw 标/隐藏/走 R18 门槛;
+        置 True 后该预设不再因 hints 被打 nsfw 标;
         真正 NSFW 意图的 ckpt 判定(is_nsfw 本身)不受影响。
     """
 
@@ -284,7 +284,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         commercial_safe=True,
     ),
 
-    # ── NSFW 类(上层须先通过年龄门控) ───────────────────────────────────
+    # ── NSFW 类(成人向底模;可见性由前端策略锁决定) ─────────────────────
     "nsfw_realistic": StylePreset(
         id="nsfw_realistic",
         label="NSFW写真人像",
@@ -602,7 +602,7 @@ _PRESET_SKILL_RECOMMENDATIONS: dict[str, str] = {
     # 极速/草稿类:追求速度,不需要风格人格
     "turbo": "",
     "draft": "",
-    # NSFW 类 → NSFW 摄影师/动漫向人格(R18 鉴权由 Agent.is_nsfw 门控)
+    # NSFW 类 → NSFW 摄影师/动漫向人格(Agent.is_nsfw 只作元数据)
     "nsfw_realistic": "nsfw_photographer",
     "nsfw_anime": "nsfw_anime",
     "nsfw_pony": "nsfw_anime",

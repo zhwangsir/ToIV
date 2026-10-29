@@ -97,7 +97,7 @@ function toCanvasProposal(payload: Record<string, unknown>): ToivAgentCanvasProp
     };
 }
 
-export function ToivAgentFloat() {
+export function ToivAgentFloat({ suppressLauncher = false }: { suppressLauncher?: boolean } = {}) {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [input, setInput] = useState("");
@@ -365,6 +365,7 @@ export function ToivAgentFloat() {
     };
 
     if (!open) {
+        if (suppressLauncher) return null;
         return (
             <Tooltip title="ToIV 智能体(工具·市场·短剧全域)" placement="left">
                 <button

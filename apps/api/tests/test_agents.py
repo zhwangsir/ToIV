@@ -120,7 +120,7 @@ def test_list_returns_all_sfw_for_normal_user(ctx):
 
 
 def test_list_includes_nsfw_with_r18_header(ctx):
-    """R18 可见性按账号成人态(D-U1=B):adult 账号可见 NSFW 智能体(X-NSFW 仅审计)。"""
+    """adult 账号同样可见 NSFW 智能体(X-NSFW 头仅审计,不改变列表)。"""
     c, _, _, engine = ctx
     with Session(engine) as s:
         adult = create_token(_make_user(s, "adult-bob@toiv.ai", content_mode="adult"))
@@ -131,7 +131,7 @@ def test_list_includes_nsfw_with_r18_header(ctx):
     assert r.status_code == 200
     ids = {a["id"] for a in r.json()}
     assert "nsfw_photographer" in ids and "nsfw_anime" in ids
-    # 新增 NSFW 视频向智能体同样仅 R18 上下文可见
+    # NSFW 视频向智能体同样全量返回(元数据 is_nsfw=True)
     assert "nsfw_camera_director" in ids
     assert "nsfw_drama_writer" in ids
     assert "nsfw_longcat_shot" in ids

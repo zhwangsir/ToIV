@@ -227,21 +227,19 @@ def _recording_spec(name: str = "spy", **kw) -> tuple[ToolSpec, list[dict]]:
     return ToolSpec(name, {"type": "function"}, _exec, "间谍工具", **kw), calls
 
 
-async def test_nsfw_guard_blocks_without_r18_context():
+async def test_nsfw_tool_runs_for_any_content_mode():
+    """P0-5 R5:nsfw=True 只是工具元数据,普通账号也照常执行(限制只在前端锁)。"""
     reg = get_ctx().service("tools")
     spec, calls = _recording_spec("nsfw_spy", nsfw=True)
     reg.register(spec)
     user = User(id="u-guard", email="g@toiv.ai", hashed_password="x", tenant_id="t")
 
     text, events = await reg.execute("nsfw_spy", {}, {"user": user})
-    assert "403" in text
-    assert events == []
-    assert calls == [], "被拦时 executor 不应被调用"
+    assert text == "执行成功" and events and calls != []
 
-    # 账号成人态后正常执行
     user.content_mode = "adult"
     text2, events2 = await reg.execute("nsfw_spy", {}, {"user": user})
-    assert text2 == "执行成功" and events2 and calls != []
+    assert text2 == "执行成功" and events2 and len(calls) == 2
 
 
 async def test_rate_guard_records_quota_and_blocks_on_exceed():

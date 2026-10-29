@@ -143,7 +143,7 @@ def _resolve_video_source(session: Session, user: User, video_url: str) -> bool:
 def _resolve_audio_source(session: Session, user: User, audio_url: str) -> bool:
     """音频来源校验(语义同 _resolve_video_source)。"""
     if audio_url.startswith("/api/images?"):
-        # worker 产物(音视通用):归属/签名/R18 门控全继承
+        # worker 产物(音视通用):归属/签名校验 + nsfw 标继承
         return upscale_svc.resolve_source_ownership(session, user, audio_url)
     if audio_url.startswith("/"):
         _audio_local_path(audio_url)  # 422/404 由 helper 抛出

@@ -6,8 +6,8 @@
 
 纪律:
 - 可用性探测复用 WorkerPool 既有 pick(模型 + 节点校验 + 熔断/缓存),不新造探测链路;
-- NSFW 引擎(10Eros 系)标 nsfw=true,响应按请求的 R18 上下文(X-NSFW 头 → ContextVar)
-  过滤;select 选项中的 R18 项(如 ltx2 白名单里的 10eros)同样在 SFW 上下文剔除;
+- NSFW 引擎(10Eros 系)标 nsfw=true 作元数据,后端不按账号内容态过滤;
+  select 选项中的 R18 项同样只打标,是否展示/可选由前端策略锁决定;
 - 参数范围/默认值与 routes/generate.py、routes/ltx_studio.py、routes/video.py 的
   请求模型保持一致,改端点约束时须同步此表。
 """
@@ -37,7 +37,6 @@ from app.limits import (
 )
 from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
-from app.redline import nsfw_allowed
 from app.services.provenance import is_admin_user, redact_engine_source
 from app.services.effect_presets import list_effect_presets
 from app.services.h3 import H3_NODE, get_h3_client, h3_instances, is_h3_nsfw_lora
@@ -854,7 +853,7 @@ def _h3_loras_select() -> dict:
     """H3 LoRA 叠加(多选 + 单项强度):options 运行时来自 H3 实例 LoraLoaderModelOnly 枚举。
 
     声明态兜底为空 options(实例不可达时注册表仍可响应,前端仅显示「无 LoRA 可选」);
-    已知 R18 LoRA(services/h3.H3_NSFW_LORAS)注入时打 nsfw 标,SFW 上下文统一剔除。
+    已知 R18 LoRA(services/h3.H3_NSFW_LORAS)注入时打 nsfw 标(元数据,后端不剔除)。
     min/max/step 为强度滑杆范围(与 routes/h3_studio.H3LoraInput 同一约束)。
     """
     return {
@@ -863,7 +862,7 @@ def _h3_loras_select() -> dict:
         "options": [],
         "options_source": "h3_loras",
         "min": 0.5, "max": 1.0, "step": 0.05,
-        "hint": "默认 AI 选配;点「关闭」不叠加;点选即固定(最多 3 个)。推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
+        "hint": "默认 AI 选配;点「关闭」不叠加;点选即固定(最多 3 个)。推荐强度 0.5-1.0(默认 0.6);R18 LoRA 带 nsfw 标,是否可选由前端策略锁决定",
     }
 
 
@@ -1262,14 +1261,14 @@ def _ckpt_select(*, nsfw_only: bool) -> dict:
     """底模选择:options 运行时注入 worker checkpoints(nsfw_only=True 时只注 R18 底模)。
 
     声明态兜底为「平台默认底模」空值(worker 不可达时注册表仍可响应);
-    注入后每项附 nsfw 标,list_engines 在 SFW 上下文统一剔除。
+    注入后每项附 nsfw 标(元数据,后端不剔除)。
     """
     return {
         "key": "ckpt_name", "label": "底模", "type": "select",
         "default": "",
         "options": [{"value": "", "label": "平台默认底模"}],
         "options_source": "image_ckpt_nsfw" if nsfw_only else "image_ckpt",
-        "hint": "「平台默认底模」由后端选全局默认;R18 底模仅 /nsfw 上下文可见",
+        "hint": "「平台默认底模」由后端选全局默认;R18 底模带 nsfw 标,是否可选由前端策略锁决定",
     }
 
 
@@ -1294,9 +1293,9 @@ def _scheduler_select() -> dict:
 def _style_preset_select() -> dict:
     """风格预设(静态清单,与 routes/generate.py 的 style_preset 字段同源)。
 
-    真 NSFW 意图预设(id 以 nsfw_ 开头,或底模 is_nsfw)附 nsfw 标,SFW 上下文剔除;
-    双用途底模家族(pony/wai 等)不再整锅打 18+,但 nsfw_pony 等显式 R18 预设仍隐藏;
-    sfw_intent=True 的预设不打标、不剔除。
+    真 NSFW 意图预设(id 以 nsfw_ 开头,或底模 is_nsfw)附 nsfw 标;
+    双用途底模家族(pony/wai 等)不整锅打 18+;sfw_intent=True 的预设不打标。
+    打标只作元数据,后端不按账号内容态剔除。
     """
     return {
         "key": "style_preset", "label": "风格预设", "type": "select",
@@ -1504,16 +1503,15 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": _qwen_edit_params(),
         "probe": _probe_qwen_edit,
     },
-    # R18 图像引擎(NSFW 专区图像 tab):与 txt2img/img2img 同一提交链路,
-    # 底模选项只注入 R18 ckpt(旧 CreateView nsfw 模式的 listModels 行为);
-    # 仅 R18 上下文(X-NSFW 头)可见。
+    # R18 图像引擎:与 txt2img/img2img 同一提交链路,
+    # 底模选项只注入 R18 ckpt(引擎语义,与账号内容态无关)。
     {
         "id": "nsfw-txt2img",
         "label": "文生图(R18)",
         "kind": "image",
         "nsfw": True,
         "submit": {"route": "/api/generate/txt2img", "kind": "txt2img"},
-        "description": "R18 底模成人向文生图,仅 R18 上下文可见;LoRA 标签可写进提示词",
+        "description": "R18 底模成人向文生图;LoRA 标签可写进提示词",
         "source": {
             "name": "URPM (Uber Realistic Porn Merge)",
             "url": "https://civitai.com/models/22622",
@@ -1536,7 +1534,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "image",
         "nsfw": True,
         "submit": {"route": "/api/generate/img2img", "kind": "img2img"},
-        "description": "R18 底模成人向图生图,仅 R18 上下文可见",
+        "description": "R18 底模成人向图生图",
         "source": {
             "name": "URPM (Uber Realistic Porn Merge)",
             "url": "https://civitai.com/models/22622",
@@ -1646,9 +1644,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": _multishot_params(),
         "probe": _probe_h3,
     },
-    # R18 H3 引擎(NSFW 专区视频 tab):与 h3-t2v/h3-i2v 同一提交链路(POST /api/h3/*),
-    # 专区内自带 X-NSFW 头 → 产物打标进 R18 作品库、R18 LoRA 门控放行;
-    # probe 复用 _probe_h3,可用性与 SFW 版天然一致。仅 R18 上下文可见。
+    # R18 H3 引擎:与 h3-t2v/h3-i2v 同一提交链路(POST /api/h3/*),
+    # 产物按请求的 nsfw 意图打标进 R18 作品库;
+    # probe 复用 _probe_h3,可用性与 SFW 版天然一致。
     {
         "id": "h3-nsfw-t2v",
         "label": "MiniMax H3 文生视频(R18)",
@@ -1781,8 +1779,8 @@ def _default_registry() -> list[dict[str, Any]]:
         "probe": _probe_ltx_nsfw("ltx_lipsync"),
     },
     # Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻):与 SFW 主链同一路由
-    # (POST /api/generate/video),pool worker 执行;专区内自带 X-NSFW 头 →
-    # 产物打标进 R18 作品库、loras 入参生效(SFW 请求带 loras 一律静默剔除)。
+    # (POST /api/generate/video),pool worker 执行;nsfw 意图 →
+    # 产物打标进 R18 作品库、loras 入参原样生效。
     # LoRA 清单为静态策划(WAN_I2V_NSFW_LORAS 6 个),侧别由后端注册表判定。
     {
         "id": "wan-nsfw-i2v",
@@ -1796,7 +1794,7 @@ def _default_registry() -> list[dict[str, Any]]:
             "name": "Wan2.2 I2V-A14B + Civitai 社区 NSFW LoRA 配方",
             "url": "https://civitai.com/models/2073605",
             "author": "阿里巴巴(Wan 团队)× Civitai 社区(kenpechi 等配方作者)",
-            "note": "底模为 Wan2.2 开源权重;NSFW 能力由社区 LoRA 分侧叠加提供,仅 R18 上下文可选",
+            "note": "底模为 Wan2.2 开源权重;NSFW 能力由社区 LoRA 分侧叠加提供",
         },
         "params": [_ref_image_required(), *_wan_nsfw_i2v_params()],
         "probe": _probe_wan_i2v,
@@ -2172,10 +2170,9 @@ def _ensure_registry() -> None:
 
 
 def get_engine_spec(engine_id: str) -> dict[str, Any] | None:
-    """取注册表原始条目(含 nsfw 标/submit 绑定,不做 R18 上下文过滤);未知 id → None。
+    """取注册表原始条目(含 nsfw 标/submit 绑定);未知 id → None。
 
-    供助手 submit_generation 做逐引擎 R18 判定:list_engines 在 SFW 上下文会过滤
-    R18 引擎,拿不到条目就无法区分「不存在」与「无权限」,故需要不过滤的查询口。
+    供助手 submit_generation 校验引擎是否存在与取 submit 绑定。
     """
     _ensure_registry()
     return next((s for s in _REGISTRY if s["id"] == engine_id), None)
@@ -2225,7 +2222,7 @@ async def _timed_or_none(coro: Awaitable[Any]) -> Any:
 
 
 async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[str, Any]]:
-    """返回引擎数组(按请求的 R18 上下文过滤 nsfw 引擎与 nsfw 选项)。
+    """返回引擎数组(全部引擎;nsfw 仅作元数据,后端不过滤)。
 
     每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params, submit?, limits }
     params 元素:{ key, label, type, options?, min?, max?, step?, default, hint?, max_chars?, max_bytes?, max_items? }
@@ -2242,8 +2239,8 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
     超时,端点实测 34.2s。8s TTL 缓存命中时零探测。
     """
     _ensure_registry()
-    r18 = nsfw_allowed(user)
-    specs = [s for s in _REGISTRY if not (s["nsfw"] and not r18)]
+    # 引擎清单不按账号内容态过滤:nsfw 只作元数据透出,可见性/灰化由前端策略锁决定。
+    specs = list(_REGISTRY)
 
     now = time.monotonic()
     cache_fresh = (now - _avail_cache_at) < _AVAIL_TTL
@@ -2286,7 +2283,7 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
 
     engines: list[dict[str, Any]] = []
     for spec in specs:
-        # 参数 schema:SFW 上下文剔除 nsfw 选项(如 ltx2 白名单里的 10eros)
+        # 参数 schema:按声明源注入选项;nsfw 标记只作元数据,后端不剔除选项。
         params: list[dict] = []
         for p in spec["params"]:
             p = dict(p)
@@ -2295,8 +2292,6 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
                 p = _inject_h3_lora_options(p, h3_loras)
             elif src:
                 p = _inject_dynamic_options(p, dyn)
-            if p.get("options"):
-                p["options"] = [o for o in p["options"] if r18 or not o.get("nsfw")]
             params.append(p)
 
         entry: dict[str, Any] = {

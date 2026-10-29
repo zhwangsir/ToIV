@@ -5,9 +5,10 @@
   · 显式空列表 [] → off
   · 非空列表 → pin(文件名必须在目录内;强度缺省用卡面默认)
 
-规则:按引擎过滤;SFW 永不挂 nsfw 卡;最多 3 张;加速最多一张;同角色
-(pose/anatomy/concept/accel)不叠。R18 且提示偏空/无概念时补通用概念卡;
-无概念卡则挂动态(motion)或任意非加速卡,避免空跑。永不自动挂 accel。
+规则:按引擎过滤;内容分级(nsfw)只作卡面元数据,后端不据此剔除任何卡;
+最多 3 张;加速最多一张;同角色(pose/anatomy/concept/accel)不叠。
+提示偏空时补通用概念卡;无概念卡则挂动态(motion)或任意非加速卡,避免空跑。
+永不自动挂 accel。有实义提示时纯按关键词/触发词/角色入选,不强塞概念卡。
 LLM 不选文件名:只允许将来把 prompt 映到 role 枚举,再由本模块确定性映到卡。
 失败/无命中时规则路径仍返回(可能为空)。
 """
@@ -46,9 +47,9 @@ def _picked(card: LoraCard, reason: str, strength: float | None = None) -> Picke
     )
 
 
-def _eligible(engine: str, nsfw: bool) -> list[LoraCard]:
-    """nsfw=False 只留 SFW 卡;True 保留 SFW+NSFW(运镜等 SFW 卡 R18 也能挂)。"""
-    return list(cards_for(engine, nsfw=True if nsfw else False) if nsfw else cards_for(engine, nsfw=False))
+def _eligible(engine: str) -> list[LoraCard]:
+    """引擎内全部候选卡;内容分级不参与后端筛选。"""
+    return list(cards_for(engine))
 
 
 def _conflicts(card: LoraCard, picked: list[PickedLora]) -> bool:
@@ -98,14 +99,13 @@ def _greedy(cands: list[tuple[int, LoraCard, str]], limit: int = MAX_PICK) -> li
 def pick_loras(
     engine: str,
     prompt: str,
-    nsfw: bool,
     pinned: list | None = None,
     mode: str = "auto",
 ) -> list[PickedLora]:
     """选卡。mode=off 返回空;pin 用 pinned;auto 走规则。永不返回目录外文件名。"""
     if mode == "off":
         return []
-    pool = {c.name: c for c in _eligible(engine, nsfw)}
+    pool = {c.name: c for c in _eligible(engine)}
     # basename 别名
     for c in list(pool.values()):
         pool.setdefault(c.name.replace("\\", "/").rsplit("/", 1)[-1], c)
@@ -135,17 +135,18 @@ def pick_loras(
     prompt = prompt or ""
     prompt_l = prompt.lower()
     ranked: list[tuple[int, LoraCard, str]] = []
-    for card in _eligible(engine, nsfw):
+    for card in _eligible(engine):
         s = _score(card, prompt_l)
         if s > 0:
             ranked.append((s, card, f"keyword:{card.role}"))
     ranked.sort(key=lambda t: -t[0])
     picks = _greedy(ranked)
 
+    # 仅"提示偏空"时补默认概念/动态卡避免空跑;有实义提示时纯按关键词/触发词/角色
+    # 入选,不再强塞概念卡(否则会把 R18 触发词注入到普通作业)。分级不参与本模块决策。
     emptyish = len(prompt.strip()) < _EMPTYISH_LEN
-    has_concept = any(p.role == "concept" for p in picks)
-    if nsfw and (emptyish or not has_concept):
-        eligible = _eligible(engine, nsfw)
+    if emptyish:
+        eligible = _eligible(engine)
         concept = next((c for c in eligible if c.role == "concept"), None)
         if concept is not None and not any(p.name == concept.name for p in picks):
             if _conflicts(concept, picks):
@@ -178,17 +179,16 @@ def pick_loras(
 def resolve_submit_loras(
     engine: str,
     prompt: str,
-    nsfw: bool,
     raw: list | None,
 ) -> tuple[list[PickedLora], str, str]:
     """提交层:None=auto, []=off, 非空=pin。返回 (picks, mode, reason)。"""
     if raw is None:
-        picks = pick_loras(engine, prompt, nsfw, mode="auto")
+        picks = pick_loras(engine, prompt, mode="auto")
         reason = ",".join(f"{p.name}:{p.reason}" for p in picks) or "auto:none"
         return picks, "auto", reason
     if len(raw) == 0:
         return [], "off", "off"
-    picks = pick_loras(engine, prompt, nsfw, pinned=raw, mode="pin")
+    picks = pick_loras(engine, prompt, pinned=raw, mode="pin")
     reason = ",".join(f"{p.name}:pin" for p in picks) or "pin:none"
     return picks, "pin", reason
 

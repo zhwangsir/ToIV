@@ -6,14 +6,16 @@ from app.config import Settings
 
 def test_llm_defaults_are_dsv4_canonical():
     f = Settings.model_fields
-    assert f["llm_model"].default == "deepseek-v4-flash-dspark"
+    assert f["llm_model"].default == "DeepSeek-V4.1-Flash-1017"
     assert "DeepSeek" in f["llm_display_name"].default
     assert "Qwen" not in f["llm_display_name"].default
     assert "GLM" not in f["llm_display_name"].default
-    assert f["llm_l2_model"].default == "deepseek-v4-flash-dspark"
-    assert f["llm_l3_model"].default == "deepseek-v4-flash-dspark"
+    assert f["llm_l2_model"].default == "DeepSeek-V4.1-Flash-1017"
+    assert f["llm_l3_model"].default == "DeepSeek-V4.1-Flash-1017"
+    assert f["llm_base_url"].default == "http://192.168.71.84:8888/v1"
     proxy = f["llm_proxy_models"].default
-    assert proxy.startswith("deepseek-v4-flash-dspark")
+    assert proxy.startswith("DeepSeek-V4.1-Flash-1017")
+    assert "deepseek-v4-flash-dspark" in proxy  # 旧客户端兼容别名
 
 
 def test_vlm_and_comfy_defaults_match_live_eps():

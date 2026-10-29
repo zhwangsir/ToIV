@@ -465,7 +465,7 @@ def test_job_dict_exposes_app_id():
 # /api/jobs/counts(2026-09-15 计数重设计):与列表同口径的桶总数
 # ---------------------------------------------------------------------------
 def test_jobs_counts_kind_nsfw_deleted(ctx):
-    """计数与 GET /api/jobs 完全同口径:本人/未删除/R18 门控/kind 多值与前缀。"""
+    """计数与 GET /api/jobs 完全同口径:本人/未删除/kind 多值与前缀;R18 只可按 ?nsfw= 显式筛。"""
     from datetime import datetime, timezone
 
     from sqlmodel import select
@@ -505,18 +505,18 @@ def test_jobs_counts_kind_nsfw_deleted(ctx):
     finally:
         gen.close()
 
-    # SFW 主库口径:fixture 自带 1 条 + 2 app_video + 1 app_image(R18 被剔除,软删不计)= 4
+    # 全量口径:fixture 自带 1 条 + 2 app_video + 2 app_image(含 1 条 R18;软删不计)= 5
     # (响应还带 failed 字段——一键清理角标,另测)
-    assert c.get("/api/jobs/counts", headers=h).json()["count"] == 4
+    assert c.get("/api/jobs/counts", headers=h).json()["count"] == 5
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"kind": "app_video,app_image"}).json()["count"] == 3
+                 params={"kind": "app_video,app_image"}).json()["count"] == 4
     assert c.get("/api/jobs/counts", headers=h,
                  params={"kind": "app_video"}).json()["count"] == 2
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"kind": "app_"}).json()["count"] == 3
-    # nsfw 过滤参数在 R18 门控关闭时不放行 R18 行(主库恒 SFW)
+                 params={"kind": "app_"}).json()["count"] == 4
+    # 后端不按内容分级过滤,只有显式 ?nsfw= 才筛
     assert c.get("/api/jobs/counts", headers=h,
-                 params={"nsfw": "true"}).json()["count"] == 0
+                 params={"nsfw": "true"}).json()["count"] == 1
     assert c.get("/api/jobs/counts", headers=h,
                  params={"nsfw": "false"}).json()["count"] == 4
     # 未认证 401

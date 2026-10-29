@@ -7,6 +7,7 @@ import {
     getServerR18ModeSnapshot,
     isUnderage,
     setR18Mode,
+    shouldConfirmContentModeSwitch,
     subscribeR18Mode,
 } from "@/redline";
 
@@ -19,7 +20,8 @@ export function useContentModeControl() {
     const requestAdult = useCallback(() => {
         if (adultOn) return;
         if (isUnderage()) return;
-        setConfirming(true);
+        if (shouldConfirmContentModeSwitch(true)) setConfirming(true);
+        else setR18Mode(true);
     }, [adultOn]);
 
     const confirmAdult = useCallback(() => {

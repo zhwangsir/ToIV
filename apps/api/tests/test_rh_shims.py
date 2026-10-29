@@ -56,9 +56,9 @@ def test_cfg_defaults_point_at_the_verified_local_services(monkeypatch):
     monkeypatch.delenv("TOIV_SHIM_LLM_MODEL", raising=False)
     # served id 是 2026-10-13 在 workstation 上实测 /v1/models 得到的,写错会 404
     assert shim.cfg("VLM_MODEL") == "toiv-vlm"
-    assert shim.cfg("LLM_MODEL") == "deepseek-v4-flash-dspark"
+    assert shim.cfg("LLM_MODEL") == "DeepSeek-V4.1-Flash-1017"
     assert "9311" in shim.cfg("VLM_BASE")
-    assert "192.168.71.84:8000" in shim.cfg("LLM_BASE")
+    assert "192.168.71.84:8888" in shim.cfg("LLM_BASE")
 
 
 def test_cfg_env_override_wins(monkeypatch):
@@ -403,7 +403,7 @@ def test_llmapi_node_ignores_rh_cloud_endpoint_and_key(monkeypatch):
     ) == ("out",)
     blob = json.dumps(seen["payload"])
     assert "sk-SECRET-DO-NOT-LEAK" not in blob and "runninghub" not in blob
-    assert "192.168.71.84:8000" in seen["base"], "无图 → 走本地 DSv4"
+    assert "192.168.71.84:8888" in seen["base"], "无图 → 走本地 DSv4"
 
 
 def test_llmapi_node_routes_to_vlm_when_ref_image_present(monkeypatch):

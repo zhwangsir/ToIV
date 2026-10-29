@@ -2658,13 +2658,9 @@ async def optimize_shot_endpoint(
     system_prompt = _SHOT_OPTIMIZE_SYSTEM
     if body.skill_id:
         from app.models import Agent
-        from app.redline import require_not_underage
-
         skill = session.get(Agent, body.skill_id)
         if not skill or (skill.user_id and skill.user_id != user.id):
             raise HTTPException(status_code=404, detail="技能不存在")
-        if skill.is_nsfw:
-            require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
         system_prompt = f"{skill.system_prompt}\n\n{_SHOT_OPTIMIZE_SYSTEM}"
 
     try:

@@ -82,3 +82,41 @@ test("BeefAPI generic newapi Seedance accepts mixed image and video references w
         videoSeconds: "5",
     }), "");
 });
+
+// 网关模板（cmd/desktop/toivgate/model-config.template.json）只保存 video 的
+// defaultOperation/defaultRatio/maxDurationSec/references 四个键。持久化配置缺
+// ratios/resolutions/operations/duration 时，规范化层必须回落到协议默认值，
+// 否则 `/create` 首屏渲染就会因 undefined.map 白屏。
+test("partial persisted video capability falls back to protocol defaults instead of crashing", () => {
+    const config = {
+        channels: [{
+            id: "toiv-video-wan",
+            name: "本地·出视频",
+            baseUrl: "http://127.0.0.1:8090",
+            models: ["local-wan"],
+            modelProfiles: [{
+                model: "local-wan",
+                capability: "video",
+                protocol: "toiv-comfy-video",
+                capabilityConfig: {
+                    version: 1,
+                    video: {
+                        defaultOperation: "text_to_video",
+                        defaultRatio: "4:3",
+                        maxDurationSec: 10,
+                        references: { promptMaxChars: 32000 },
+                    },
+                },
+            }],
+        }],
+    } as AiConfig;
+
+    const profile = modelCapabilityConfigFor(config, "toiv-video-wan::local-wan").video!;
+    const fallback = defaultModelCapabilityConfig("toiv-comfy-video", "local-wan").video!;
+    assert.deepEqual(profile.ratios, fallback.ratios);
+    assert.deepEqual(profile.resolutions, fallback.resolutions);
+    assert.deepEqual(profile.operations, fallback.operations);
+    assert.equal(profile.defaultRatio, "4:3");
+    assert.equal(profile.defaultOperation, "text_to_video");
+    assert.equal(profile.references.promptMaxChars, 32000);
+});

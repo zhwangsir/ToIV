@@ -101,6 +101,36 @@ async def test_registry_ttl_caches_fetch(monkeypatch):
     assert calls["n"] == 1  # 第二次 pick 在 TTL(60s)内,未再拉取
 
 
+async def test_refresh_registry_hydrates_cold_pool(monkeypatch):
+    """取件路径显式刷新:不经过 pick() 的冷池也能跟随注册表。
+
+    重启后池成员只有静态 worker_urls(如 LB 8188);产物取回按 worker 精确匹配前
+    必须先刷新,否则 8196/8263/8265 等动态成员不在 clients 里,resolve_worker
+    只能折叠到同机 LB 拿到同名陈旧产物(2026-10-29 视频取件实证)。
+    """
+    pool, calls = _make_pool(monkeypatch, [FakeClient(A)], [A, B])
+    assert _urls(pool) == [A]
+    await pool.refresh_registry()
+    assert _urls(pool) == [A, B]
+    assert calls["n"] == 1
+
+
+async def test_refresh_registry_ttl_caches(monkeypatch):
+    """TTL 内的重复取件刷新不重复拉注册表。"""
+    pool, calls = _make_pool(monkeypatch, [FakeClient(A)], [A, B])
+    await pool.refresh_registry()
+    await pool.refresh_registry()
+    assert calls["n"] == 1
+
+
+async def test_refresh_registry_force_bypasses_ttl(monkeypatch):
+    """force=True 绕过 TTL(需要立即看到注册表变化时)。"""
+    pool, calls = _make_pool(monkeypatch, [FakeClient(A)], [A, B])
+    await pool.refresh_registry()
+    await pool.refresh_registry(force=True)
+    assert calls["n"] == 2
+
+
 async def test_no_registry_url_zero_behavior(monkeypatch):
     """未配 registry_url → 零行为变化:不发起任何拉取,成员进程内固定。"""
     async def forbidden_fetch(self):  # pragma: no cover - 被调用即失败

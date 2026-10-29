@@ -155,20 +155,20 @@ DEVICE_REGISTRY: list[dict] = [
     {
         "id": "spark02",
         "name": "Spark02",
-        # ep.llm.primary · weight.dsv4.flash-dspark-ablit；TP2 head rank0。
-        # Studio01-04/EXO 已退役,L1-L4 收拢本机(config.llm_* 默认 deepseek-v4-flash-dspark)。
-        "role": "ep.llm.primary · DeepSeek-V4-Flash-DSpark abliterated (TP2 head :8000)",
+        # ep.llm.primary · DeepSeek-V4.1-Flash-1017（Mia TensorFold TP2 :8888）。
+        # Studio01-04/EXO 已退役,L1-L4 收拢本机(config.llm_* 默认 DeepSeek-V4.1-Flash-1017)。
+        "role": "ep.llm.primary · DeepSeek-V4.1-Flash-1017 abliterated (Mia TP2 :8888)",
         "lan_ip": "192.168.71.84",
         "ts_ip": "100.86.42.89",
         "hardware": "Linux GB10",
         "probe_host": "192.168.71.84",
         "services": [
             _http(
-                "vLLM DSv4",
-                8000,
+                "Mia LLM",
+                8888,
                 path="/v1/models",
                 kind="vllm",
-                note="served ONLY=deepseek-v4-flash-dspark（N2 已清 qwen*/glm* 伪装别名）",
+                note="served ONLY=DeepSeek-V4.1-Flash-1017（兼容别名 deepseek-v4-flash-dspark 由代理改写）",
             ),
         ],
     },

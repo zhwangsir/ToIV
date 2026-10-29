@@ -6,7 +6,7 @@ Wan2.2 I2V「四幕结构」prompt 骨架(主体动作→镜头→收尾→声�
 LoRA 触发词(m15510n4ry/d0gg1e/pull0ut/b0dyshot)与平台已装的
 WAN_I2V_NSFW_LORAS 六件套一一对应,选配方即整套带入。
 
-落地方式:GET /api/models/recipes 透出(按用户 NSFW 门控过滤);前端参数面板
+落地方式:GET /api/models/recipes 全量透出(nsfw 只作元数据);前端参数面板
 「社区配方」选择器一键应用:prompt 模板 + negative 模板 + LoRA 组合 + 参数。
 """
 from __future__ import annotations
@@ -198,13 +198,6 @@ RECIPES: list[dict[str, Any]] = [
 ]
 
 
-def recipes_for(engine_id: str = "", include_nsfw: bool = False) -> list[dict[str, Any]]:
-    """按引擎过滤配方;NSFW 配方仅在调用方完成 R18 门控后请求(include_nsfw=True)。"""
-    out = []
-    for r in RECIPES:
-        if engine_id and r["engine_id"] != engine_id:
-            continue
-        if r["nsfw"] and not include_nsfw:
-            continue
-        out.append(r)
-    return out
+def recipes_for(engine_id: str = "") -> list[dict[str, Any]]:
+    """按引擎过滤配方;`nsfw` 字段只是元数据,后端不过滤。"""
+    return [r for r in RECIPES if not engine_id or r["engine_id"] == engine_id]

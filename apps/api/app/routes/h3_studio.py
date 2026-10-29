@@ -34,7 +34,7 @@ from app.limits import (
     H3_PROMPT_MAX_CHARS,
 )
 from app.models import User
-from app.redline import adult_at_submit, job_nsfw_from_intent, nsfw_allowed, require_not_underage
+from app.redline import adult_at_submit, job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.video_upscale import validate_resolution_target
@@ -85,16 +85,10 @@ class H3LoraInput(BaseModel):
         return name
 
 
-def _gate_h3_nsfw_loras(loras: list[H3LoraInput] | None, user: User) -> None:
-    """H3 R18 LoRA:P0-5 R3 仅未成年硬关;成人 UX 403 退役(可打标供前端灰化)。"""
-    if loras and any(is_h3_nsfw_lora(lora.name) for lora in loras):
-        require_not_underage(user)
-
-
 def _h3_explicit_nsfw(req, user: User) -> bool:
     """显式 R18 意图: body.nsfw=true, 或用户钉选了已知 R18 LoRA(非 auto 目录补卡)。
 
-    X-NSFW 头只做门控,不能单独把 Job 打进成人库。user 参与门控由 _h3_job_nsfw 处理。
+    X-NSFW 头不参与判定(仅审计),不能单独把 Job 打进成人库。
     """
     if bool(getattr(req, "nsfw", False)):
         return True
@@ -106,21 +100,20 @@ def _h3_explicit_nsfw(req, user: User) -> bool:
 
 
 def _h3_job_nsfw(req, user: User) -> bool:
-    """Job.nsfw / 10Eros 换底:仅显式意图,经 job_nsfw_from_intent(门控+未成年硬阻断)。"""
+    """Job.nsfw / 10Eros 换底:仅按显式意图打标(后端不做内容门控)。"""
     return job_nsfw_from_intent(user, _h3_explicit_nsfw(req, user))
 
 
 def _resolve_h3_loras(
-    prompt: str, user: User, loras: list[H3LoraInput] | None, nsfw_intent: bool = False,
+    prompt: str, user: User, loras: list[H3LoraInput] | None,
 ):
     """省略=auto / 空列表=off / 非空=pin。返回 (specs, picks, mode, reason, positive)。
 
-    nsfw_intent 必须跟作品意图走(body.nsfw 或钉选 R18 LoRA),禁止用 nsfw_allowed(user):
-    人在 /nsfw 专页写普通提示词时不得自动挂 HMNSFW_AIO_V2。
+    后端不按内容分级剔除 LoRA:用户钉选原样生效,auto 走策划卡规则(与账号/作业分级无关)。
     """
     raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
     try:
-        picks, mode, reason = resolve_submit_loras("h3", prompt, nsfw_intent, raw)
+        picks, mode, reason = resolve_submit_loras("h3", prompt, raw)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     positive = inject_triggers(prompt, picks)
@@ -399,14 +392,12 @@ async def generate_h3_t2v(
 ):
     """H3 文生视频。实例不可达/缺 H3 节点 → 503(见 services/h3.ensure_h3_ready)。"""
     enforce_generation_rate_limit(user)
-    _gate_h3_nsfw_loras(req.loras, user)
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
-    nsfw_intent = _h3_explicit_nsfw(req, user)
     nsfw = _h3_job_nsfw(req, user)
     specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
-        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+        req.positive, user, req.loras,
     )
     req = req.model_copy(update={
         "positive": positive,
@@ -454,7 +445,7 @@ async def generate_h3_t2v(
     result = await h3_service.submit_h3_job(
         graph, kind=kind, positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=h3_client,
-        # 仅显式 body.nsfw / 钉选 R18 LoRA 打标;X-NSFW 头只做门控
+        # 仅显式 body.nsfw / 钉选 R18 LoRA 打标;X-NSFW 头不参与
         nsfw=nsfw,
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
@@ -571,7 +562,6 @@ async def generate_h3_multishot(
     (单段内切镜 vs 多段独立转场拼接)。仅显式 body.nsfw / 钉选 R18 LoRA 打标。
     """
     enforce_generation_rate_limit(user)
-    _gate_h3_nsfw_loras(req.loras, user)
     try:
         ms_plan = multishot.plan_multishot(
             [
@@ -612,10 +602,9 @@ async def generate_h3_multishot(
     # 主体引用注入(与 t2v 同层同序:effect 之后,@图片N 恒在绝对开头)
     t2v_req = _apply_entity_refs(t2v_req, session, user)
     plan = _resolve_plan(t2v_req)
-    nsfw_intent = _h3_explicit_nsfw(req, user)
     nsfw = _h3_job_nsfw(req, user)
     specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
-        t2v_req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+        t2v_req.positive, user, req.loras,
     )
     t2v_req = t2v_req.model_copy(update={
         "positive": positive,
@@ -674,14 +663,12 @@ async def generate_h3_i2v(
 ):
     """H3 图生视频。参考图从上传落点 worker 转运到 H3 实例后提交。"""
     enforce_generation_rate_limit(user)
-    _gate_h3_nsfw_loras(req.loras, user)
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
-    nsfw_intent = _h3_explicit_nsfw(req, user)
     nsfw = _h3_job_nsfw(req, user)
     specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
-        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+        req.positive, user, req.loras,
     )
     req = req.model_copy(update={
         "positive": positive,
@@ -759,14 +746,12 @@ async def generate_h3_r2v(
 ):
     """H3 Ref2VA 多参考:1-9 图 / 0-3 视频 / 0-3 音频,至少一种;转运后提交 MiniMaxH3ReferenceToVideo。"""
     enforce_generation_rate_limit(user)
-    _gate_h3_nsfw_loras(req.loras, user)
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
-    nsfw_intent = _h3_explicit_nsfw(req, user)
     nsfw = _h3_job_nsfw(req, user)
     specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
-        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+        req.positive, user, req.loras,
     )
     req = req.model_copy(update={
         "positive": positive,

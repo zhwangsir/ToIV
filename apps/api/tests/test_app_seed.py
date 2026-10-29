@@ -402,7 +402,7 @@ def test_builtin_seed_non_numeric_422(ctx):
     assert not fake.graphs  # 校验失败不提交 worker
 
 
-def test_builtin_txt2img_run_and_nsfw_gate(ctx):
+def test_builtin_txt2img_run_and_nsfw_tagging(ctx):
     c, token, fake = ctx
     # SFW 内置应用可直接跑
     r = c.post(
@@ -418,27 +418,28 @@ def test_builtin_txt2img_run_and_nsfw_gate(ctx):
     # CLIP 必须由独立 CLIPLoader 提供(flux2 fp8mixed 是 UNET-only,CheckpointLoaderSimple 必炸)
     assert graph["3"]["class_type"] == "CLIPLoader"
     assert graph["1"]["class_type"] == "UNETLoader"
-    # NSFW 内置应用普通账号 403(D-U1=B:账号态为判据)
+    # R18 内置应用普通账号直接可跑:后端不做内容门(限制只在前端锁)
     r2 = c.post(
         "/api/apps/ltx-txt2video/run",
         headers={"Authorization": f"Bearer {token}"},
         json={"values": {"positive": "x"}},
     )
-    assert r2.status_code == 403
-    # R18 孪生卡软隐藏:直接访问 404;改走 SFW 父卡 content_mode=nsfw
+    assert r2.status_code == 200, r2.text
+    # 未挂到代表卡模式表的 R18 孪生卡仍按软隐藏处理(直接访问 404)
     r3 = c.post(
         "/api/apps/nsfw-txt2img/run",
         headers={"Authorization": f"Bearer {token}"},
         json={"values": {"positive": "x"}},
     )
     assert r3.status_code == 404
+    # content_mode=nsfw 走 SFW 父卡的 R18 孪生:普通态也放行
     r3b = c.post(
         "/api/apps/txt2img-basic/run",
         headers={"Authorization": f"Bearer {token}"},
         json={"values": {"positive": "x"}, "content_mode": "nsfw"},
     )
-    assert r3b.status_code == 403
-    # 切成人态后可跑 R18(X-NSFW 仅审计)
+    assert r3b.status_code == 200, r3b.text
+    # 切成人态后同一路径照常(X-NSFW 仅审计)
     r_mode = c.put(
         "/api/account/content-mode",
         headers={"Authorization": f"Bearer {token}"},

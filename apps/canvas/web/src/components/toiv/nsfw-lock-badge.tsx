@@ -4,7 +4,7 @@
 import { Lock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { COPY_NSFW_LOCK_LABEL } from "@/redline";
+import { COPY_ASSET_LOCKED_HINT, COPY_LOCKED_LABEL, COPY_NSFW_LOCK_LABEL } from "@/redline";
 
 type Props = {
     className?: string;
@@ -17,8 +17,8 @@ export function NsfwLockBadge({ className, compact }: Props) {
         <span
             className={cn("toiv-nsfw-lock-badge", compact && "is-compact", className)}
             data-testid="nsfw-lock-badge"
-            title="当前为普通模式，成人资产已锁定"
-            aria-label={`已锁定 · ${COPY_NSFW_LOCK_LABEL}`}
+            title={COPY_ASSET_LOCKED_HINT || undefined}
+            aria-label={[COPY_LOCKED_LABEL, COPY_NSFW_LOCK_LABEL].filter(Boolean).join(" · ")}
         >
             <Lock className="size-3 shrink-0" strokeWidth={2} aria-hidden />
             <span className="toiv-nsfw-lock-badge-label">{COPY_NSFW_LOCK_LABEL}</span>

@@ -391,11 +391,19 @@ class _FakeWorker:
         return _DATA, "image/png"
 
 
+class _FakePool:
+    """假池:取件路径会先刷新注册表(冷池也要精确命中动态成员)。"""
+
+    def __init__(self, worker):
+        self.clients = [worker]
+
+    async def refresh_registry(self):
+        pass
+
+
 @pytest.fixture
 def ctx_img(monkeypatch):
     """在 ctx 基础上覆盖 worker pool,并将 resolve_worker 替换为替身。"""
-    from types import SimpleNamespace
-
     import app.routes.reference_assets as assets_mod
     from app.deps import get_pool
 
@@ -412,7 +420,7 @@ def ctx_img(monkeypatch):
 
     app.dependency_overrides[get_session] = override
     fake = _FakeWorker()
-    app.dependency_overrides[get_pool] = lambda: SimpleNamespace(clients=[fake])
+    app.dependency_overrides[get_pool] = lambda: _FakePool(fake)
     monkeypatch.setattr(assets_mod, "resolve_worker", lambda w: fake)
 
     with Session(engine) as s:

@@ -105,9 +105,7 @@ export function WsCreationDock({ projectId, pipelineLabel, onJumpShots }: WsCrea
                         去设置切换成人
                     </Link>
                 </p>
-            ) : (
-                <p className="toiv-ws-creation-dock-meta">成人模式：NSFW 命名基座/LoRA 可见（含 Mega …-nsfw-…）</p>
-            )}
+            ) : null}
 
             <div className="flex items-center gap-2">
                 <History className="size-3.5 text-[var(--muted-foreground)]" aria-hidden />

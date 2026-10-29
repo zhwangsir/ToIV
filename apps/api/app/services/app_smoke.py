@@ -1008,6 +1008,7 @@ def running_cards_report(session: Session) -> dict:
 # 批量(单飞):按 smoke_status 空/失败的顺序跑一批
 # ---------------------------------------------------------------------------
 def _pick_batch(session: Session, limit: int, include_nsfw: bool) -> list[App]:
+    """挑一批待烟测的应用。include_nsfw=False 只是运维批量范围(控 GPU 负载),不是内容闸。"""
     q = select(App).where(App.is_public == True)  # noqa: E712
     rows = session.exec(q).all()
     todo = [a for a in rows if (not include_nsfw and a.is_nsfw) is False and a.smoke_status in ("", "fail", "timeout")]

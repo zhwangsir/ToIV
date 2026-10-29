@@ -32,7 +32,6 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
 from app.models import Agent, AgentMessage, Document, User
-from app.redline import nsfw_allowed
 from app.services import docs as docsvc
 
 logger = logging.getLogger(__name__)
@@ -138,7 +137,8 @@ def _skills_context(messages: list[dict], user: User, session: Session) -> str |
     匹配范围:公共/内置(user_id="")+ **属主自己的个人技能**——个人技能含
     subagent learn 沉淀的学习卡,注入后 AI 学到的知识直接在对话生效(闭环)。
     匹配:技能名整体命中(权重 3)或描述词逐个命中(各 1),score≥2 入选,
-    取 top agent_skills_topk(0=关闭)。R18 技能仅在 R18 上下文注入。
+    取 top agent_skills_topk(0=关闭)。技能 is_nsfw 只作元数据,后端不按账号
+    内容态决定注入与否(可见性/灰化由前端策略锁负责)。
     """
     topk = get_settings().agent_skills_topk
     if topk <= 0:
@@ -149,11 +149,9 @@ def _skills_context(messages: list[dict], user: User, session: Session) -> str |
     rows = session.exec(
         select(Agent).where((Agent.user_id == "") | (Agent.user_id == user.id))
     ).all()
-    nsfw_ok = nsfw_allowed(user)
 
     def _score(a: Agent) -> int:
-        if a.is_nsfw and not nsfw_ok:
-            return -1
+        # 智能体是否 R18 只作元数据;后端不按账号内容态把它排除出候选。
         s = 0
         if a.name and a.name in query:
             s += 3

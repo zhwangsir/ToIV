@@ -48,9 +48,9 @@ async function openHarness(light = false): Promise<Page> {
 test("node selection, type colors and active edge use the creation accent", async () => {
     const page = await openHarness();
     const selected = page.locator('[data-node-id="video"] .canvas-node-shell');
-    expect(await selected.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(91, 160, 255)");
+    expect(await selected.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(74, 127, 193)");
     expect(await selected.evaluate((element) => getComputedStyle(element).filter)).toContain("drop-shadow");
-    expect(await page.locator('[data-node-id="script"] .canvas-node-shell').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(21, 22, 29, 0.92)");
+    expect(await page.locator('[data-node-id="script"] .canvas-node-shell').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(20, 21, 26, 0.92)");
     const typeColors = await page.locator('[data-node-id="video"] .canvas-node-shell').evaluate((element) => ({
         bar: getComputedStyle(element, "::before").backgroundColor,
         type: getComputedStyle(element).getPropertyValue("--toiv-node-type-color").trim(),
@@ -68,7 +68,7 @@ test("connection ports become visible on keyboard focus and light nodes keep the
     await port.focus();
     expect(await port.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
     expect(await port.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
-    expect(await port.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(91, 160, 255)");
+    expect(await port.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(74, 127, 193)");
     expect(await page.locator('[data-node-id="script"] .canvas-node-shell').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 255, 255)");
     await page.screenshot({ path: "test-results/freezone-r5/node-graph-light-port-focus.png", fullPage: true });
     await page.close();

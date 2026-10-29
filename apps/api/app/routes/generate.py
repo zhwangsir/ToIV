@@ -24,7 +24,7 @@ from app.limits import (
     GENERATE_MAX_LORAS,
 )
 from app.models import Job, User
-from app.redline import adult_at_submit, nsfw_allowed, require_not_underage
+from app.redline import adult_at_submit
 from app.ratelimit import enforce_generation_rate_limit
 # ComfyUI 错误码统一语义(2026-08-30 P2-7):worker 4xx 透传、5xx/无状态 → 502,
 # 消除与 routes/video.py 同场景 4xx/502 不一致;pool.pick 无可用 worker 仍 503。
@@ -110,15 +110,9 @@ def _apply_lora_tags(req: Txt2ImgRequest | Img2ImgRequest) -> None:
         existing_names.add(spec.name)
 
 
-def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
-    """R18 底模打标:返回是否成人向(Job.nsfw)。
-
-    P0-5 R3:成人 UX 403 退役;仅未成年硬关。普通态可提交,由前端灰化。
-    """
-    nsfw = is_nsfw(ckpt_name)
-    if nsfw:
-        require_not_underage(user)
-    return nsfw
+def _tag_nsfw_ckpt(ckpt_name: str) -> bool:
+    """底模分级打标:返回是否成人向(写入 Job.nsfw);后端不拦任何提交。"""
+    return is_nsfw(ckpt_name)
 
 
 class Txt2ImgRequest(BaseModel):
@@ -245,10 +239,9 @@ async def _submit_txt2img(
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
     # SFW 意图预设(sfw_intent=True):底模虽命中 is_nsfw 家族 hints(wai/pony 等),
-    # 预设定位是主站通用风格,豁免 R18 门槛且不打 nsfw 标;用户显式自选 ckpt 不受豁免。
+    # 预设定位是主站通用风格,不打 nsfw 标;用户显式自选 ckpt 不享受此豁免。
     sfw_preset = preset is not None and preset.sfw_intent and not explicit_ckpt
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
+    job_nsfw = False if sfw_preset else _tag_nsfw_ckpt(ckpt_name)
 
     # 加速档门槛:仅 qwen_image 底模;其他底模显式请求加速档 → 422(不静默忽略)
     if req.accel not in (None, "off") and detect_model_family(ckpt_name) != "qwen_image":
@@ -675,10 +668,9 @@ async def generate_img2img(
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
     client = resolve_worker(req.worker)  # 必须用图片所在的 worker
-    # SFW 意图预设豁免 R18 门槛(同 txt2img);显式自选 ckpt 不受豁免。
+    # SFW 意图预设不打 nsfw 标(同 txt2img);显式自选 ckpt 不享受豁免。
     sfw_preset = preset is not None and preset.sfw_intent and not explicit_ckpt
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
+    job_nsfw = False if sfw_preset else _tag_nsfw_ckpt(ckpt_name)
 
     # 加速档门槛:仅 qwen_image 底模(与 txt2img 同一套)
     if req.accel not in (None, "off") and detect_model_family(ckpt_name) != "qwen_image":
@@ -817,8 +809,8 @@ async def generate_controlnet(
          loras=_to_lora_specs(req.loras),
          **({"seed": req.seed} if req.seed is not None else {}),
     )
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    # 底模分级打标(Job.nsfw),后端不拦。
+    job_nsfw = _tag_nsfw_ckpt(params.ckpt_name)
     graph = build_controlnet_graph(params)
     client_id = uuid.uuid4().hex
     try:
@@ -871,7 +863,7 @@ async def generate_upscale(
 ):
     """放大:用 ESRGAN 类放大模型把上传的源图放大到目标倍数。
 
-    无 checkpoint(纯放大模型)→ 不涉 R18 门槛;沿用 img2img 模式:
+    无 checkpoint(纯放大模型)→ 不打 R18 标;沿用 img2img 模式:
     必须用源图所在的 worker(resolve_worker 防 SSRF)。
     """
     enforce_generation_rate_limit(user)
@@ -956,8 +948,8 @@ async def generate_facedetailer(
          sam_model=SAM_MODELS[0],
          **({"seed": req.seed} if req.seed is not None else {}),
     )
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    # 底模分级打标(Job.nsfw),后端不拦。
+    job_nsfw = _tag_nsfw_ckpt(params.ckpt_name)
     graph = build_facedetailer_graph(params)
     client_id = uuid.uuid4().hex
     try:
@@ -992,10 +984,10 @@ async def generate_facedetailer(
     }
 
 
-# raw 工作流 R18 门控:模型引用字段远不止 ckpt_name(UNETLoader.unet_name /
+# raw 工作流分级扫描:模型引用字段远不止 ckpt_name(UNETLoader.unet_name /
 # LoraLoader.lora_name / VAELoader.vae_name / LTXVGemmaCLIPModelLoader.ltxv_path …),
 # 逐字段列举必漏(10Eros 系即经 unet_name 加载)。统一递归遍历 inputs 内全部
-# 字符串,凡以模型扩展名结尾的一律过 R18 判定。
+# 字符串,凡以模型扩展名结尾的一律过分级判定——只用于打标,不拦截。
 _MODEL_REF_EXTS = (".safetensors", ".ckpt", ".pt", ".pth", ".gguf", ".bin")
 
 
@@ -1015,8 +1007,8 @@ def _is_nsfw_model_ref(name: str) -> bool:
     """模型引用字符串的 R18 判定:is_nsfw 子串 + H3 已知 NSFW LoRA 名单。
 
     H3 名单内 LoRA(如 riding_pose_H3_i2v_v1.0.safetensors)文件名不含通用
-    NSFW 子串,is_nsfw 漏判,须复用 services.h3 的 curated 判定(与
-    h3_studio._gate_h3_nsfw_loras 同一事实源)。延迟导入避免 routes↔services 环。"""
+    NSFW 子串,is_nsfw 漏判,须复用 services.h3 的 curated 判定(与 H3 路由
+    的显式意图判定同一事实源)。延迟导入避免 routes↔services 环。"""
     if is_nsfw(name):
         return True
     from app.services.h3 import is_h3_nsfw_lora
@@ -1024,11 +1016,10 @@ def _is_nsfw_model_ref(name: str) -> bool:
     return is_h3_nsfw_lora(name)
 
 
-def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
-    """扫描任意工作流图中的模型引用(ckpt/unet/lora/vae 等全部 inputs 字符串),
-    对 R18 模型套用未成年硬关(成人 UX 403 已退役)。
+def _tag_raw_graph_nsfw(graph: dict) -> bool:
+    """扫描任意工作流图中的模型引用(ckpt/unet/lora/vae 等全部 inputs 字符串)。
 
-    返回该图是否含成人向模型(供建档打标 Job.nsfw)。
+    返回该图是否含成人向模型(供建档打标 Job.nsfw);不拦截提交。
     """
     any_nsfw = False
     for node in graph.values():
@@ -1041,9 +1032,6 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
               for s in _iter_input_strings(value):
                    if s.lower().endswith(_MODEL_REF_EXTS) and _is_nsfw_model_ref(s):
                         any_nsfw = True
-    # P0-5 R3:成人 UX 403 退役;含 R18 模型时仅未成年硬关
-    if any_nsfw:
-        require_not_underage(user)
     return any_nsfw
 
 
@@ -1062,7 +1050,7 @@ async def generate_raw(
 ):
     """运行任意 ComfyUI 工作流(API-format JSON)。把整台 ComfyUI 直通给高级用户。
 
-    R18:扫描图中底模套用统一门槛。worker 未指定则自动选可达机(绕开掉线实例)。
+    R18 标:扫描图中底模统一打标。worker 未指定则自动选可达机(绕开掉线实例)。
     图须自带 SaveImage 类节点,产物才能被追踪回取。
     """
     enforce_generation_rate_limit(user)
@@ -1070,7 +1058,7 @@ async def generate_raw(
          raise HTTPException(status_code=422, detail="graph 必须是非空的 ComfyUI API 格式图")
     if len(req.graph) > 400:
          raise HTTPException(status_code=422, detail="工作流节点过多(>400)")
-    job_nsfw = _gate_raw_graph_nsfw(req.graph, user)
+    job_nsfw = _tag_raw_graph_nsfw(req.graph)
     try:
          client = resolve_worker(req.worker) if req.worker else await pool.pick()
     except ComfyUIError as e:
@@ -1119,7 +1107,7 @@ async def generate_removebg(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """抠图去背:把主体抠出、去掉背景(rembg)。无 checkpoint→不涉 R18。
+    """抠图去背:把主体抠出、去掉背景(rembg)。无 checkpoint→不打 R18 标。
 
     沿用 img2img 模式:必须用源图所在的 worker(resolve_worker 防 SSRF)。
     """
@@ -1200,8 +1188,8 @@ async def generate_inpaint(
          grow_mask=req.grow_mask,
          **({"seed": req.seed} if req.seed is not None else {}),
     )
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    # 底模分级打标(Job.nsfw),后端不拦。
+    job_nsfw = _tag_nsfw_ckpt(params.ckpt_name)
     graph = build_inpaint_graph(params)
     client_id = uuid.uuid4().hex
     try:
@@ -1265,7 +1253,7 @@ async def generate_qwen_edit(
 
     LoadImage 只能读本实例 input 目录,而源图在源 worker 上 → 服务端转存:
     从源 worker /view 拉字节,POST 到编辑实例 /upload/image,用新文件名进图。
-    不经过 LB 池;固定 SFW 模型,不涉 R18 门控。
+    不经过 LB 池;固定通用模型,不打 R18 标。
     """
     enforce_generation_rate_limit(user)
     if req.camera is not None and req.camera not in CAMERA_PRESETS:
@@ -1381,7 +1369,7 @@ async def generate_frame_interpolate(
 ):
     """帧插值:用 RIFE 模型把源视频插帧到更高帧率(如 24fps→60fps)。
 
-    无 checkpoint(纯插值模型)→ 不涉 R18;沿用 img2img 模式:
+    无 checkpoint(纯插值模型)→ 不打 R18 标;沿用 img2img 模式:
     必须用源视频所在的 worker(resolve_worker 防 SSRF)。
     """
     enforce_generation_rate_limit(user)

@@ -6,8 +6,8 @@ const styles = await Bun.file(new URL("../src/pages/create/creation-product.css"
 const creationTypes = await Bun.file(new URL("../src/pages/create/creation-types.ts", import.meta.url)).text();
 
 test("BeefTV creation dialog uses the simplified composer controls", () => {
-    // /create 三栏重构后主标题改为「自由创作」（brandName 主题标题退场）。
-    expect(page).toContain("自由创作");
+    // /create 三栏重构后主标题为「创作台」（brandName 主题标题退场）。
+    expect(page).toContain("创作台");
     expect(page).not.toContain("和 {brandName} 一起创作");
     expect(page).not.toContain("Agent 一起创作");
     expect(page).not.toContain("从一个画面、一个角色或一句话开始");

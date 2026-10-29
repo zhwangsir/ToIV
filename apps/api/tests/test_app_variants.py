@@ -59,7 +59,9 @@ def test_variants_for_keeper_and_mode(ctx):
     assert r.status_code == 200
     body = r.json()
     assert body["keeper_id"] == "keep"
-    assert [m["app_id"] for m in body["modes"]] == ["fast"]  # NSFW 目标对普通上下文不下发
+    # 模式目标全部下发(含 R18 目标);is_nsfw 只作元数据,由前端策略锁灰化
+    assert [m["app_id"] for m in body["modes"]] == ["fast", "nsfw-mode"]
+    assert body["modes"][1]["is_nsfw"] is True
     assert body["presets"][0]["values"] == {"prompt": "3D卡通风格"}
     r2 = c.get("/api/apps/fast/variants", headers=h)
     assert r2.json()["keeper_id"] == "keep"

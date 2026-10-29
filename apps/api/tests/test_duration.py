@@ -644,7 +644,7 @@ def test_clear_stale_post_status_on_startup(monkeypatch):
 
 
 def _seed_user(session: Session, email: str, content_mode: str = "adult") -> str:
-    """本文件仅涉引擎时长路由;R18 路由用例需账号成人态(D-U1=B),默认 adult。"""
+    """本文件仅涉引擎时长路由;账号成人态只作元数据,默认 adult 以覆盖成人路径。"""
     tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()

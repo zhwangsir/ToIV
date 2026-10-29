@@ -56,7 +56,7 @@ export function setToken(token: string | null): void {
   if (token) window.localStorage.setItem(TOKEN_KEY, token);
   else window.localStorage.removeItem(TOKEN_KEY);
 }
-// /nsfw 专页:按请求带 R18 放行标记(后端 ContextVar 据此放行,不动账户全局开关)。
+// 成人上下文标记:请求带 X-NSFW 头(后端只作审计打标,不据此放行/拦截)+ 缓存键分轨。
 let _nsfwIntent = false;
 export function setNsfwIntent(on: boolean): void {
   _nsfwIntent = on;

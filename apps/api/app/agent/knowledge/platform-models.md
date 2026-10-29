@@ -200,7 +200,7 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | Wan-Animate-2 换人 | `wan-animate-2` | 换代动作迁移/视频换人(:8199,蒸馏 10 步,数分钟);positive **只写外观 caption 严禁动作词**,留空自动 VLM 反推。 |
 | Wan2.1-VACE 多参考视频 | `wan-vace` | 1-4 张参考图(+可选首尾帧)→ 一致性视频(:8197)。 |
 | Wan2.2 I2V(R18 兜底) | `wan-nsfw-i2v` | 双专家 14B + Civitai NSFW LoRA 配方;触发词必须原样置句首;单段上限 121 帧(7.5s@16fps)。 |
-| LTX 2.3(R18) | `ltx-nsfw-t2v` / `ltx-nsfw-i2v` / `ltx-nsfw-lipsync` | 10Eros 底模成人向视频,仅 R18 上下文。 |
+| LTX 2.3(R18) | `ltx-nsfw-t2v` / `ltx-nsfw-i2v` / `ltx-nsfw-lipsync` | 10Eros 底模成人向视频(带 R18 元数据标)。 |
 | 智能编辑(Qwen) | `qwen-image-edit` | **DOWN(2026-10-23)** 专用实例 :8194 Connection refused；勿当热路径。历史能力：Qwen-Image-Edit-2509/2511 语义编辑 + 相机角度。 |
 | SCoPE 运镜 | (路由 `/api/scope/generate`,未入引擎注册表) | 首帧图 + 文本 + 相机轨迹预设 → 81 帧视频;提示词严禁运镜词(轨迹负责运镜);40 步约 19 分钟,很慢,要先告知用户。 |
 | ACE 文生音乐 | `ace-music` | 风格标签 + 可选歌词 → MP3(≤240s)。 |

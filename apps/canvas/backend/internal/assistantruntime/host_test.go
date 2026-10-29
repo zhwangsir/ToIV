@@ -145,6 +145,130 @@ func TestBundledAgentHostCommandFollowsAppLayout(t *testing.T) {
 	}
 }
 
+func TestSiblingAgentHostUsesRunnerScriptNearExecutable(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	hostDir := filepath.Join(root, "agent-host")
+	for _, dir := range []string{bin, hostDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runner := filepath.Join(hostDir, "run-agent-host.sh")
+	if err := os.WriteFile(runner, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "server.mjs"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := SiblingAgentHost(filepath.Join(bin, "canvas-server"), t.TempDir(), "darwin")
+	if got.HostCommand != runner || got.HostArgs != nil {
+		t.Fatalf("invalid sibling command: %#v", got)
+	}
+}
+
+func TestSiblingAgentHostPrefersBundledRuntime(t *testing.T) {
+	root := t.TempDir()
+	hostDir := filepath.Join(root, "agent-host")
+	node := filepath.Join(hostDir, "runtime", "bin", "node")
+	if err := os.MkdirAll(filepath.Dir(node), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(hostDir, "server.mjs")
+	for _, file := range []string{node, entry} {
+		if err := os.WriteFile(file, []byte("fixture"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := SiblingAgentHost(filepath.Join(root, "canvas-server"), t.TempDir(), "darwin")
+	if got.HostCommand != node || len(got.HostArgs) != 1 || got.HostArgs[0] != entry {
+		t.Fatalf("invalid sibling runtime: %#v", got)
+	}
+}
+
+// go run ./cmd/server 的可执行文件在临时构建目录，只能靠工作目录找到上层的 agent-host。
+func TestSiblingAgentHostFindsRepoLayoutFromWorkingDir(t *testing.T) {
+	repo := t.TempDir()
+	hostDir := filepath.Join(repo, "apps", "canvas", "agent-host")
+	cwd := filepath.Join(repo, "apps", "canvas", "backend")
+	for _, dir := range []string{hostDir, cwd} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runner := filepath.Join(hostDir, "run-agent-host.sh")
+	if err := os.WriteFile(runner, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "server.mjs"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(t.TempDir(), "go-build", "exe", "server")
+	got := SiblingAgentHost(exe, cwd, "darwin")
+	if got.HostCommand != runner {
+		t.Fatalf("invalid repo layout command: %#v", got)
+	}
+}
+
+func TestSiblingAgentHostRequiresExecutableRunner(t *testing.T) {
+	root := t.TempDir()
+	hostDir := filepath.Join(root, "agent-host")
+	if err := os.MkdirAll(hostDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "run-agent-host.sh"), []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "server.mjs"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := SiblingAgentHost(filepath.Join(root, "canvas-server"), t.TempDir(), "darwin"); got.HostCommand != "" {
+		t.Fatalf("non-executable runner must not launch: %#v", got)
+	}
+}
+
+func TestSiblingAgentHostSkipsPosixRunnerOnWindows(t *testing.T) {
+	root := t.TempDir()
+	hostDir := filepath.Join(root, "agent-host")
+	if err := os.MkdirAll(hostDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "run-agent-host.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "server.mjs"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := SiblingAgentHost(filepath.Join(root, "canvas-server.exe"), t.TempDir(), "windows"); got.HostCommand != "" {
+		t.Fatalf("windows must not run the POSIX launcher: %#v", got)
+	}
+}
+
+// 用户没写 agent_config.json 也不该让面板停在 host_start_failed：源码布局要能被自动发现。
+func TestEffectiveConfigDiscoversSiblingAgentHost(t *testing.T) {
+	root := t.TempDir()
+	hostDir := filepath.Join(root, "agent-host")
+	if err := os.MkdirAll(hostDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runner := filepath.Join(hostDir, "run-agent-host.sh")
+	if err := os.WriteFile(runner, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, "server.mjs"), []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	host := New(Options{
+		DataDir:    t.TempDir(),
+		GOOS:       "darwin",
+		Executable: func() (string, error) { return filepath.Join(root, "canvas-server"), nil },
+	})
+	config, configured := host.EffectiveConfig()
+	if !configured || config.HostCommand != runner {
+		t.Fatalf("sibling agent-host not discovered: %#v configured=%v", config, configured)
+	}
+}
+
 func TestAgentHostReapsExitAndRestartsWithSpacedPath(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "directory with spaces")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

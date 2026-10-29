@@ -43,8 +43,8 @@ test("Freezone muted text and primary action meet WCAG AA", () => {
 
 test("Freezone shell geometry remains compact and token driven", () => {
     const palette = tokens(webTokens);
-    assert.equal(palette["--toiv-shell-sidebar"], "216px");
-    assert.equal(palette["--toiv-shell-sidebar-collapsed"], "56px");
+    assert.equal(palette["--toiv-shell-sidebar"], "250px");
+    assert.equal(palette["--toiv-shell-sidebar-collapsed"], "67px");
     assert.equal(palette["--toiv-shell-topbar"], "56px");
     assert.equal(palette["--toiv-shell-control"], "32px");
     assert.equal(palette["--toiv-shell-nav-row"], "36px");
@@ -63,7 +63,7 @@ test("Light-curtain text, focus and adult thumb meet contrast budgets", () => {
     assert.ok(alpha > 0 && alpha < 1);
     const base = rgb(background);
     const adultThumb = hex(base.map((channel, index) => channel * (1 - alpha) + [79, 140, 255][index] * alpha));
-    assert.equal(palette["--toiv-switch-h"], "32px");
+    assert.equal(palette["--toiv-switch-h"], "28px");
     assert.ok(contrast(resolve(palette["--toiv-switch-fg"]), background) >= 4.5);
     assert.ok(contrast(palette["--toiv-switch-fg-active-nsfw"], adultThumb) >= 4.5);
     assert.ok(contrast(palette["--toiv-switch-focus"], background) >= 3);

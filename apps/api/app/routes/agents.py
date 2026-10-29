@@ -10,7 +10,7 @@
 - PUT /api/agents/{id}:改;内置/公共需 admin,个人技能属主可改;is_builtin 不变。
 - DELETE /api/agents/{id}:删;内置返 403;个人技能属主可删;公共自定义需 admin。
 
-P0-5 R4:列表/详情不再按 NSFW 过滤;运行/import 仍可走 require_not_underage。
+P0-5 R4:列表/详情/运行/import 均不按 NSFW 过滤。
 """
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.deps import get_current_admin, get_current_user
 from app.models import Agent, User, _now
-from app.redline import require_not_underage
 
 router = APIRouter()
 
@@ -171,10 +170,8 @@ def import_skill(
     """从 Skill 市场导入个人技能(普通用户可用):user_id=属主,仅本人可见/可改/可删。
 
     id 省略时按 name 生成 slug + 随机后缀(id 主键全局唯一,个人技能不与他人冲突)。
-    NSFW 技能导入仅过未成年硬关(P0-5 R3;成人 UX 由前端限制)。
+    分级只作元数据(is_nsfw 供前端灰化),后端不拦导入。
     """
-    if body.is_nsfw:
-        require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
     skill_id = (body.id or "").strip() or f"{_slugify(body.name)}-{_now().strftime('%H%M%S')}"
     if session.get(Agent, skill_id):
         # 指定 id 撞公共/他人技能:id 全局主键,直接 409 提示改 id 或留空自动生成

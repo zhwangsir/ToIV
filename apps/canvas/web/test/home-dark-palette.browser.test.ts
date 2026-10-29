@@ -59,18 +59,18 @@ async function readPalette({ dark, home, width = 1440 }: { dark: boolean; home: 
 
 test("dark workspace keeps home, projects, assets and model settings on one near-black palette", async () => {
     const expected = {
-        stage: "rgb(10, 12, 18)",
-        sidebar: "rgb(19, 20, 27)",
-        sidebarNav: "rgb(19, 20, 27)",
-        sidebarFooter: "rgb(19, 20, 27)",
+        stage: "rgb(11, 12, 15)",
+        sidebar: "rgb(16, 17, 22)",
+        sidebarNav: "rgb(16, 17, 22)",
+        sidebarFooter: "rgb(16, 17, 22)",
         hero: "rgb(26, 27, 33)",
         capability: "rgb(26, 27, 33)",
         recent: "rgb(20, 21, 26)",
-        projectCard: "rgb(21, 22, 29)",
-        projectCreateCard: "rgb(27, 28, 35)",
-        assetFrame: "rgb(21, 22, 29)",
-        modelFrame: "rgb(21, 22, 29)",
-        modelChannel: "rgb(21, 22, 29)",
+        projectCard: "rgb(20, 21, 26)",
+        projectCreateCard: "rgb(26, 27, 33)",
+        assetFrame: "rgb(20, 21, 26)",
+        modelFrame: "rgb(20, 21, 26)",
+        modelChannel: "rgb(20, 21, 26)",
     };
     for (const width of [1440, 840]) {
         expect(await readPalette({ dark: true, home: true, width })).toEqual(expected);
@@ -89,5 +89,5 @@ test("dark project folder and asset search do not keep the brighter gray fills",
     const folderTop = colors.folder.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
     expect(folderTop).not.toBeNull();
     expect(Number(folderTop![1])).toBeLessThanOrEqual(48);
-    expect(colors.search).toBe("rgb(27, 28, 35)");
+    expect(colors.search).toBe("rgb(26, 27, 33)");
 });

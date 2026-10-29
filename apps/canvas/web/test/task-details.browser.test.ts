@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 
 let browser: Browser;
@@ -11,7 +12,22 @@ let fail = false;
 let reads: string[] = [];
 
 beforeAll(async () => {
-    const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/task-details-harness.tsx"], target: "browser", define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' } });
+    const build = await Bun.build({
+        entrypoints: [import.meta.dir + "/fixtures/task-details-harness.tsx"],
+        target: "browser",
+        define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
+        plugins: [{
+            name: "content-lock-alias",
+            setup(builder) {
+                // 与 tsconfig paths/@content-lock 和 vite alias 一致：锁文件缺失时回落到中性策略。
+                builder.onResolve({ filter: /^@content-lock$/ }, () => ({
+                    path: ["../src/content-lock.ts", "../src/content-policy.ts"]
+                        .map((candidate) => resolve(import.meta.dir, candidate))
+                        .find((candidate) => existsSync(candidate)),
+                }));
+            },
+        }],
+    });
     if (!build.success) throw new Error(build.logs.join("\n"));
     const script = await build.outputs[0].text();
     server = Bun.serve({ port: 0, async fetch(request) {

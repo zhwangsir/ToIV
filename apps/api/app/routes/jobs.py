@@ -209,7 +209,7 @@ def _job_dict(j: Job, app_name: str = "", user_email: str = "", now: float | Non
         # 时长后处理(trim/extend)标记:processing 时 results 为未裁原片,
         # 前端结果区应显示「精确裁切中」,待清零后重拉取终产物
         "post_status": j.post_status or "",
-        # R18 标记:专区内(/nsfw 带 X-NSFW)前端据此过滤出 R18 作品库
+        # R18 标记:前端据此分出 R18 作品库(后端不过滤)
         "nsfw": bool(j.nsfw),
         # 版本树:parent 空=根;root_id 归一为自身 id,前端按它分组
         "parent_id": j.parent_id or "",
@@ -467,13 +467,13 @@ def list_jobs(
 @router.get("/jobs/counts")
 def count_jobs(
     kind: str = Query(default="", description="同 GET /api/jobs?kind= 口径:逗号多值;_ 结尾为前缀;空=全部"),
-    nsfw: str = Query(default="", description="空=不过滤(R18 门控仍生效);true=仅 R18;false=仅 SFW"),
+    nsfw: str = Query(default="", description="空=不过滤;true=仅 R18;false=仅 SFW"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
     """作品库类型桶总数(2026-09-15 用户反馈计数不准)。
 
-    与 GET /api/jobs 完全同口径(本人/未删除/R18 门控/kind 匹配),但只回
+    与 GET /api/jobs 完全同口径(本人/未删除/kind 匹配),但只回
     COUNT,不受分页影响——前端筛选 chips 显示真实总数,不再随无限滚动增长。
     """
     stmt = select(func.count()).select_from(Job)
@@ -596,7 +596,7 @@ def lookup_job(
 ) -> dict:
     """按 prompt_id 或 job_id 精确查单条作业(二选一;外部画布后端重启后凭 job_id 续跟踪)(2026-08-29 性能:编辑器轮询从全量 200 条降到 1 条)。
 
-    仅本人可见(404 不泄露存在性);R18 门控与 /jobs 列表同口径。
+    仅本人可见(404 不泄露存在性);筛选口径与 /jobs 列表一致。
     路由顺序:本端点注册先于 /jobs/{prompt_id}/events 等参数化路由,
     静态段 lookup 优先命中,无遮蔽。
     """
@@ -819,7 +819,7 @@ def list_trash(
 ) -> list[dict]:
     """当前用户的回收站(删除时间倒序;仅保留期内的条目,过期由清理任务物理删除)。
 
-    归属/门控规则与 GET /api/jobs 一致:只看自己的(admin 可 ?all=1 看全员);主站(非 X-NSFW 上下文)剔除 R18。
+    归属规则与 GET /api/jobs 一致:只看自己的(admin 可 ?all=1 看全员),不按内容分级过滤。
     """
     stmt = select(Job).where(
         Job.deleted_at != None,  # noqa: E712  SQLModel 需 == 比较生成 SQL
@@ -883,8 +883,8 @@ def purge_trash(
     """一键清空回收站:当前用户保留期内的软删作品全部物理删除(不可恢复)。
 
     路径用 /jobs/trash/purge 而非 DELETE /jobs/trash:DELETE /jobs/{job_id} 注册
-    在前,会把 "trash" 当成 job_id 吞掉。归属/门控口径与 GET /jobs/trash 一致
-    (只看自己的;主站上下文不碰 R18 条目——它们留在桶里等过期清理)。
+    在前,会把 "trash" 当成 job_id 吞掉。归属口径与 GET /jobs/trash 一致
+    (只看自己的;R18 条目同样清空)。
     """
     stmt = select(Job).where(
         Job.user_id == user.id,
@@ -938,7 +938,7 @@ def _owned_job(session: Session, user: User, key: str) -> Job:
 def _rerun_registry() -> dict[str, tuple[type[BaseModel], object]]:
     """kind → (请求模型, 原生成端点函数)。惰性导入,避免启动期路由互相依赖。
 
-    rerun 直接调用原端点函数:同一套参数校验 / R18 门槛 / 限流 / 建档 / 追踪,
+    rerun 直接调用原端点函数:同一套参数校验 / 打标 / 限流 / 建档 / 追踪,
     不复制任何生成逻辑。agent_* 与 cad_* 类作业不在表内(暂不支持精确重生)。
     """
     from app.routes import generate as g

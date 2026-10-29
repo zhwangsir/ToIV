@@ -15,7 +15,6 @@ from app.redline import (  # noqa: F401
     require_adult_ux,
     require_not_underage,
     require_nsfw_context,
-    should_apply_softening,
 )
 
 __all__ = [
@@ -28,5 +27,4 @@ __all__ = [
     "require_adult_ux",
     "require_not_underage",
     "require_nsfw_context",
-    "should_apply_softening",
 ]

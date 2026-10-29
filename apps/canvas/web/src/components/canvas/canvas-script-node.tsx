@@ -13,9 +13,10 @@ import { ModelPicker } from "@/components/model-picker";
 import { buildGenerationConfig } from "@/lib/canvas/canvas-project-generation";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { pipelineStatusLabel, type CanvasStoryboardPipelineProgress, type StoryboardPipelineStage } from "@/lib/canvas/canvas-storyboard-progress";
-import { generationErrorMessage, isContentModerationError } from "@/lib/generation-error";
+import { explainGenerationError, generationErrorMessage } from "@/lib/generation-error";
 import { generationTaskShowsProgress, generationTaskStageLabel } from "@/lib/generation-task-display";
 import { navigateToSettings } from "@/lib/settings-navigation";
+import { COPY_RETRY_NEEDS_CHANGED_INPUT, COPY_SLOT_ADULT, COPY_SWITCH_TO_ADULT } from "@/redline";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useEffectiveConfig } from "@/stores/use-config-store";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
@@ -546,7 +547,7 @@ function GenerationBatchDetails({ batch, rows, onRetryItem }: { batch: CanvasGen
             </div>
             <div className="thin-scrollbar max-h-72 overflow-y-auto">
                 {batch.items.map((item) => {
-                    const requiresPromptChange = isContentModerationError(item.errorDetails);
+                    const retryHint = generationBatchRetryHint(item);
                     return (
                         <div key={item.id} className="flex min-h-9 items-center gap-2 border-t border-foreground/10 py-1.5 first:border-t-0">
                             <span className="w-14 shrink-0 text-xs font-medium">镜头 {shotByRowId.get(item.rowId) || "--"}</span>
@@ -555,7 +556,7 @@ function GenerationBatchDetails({ batch, rows, onRetryItem }: { batch: CanvasGen
                                 {item.retryCount ? ` · 重试 ${item.retryCount}` : ""}
                             </span>
                             {item.status === "failed" ? (
-                                <Tooltip title={requiresPromptChange ? "请先修改提示词，再重试这个镜头" : "只重试这个镜头"}>
+                                <Tooltip title={retryHint}>
                                     <button
                                         type="button"
                                         className="grid size-7 shrink-0 place-items-center rounded outline-none transition hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/10"
@@ -585,9 +586,18 @@ function generationBatchSummary(batch: CanvasGenerationBatch) {
     return `${generationBatchModeLabel(batch)}${batch.status === "completed" ? "完成" : batch.status === "cancelled" ? "已停止" : "中"} · 完成 ${count("succeeded")}/${batch.items.length} / 失败 ${count("failed")} / 生成中 ${generating} / 等待 ${count("waiting")}${stopped ? ` / 已停止 ${stopped}` : ""}`;
 }
 
+function generationBatchRetryHint(item: CanvasGenerationBatchItem) {
+    const explained = explainGenerationError(item.errorDetails);
+    if (!explained.contentGate) return "只重试这个镜头";
+    if (explained.slot === "route_guard_adult" && COPY_SLOT_ADULT) return `${COPY_SLOT_ADULT} · ${COPY_SWITCH_TO_ADULT}`;
+    return COPY_RETRY_NEEDS_CHANGED_INPUT ? `${COPY_RETRY_NEEDS_CHANGED_INPUT}，再重试这个镜头` : "只重试这个镜头";
+}
+
 function generationBatchItemLabel(item: CanvasGenerationBatchItem) {
     if (item.submissionUncertain) return "状态待确认";
-    if (isContentModerationError(item.errorDetails)) return "审核未通过，需修改提示词";
+    const explained = explainGenerationError(item.errorDetails);
+    if (explained.contentGate) return explained.slot === "route_guard_adult" && COPY_SLOT_ADULT ? `${COPY_SLOT_ADULT} · ${COPY_SWITCH_TO_ADULT}` : "审核未通过，需修改提示词";
+    if (explained.moderation) return "审核未通过";
     const labels: Record<CanvasGenerationBatchItemStatus, string> = { waiting: "等待", submitting: "提交中", queued: "排队", running: "生成中", succeeded: "成功", failed: "失败", cancelled: "已停止" };
     return labels[item.status];
 }

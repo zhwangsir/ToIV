@@ -28,7 +28,7 @@ import { getResourcePlaybackBlob, ownedResourceIdFromMediaRef } from "@/services
 import { downloadOwnedOrBrowserMedia, reportOwnedMediaSave } from "@/services/desktop-media-save";
 import { mediaFileExtension, sanitizeDownloadFileName } from "@/lib/canvas/canvas-media-download";
 import { cn } from "@/lib/utils";
-import { assetLooksNsfw, filterNsfwListableAssets, getR18ModeSnapshot, getServerR18ModeSnapshot, isNsfwAssetSelectable, subscribeR18Mode, type NsfwAssetLike } from "@/redline";
+import { assetLooksNsfw, COPY_ASSET_LOCKED_HINT, filterNsfwListableAssets, getR18ModeSnapshot, getServerR18ModeSnapshot, isNsfwAssetSelectable, subscribeR18Mode, type NsfwAssetLike } from "@/redline";
 import { NsfwLockBadge } from "@/components/toiv/nsfw-lock-badge";
 import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 
@@ -1440,7 +1440,7 @@ function AssetCover({ asset, selected, onSelect, onOpen, onToggleFavorite, menuI
                     <NsfwLockBadge compact />
                 </span>
             ) : null}
-            <button type="button" className="assets-cover-link" onClick={onOpen} aria-label={nsfwLocked ? `已锁定 NSFW：${asset.title}` : `查看素材：${asset.title}`} disabled={nsfwLocked || undefined}>
+            <button type="button" className="assets-cover-link" onClick={onOpen} aria-label={nsfwLocked && COPY_ASSET_LOCKED_HINT ? `${COPY_ASSET_LOCKED_HINT}：${asset.title}` : `查看素材：${asset.title}`} disabled={nsfwLocked || undefined}>
                 {asset.kind === "audio" ? (
                     <AudioWaveCover asset={asset} />
                 ) : asset.kind === "text" ? (

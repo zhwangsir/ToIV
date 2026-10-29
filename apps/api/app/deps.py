@@ -37,6 +37,28 @@ def _host(url: str) -> str:
     return parts.hostname or url
 
 
+def _same_instance_other_network(
+    normalized: str, candidates: list[str], groups: list[set[str]]
+) -> str | None:
+    """同一实例的双网络地址(LAN ↔ Tailscale):按 (同机地址组, 端口) 归一匹配。
+
+    专用实例/池成员通常只配一个网络地址,而旧产物 URL 可能记另一个;必须还原到
+    配置实例,否则会落 hostname 回退 → 同机 LB,其 output 目录没有该产物。
+    """
+    target = urlsplit(normalized)
+    host, port = target.hostname, target.port
+    if not host or not port:
+        return None
+    group = next((g for g in groups if host in g), None)
+    if not group:
+        return None
+    for base in candidates:
+        parts = urlsplit(base)
+        if parts.hostname in group and parts.hostname != host and parts.port == port:
+            return base.rstrip("/")
+    return None
+
+
 def resolve_worker(worker: str) -> ComfyUIClient:
     """校验 worker 在白名单内并返回客户端(防 SSRF:只允许配置过的后端)。
 
@@ -49,6 +71,15 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     normalized = worker.rstrip("/")
     if normalized in settings.worker_urls:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # 池内动态成员(LB 注册表跟随):调度会按注册表派到静态白名单之外的实例
+    # (如 gpu3 :8263)。取产物必须回到生成它的实例——回退到同机 LB 时,其
+    # /view 在学到 filename→backend 前按序盲试,会返回他端同名陈旧文件。
+    try:
+        for member in get_pool().clients:
+            if member.base_url.rstrip("/") == normalized:
+                return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    except Exception:  # noqa: BLE001 — 池不可构建时沿用既有回退链
+        pass
     # H3 专用实例(不在 pool 白名单;2026-09-13 双 worker 池):必须在 hostname 回退之前
     # 精确匹配任一配置实例,否则落第二实例的作业(worker=:8198)产物取回被判「未知的 worker」,
     # 同机(127)还会被 hostname 回退错配到 pool worker(其 output 目录没有 H3 产物)
@@ -76,6 +107,25 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     infinitetalk_base = getattr(settings, "infinitetalk_base", "")
     if infinitetalk_base and normalized == infinitetalk_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # 双网络地址归一:旧产物可能记的是同一实例的另一个网络地址(如 H3 记 TS
+    # 100.68.100.90:8264,现网配 LAN :8264)。必须在 hostname 回退之前还原到配置
+    # 实例,否则 :8264 会被错配到同机 LB(:8188),其 output 目录没有 H3 产物(404)。
+    candidates = [
+        b for b in (
+            *h3_instances(), longcat_base, qwen_edit_base,
+            wan_animate2_base, infinitetalk_base,
+        ) if b
+    ]
+    candidates.extend(settings.worker_urls)
+    try:
+        candidates.extend(c.base_url for c in get_pool().clients)
+    except Exception:  # noqa: BLE001 — 池不可构建时只用静态候选
+        pass
+    alias_url = _same_instance_other_network(
+        normalized, candidates, getattr(settings, "worker_host_groups", [])
+    )
+    if alias_url:
+        return ComfyUIClient(alias_url, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)
     for url in settings.worker_urls:

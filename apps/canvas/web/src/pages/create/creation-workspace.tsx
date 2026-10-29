@@ -350,9 +350,26 @@ function resourceStorageKeyFromUrl(value: string) {
     return match?.[1] ? `resource:${decodeURIComponent(match[1])}` : "";
 }
 
-function CreationMediaPending({ mode, ratio }: { mode: CreationMode; ratio?: string }) {
+export function formatPendingElapsed(seconds: number): string {
+    const total = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+export function CreationMediaPending({ mode, ratio }: { mode: CreationMode; ratio?: string }) {
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
-    return <div className={`creation-media-pending is-${mode}`} style={{ aspectRatio: creationMediaAspectRatio(ratio, mode) }} aria-live="polite"><span className="creation-media-pending-icon"><WorkingDots dotSize={7} gap={3} minOpacity={0.3} /></span><span className="sr-only">{brandName}正在生成{mode === "video" ? "视频" : "图像"}</span></div>;
+    const startedAtRef = useRef(Date.now());
+    const [elapsed, setElapsed] = useState(0);
+    // 本地视频出片常要十几分钟，等待期间给出真实计时，避免只有呼吸动画像卡死。
+    useEffect(() => {
+        const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    return <div className={`creation-media-pending is-${mode}`} style={{ aspectRatio: creationMediaAspectRatio(ratio, mode) }} aria-live="polite">
+        <span className="creation-media-pending-icon"><WorkingDots dotSize={7} gap={3} minOpacity={0.3} /></span>
+        <span className="sr-only">{brandName}正在生成{mode === "video" ? "视频" : "图像"}</span>
+        <span className="creation-media-pending-elapsed" data-testid="creation-media-pending-elapsed" aria-hidden="true">{formatPendingElapsed(elapsed)}</span>
+        {mode === "video" ? <span className="creation-media-pending-hint" data-testid="creation-media-pending-hint" aria-hidden="true">本地出片通常需要几分钟</span> : null}
+    </div>;
 }
 
 function CreationMessageReferences({ references }: { references: CreationReference[] }) {

@@ -5,7 +5,7 @@
     预算内原样返回、超预算折叠中间(首锚点+最近尾保留)、system 追加折叠注、
     极端首尾超预算仍非空、纯函数不改入参
   · runner._skills_context:名称整体命中(≥2 分)、噪声不命中、topk 截断、
-    R18 门控(无 R18 上下文跳过)、个人技能不注入、topk=0 关闭
+    R18 技能不按内容态跳过(普通态同样注入)、个人技能不注入、topk=0 关闭
   · runner 主循环:轮次取自 settings.agent_max_rounds、每轮前经压缩(tool 事件带 round)
 """
 from __future__ import annotations
@@ -247,8 +247,7 @@ def _msgs(text: str) -> list[dict]:
 
 def test_skills_name_hit_injects_persona(db):
     s, user = db
-    with patch.object(agent_runner, "nsfw_allowed", lambda u: False):
-        ctx = agent_runner._skills_context(_msgs("用吉卜力风格画一座森林"), user, s)
+    ctx = agent_runner._skills_context(_msgs("用吉卜力风格画一座森林"), user, s)
     assert ctx is not None
     assert "吉卜力风格" in ctx
     assert "人格要点" in ctx
@@ -258,31 +257,30 @@ def test_skills_name_hit_injects_persona(db):
     assert "p" * 601 not in ctx
 
 
-def test_skills_r18_gated_without_nsfw_context(db):
+def test_skills_r18_injected_in_ordinary_mode(db):
+    """后端不再按账号内容态挡 R18 技能:普通态同样注入(is_nsfw 只是元数据)。"""
     s, user = db
-    with patch.object(agent_runner, "nsfw_allowed", lambda u: False):
-        ctx = agent_runner._skills_context(_msgs("写实 人像 大师 光影 风格"), user, s)
-    assert ctx is None  # 唯一命中的是 R18 技能,SFW 上下文不可见
+    user.content_mode = "ordinary"
+    ctx = agent_runner._skills_context(_msgs("写实 人像 大师 光影 风格"), user, s)
+    assert ctx is not None and "写实人像大师" in ctx
 
 
-def test_skills_r18_injected_with_nsfw_context(db):
+def test_skills_r18_injected_in_adult_mode(db):
     s, user = db
-    with patch.object(agent_runner, "nsfw_allowed", lambda u: True):
-        ctx = agent_runner._skills_context(_msgs("写实 人像 大师 光影 风格"), user, s)
+    user.content_mode = "adult"
+    ctx = agent_runner._skills_context(_msgs("写实 人像 大师 光影 风格"), user, s)
     assert ctx is not None and "写实人像大师" in ctx
 
 
 def test_skills_no_match_returns_none(db):
     s, user = db
-    with patch.object(agent_runner, "nsfw_allowed", lambda u: False):
-        assert agent_runner._skills_context(_msgs("今天天气怎么样"), user, s) is None
+    assert agent_runner._skills_context(_msgs("今天天气怎么样"), user, s) is None
 
 
 def test_skills_disabled_by_topk_zero(db):
     s, user = db
     with patch.object(agent_runner, "get_settings", lambda: SimpleNamespace(agent_skills_topk=0)):
-        with patch.object(agent_runner, "nsfw_allowed", lambda u: False):
-            assert agent_runner._skills_context(_msgs("吉卜力风格"), user, s) is None
+        assert agent_runner._skills_context(_msgs("吉卜力风格"), user, s) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -346,7 +344,6 @@ async def test_runner_rounds_respect_settings_and_emits_round():
         events = []
         fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=50, agent_skills_topk=0)
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             gen = agent_runner.run(
@@ -404,7 +401,6 @@ async def test_runner_tool_call_turn_suppresses_reasoning_chatter():
             logged.append(m)
 
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             events = [ev async for ev in agent_runner.run(
@@ -470,7 +466,6 @@ async def test_runner_logs_job_done_results_as_media():
             logged.append(m)
 
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             events = [ev async for ev in agent_runner.run(
@@ -533,7 +528,6 @@ async def test_runner_context_overflow_yields_friendly_zh():
         fake_ctx.service = svc
         fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             events = [ev async for ev in agent_runner.run(
@@ -594,7 +588,6 @@ async def test_runner_overflow_retry_last_user_no_new_session():
         fake_ctx.service = svc
         fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             events = [ev async for ev in agent_runner.run(
@@ -657,7 +650,6 @@ async def test_runner_uses_db_history_not_one_item_client_body():
         fake_ctx.service = svc
         fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
         with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
-             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
              patch.object(agent_runner, "_rag_context", _noop_rag), \
              patch.object(agent_runner, "get_settings", lambda: fake_settings):
             events = [ev async for ev in agent_runner.run(

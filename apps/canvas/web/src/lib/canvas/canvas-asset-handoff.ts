@@ -67,6 +67,23 @@ export function uninsertedCanvasAssetHandoffPayloads(nodes: Iterable<{ metadata?
     return payloads.filter((payload) => !payload.assetId || !insertedAssetIds.has(payload.assetId));
 }
 
+type CreationResultMessage = { id: string; role?: string; resultUrls?: string[]; taskIds?: string[] };
+
+// 刷新后对话从后端恢复，但结果素材不会自动回到素材 store；没有素材就无法把
+// 「已生成」结果转进画布。这里找出结果尚未落店的消息，让页面按任务补齐素材。
+export function unhydratedCreationResultAssetTasks(messages: CreationResultMessage[], assets: Asset[]): string[] {
+    const taskIds = new Set<string>();
+    for (const message of messages) {
+        const resultUrls = message.resultUrls || [];
+        const messageTaskIds = message.taskIds || [];
+        if (message.role !== "assistant" || !resultUrls.length || !messageTaskIds.length) continue;
+        const matched = creationResultAssetIds(assets, { messageId: message.id, taskIds: messageTaskIds, resultUrls });
+        if (matched.length === resultUrls.length) continue;
+        for (const taskId of messageTaskIds) taskIds.add(taskId);
+    }
+    return [...taskIds];
+}
+
 export function creationResultAssetIds(assets: Asset[], input: { messageId: string; taskIds: string[]; resultUrls: string[] }) {
     const taskOrder = new Map(input.taskIds.map((taskId, index) => [taskId, index]));
     const candidates = assets

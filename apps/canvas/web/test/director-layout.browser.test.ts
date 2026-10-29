@@ -23,6 +23,11 @@ beforeAll(async () => {
         },
         plugins: [{ name: "workspace-alias", setup(builder) {
             builder.onResolve({ filter: /^@\// }, (args) => ({ path: Bun.resolveSync(`../src/${args.path.slice(2)}`, import.meta.dir) }));
+            // import.meta.glob 是 Vite 的构建期变换，Bun.build 不处理；浏览器侧按空集回落。
+            builder.onLoad({ filter: /src\/components\/model-logo\.tsx$/ }, async (args) => ({
+                contents: (await Bun.file(args.path).text()).replace(/import\.meta\.glob\([^)]*\)/g, "{}"),
+                loader: "tsx",
+            }));
             builder.onLoad({ filter: /src\/services\/toiv\/agent-chat\.ts$/ }, () => ({
                 contents: `
                     export async function fetchAgentSessions() { return []; }

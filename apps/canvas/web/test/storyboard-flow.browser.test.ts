@@ -50,13 +50,13 @@ test("storyboard uses readable metadata and adaptive columns in both themes", as
     expect(await dark.getByText("中景 · 缓慢推镜").count()).toBe(1);
     expect(await dark.getByText("林遥").count()).toBe(1);
     expect(await dark.getByText("SHOT 01").count()).toBe(1);
-    expect(await dark.locator(".toiv-storyboard-card").first().evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(21, 22, 29)");
+    expect(await dark.locator(".toiv-storyboard-card").first().evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(20, 21, 26)");
     await dark.screenshot({ path: "test-results/freezone-r4/storyboard-dark.png", fullPage: true });
     await dark.close();
 
     const light = await openHarness({ light: true });
     expect(await light.locator(".toiv-storyboard-card").first().evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(255, 255, 255)");
-    expect(await light.locator(".toiv-storyboard-card").first().evaluate((element) => getComputedStyle(element).color)).toBe("rgb(29, 29, 33)");
+    expect(await light.locator(".toiv-storyboard-card").first().evaluate((element) => getComputedStyle(element).color)).toBe("rgb(18, 18, 20)");
     await light.screenshot({ path: "test-results/freezone-r4/storyboard-light.png", fullPage: true });
     await light.close();
 });

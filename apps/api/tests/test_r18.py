@@ -1,10 +1,10 @@
-"""R18 真分区门槛 —— 后端强制过滤的端到端测试。
+"""R18 内容态端到端测试 —— 后端零过滤,分级只作元数据。
 
 覆盖:
   - 迁移幂等(SQLite ADD COLUMN 重复执行不报错、不丢数据)
   - GET /auth/me 含 content_mode + updated_at
   - PUT /api/account/content-mode + 遗留 POST /account/nsfw
-  - GET /api/models、/api/models/local 关/开过滤(剔除成人底模 + 成人 LoRA)
+  - GET /api/models、/api/models/local 全量下发(分级只作 nsfw 元数据,不按内容态剔除)
   - GET /api/marketplace/search P0-5 R4 nsfw 查询参数原样透传
   - GET /api/jobs 透出 nsfw 标记(P0-5 R2:不再因 ordinary 剔除)
   - POST /api/generate/txt2img 成人底模普通态放行并打标 Job.nsfw(P0-5 R3)
@@ -234,7 +234,7 @@ def test_account_nsfw_requires_auth(client):
 
 
 # --------------------------------------------------------------------------- #
-# 4) /api/models + /api/models/local 关/开过滤
+# 4) /api/models + /api/models/local:全量清单 + 分级元数据(后端零过滤)
 # --------------------------------------------------------------------------- #
 
 
@@ -242,7 +242,8 @@ def _override_pool(pool: _FakePool) -> None:
     app.dependency_overrides[get_pool] = lambda: pool
 
 
-def test_models_filtered_when_nsfw_disabled(client):
+def test_models_full_list_in_ordinary_mode_keeps_nsfw_metadata(client):
+    """新契约:普通态不再剔除成人底模——全量清单下发,分级只作 nsfw 元数据。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "sfwuser", nsfw_enabled=False)
@@ -251,31 +252,58 @@ def test_models_filtered_when_nsfw_disabled(client):
     r = c.get("/api/models", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
     body = r.json()
-    # pony 是双用途家族,主站可见;autismmix 仍为成人底模被剔除
-    assert body["checkpoints"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
-    assert all(not it["nsfw"] for it in body["checkpoints_tagged"])
-    assert body["nsfw_models"] == []
-    assert body["modes"]["image"]["models"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
+    # worker 枚举序原样透出:显式成人底模(autismmix)与 SFW 底模同一份清单
+    assert body["checkpoints"] == [
+        "DreamShaper_8.safetensors",
+        "ponyRealism.safetensors",
+        "autismmixSDXL_autismmixPony.safetensors",
+    ]
+    assert body["modes"]["image"]["models"] == body["checkpoints"]
+    assert body["modes"]["image"]["editable"] is True
+    tagged = {it["name"]: it for it in body["checkpoints_tagged"]}
+    assert tagged["autismmixSDXL_autismmixPony.safetensors"]["nsfw"] is True
+    # pony 是双用途家族,不被 hints 误伤打标
+    assert tagged["ponyRealism.safetensors"]["nsfw"] is False
+    assert tagged["DreamShaper_8.safetensors"]["nsfw"] is False
+    # nsfw_models 是分级元数据名单(不再是「过滤后必为空」)
+    assert body["nsfw_models"] == ["autismmixSDXL_autismmixPony.safetensors"]
+    # 与分级无关的形状断言保留:采样器/调度器仍从 worker object_info 派生
+    assert body["samplers"] == ["euler", "dpmpp_2m"]
+    assert body["schedulers"] == ["normal", "karras"]
+    for mode in ("video", "model3d", "audio"):
+        assert body["modes"][mode]["editable"] is False
+        assert body["modes"][mode]["models"]
 
 
-def test_models_nsfw_only_when_nsfw_enabled(client):
-    """新语义:R18 放行看 X-NSFW 请求头(/nsfw 专页)。
-    /nsfw 专页只展示成人向模型,SFW 底模(DreamShaper_8)不混入。"""
+def test_models_adult_mode_returns_same_full_list(client):
+    """新契约:成人态与普通态拿到同一份底模清单(X-NSFW 头仅审计,不改载荷)。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "r18user", content_mode="adult")
+        uid_off = _seed_user(s, "r18cmp_off", content_mode="ordinary")
+        uid_on = _seed_user(s, "r18cmp_on", content_mode="adult")
     app.dependency_overrides[get_pool] = lambda: _FakePool()
-    token = create_token(uid)
-    r = c.get("/api/models", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"})
-    assert r.status_code == 200
-    body = r.json()
-    # NSFW 专页:仅保留显式成人底模;pony 不再当 18+
-    assert body["checkpoints"] == ["autismmixSDXL_autismmixPony.safetensors"]
-    assert body["modes"]["image"]["models"] == ["autismmixSDXL_autismmixPony.safetensors"]
-    assert "autismmixSDXL_autismmixPony.safetensors" in body["nsfw_models"]
+
+    ordinary = c.get(
+        "/api/models", headers={"Authorization": f"Bearer {create_token(uid_off)}"}
+    ).json()
+    adult = c.get(
+        "/api/models",
+        headers={"Authorization": f"Bearer {create_token(uid_on)}", "X-NSFW": "1"},
+    ).json()
+    # 全量清单一致:SFW 底模不剔除、成人底模不专列
+    assert adult["checkpoints"] == ordinary["checkpoints"]
+    assert "autismmixSDXL_autismmixPony.safetensors" in adult["checkpoints"]
+    assert "DreamShaper_8.safetensors" in adult["checkpoints"]
+    assert adult["modes"]["image"]["models"] == adult["checkpoints"]
+    # 分级元数据两态一致(前端策略锁据此灰化/隐藏)
+    assert adult["nsfw_models"] == ordinary["nsfw_models"] == [
+        "autismmixSDXL_autismmixPony.safetensors"
+    ]
+    assert adult["checkpoints_tagged"] == ordinary["checkpoints_tagged"]
 
 
-def test_local_models_filters_nsfw_loras(client):
+def test_local_models_full_inventory_in_both_content_modes(client):
+    """新契约:/models/local 不按内容态剔除 checkpoints/loras,只补分级元数据。"""
     c, engine = client
     with Session(engine) as s:
         uid_off = _seed_user(s, "loralocal_off", nsfw_enabled=False)
@@ -285,17 +313,28 @@ def test_local_models_filters_nsfw_loras(client):
     off = c.get(
         "/api/models/local", headers={"Authorization": f"Bearer {create_token(uid_off)}"}
     ).json()
-    # 显式成人底模 + 成人 LoRA 均被剔除;pony 是双用途,主站可见
-    assert off["checkpoints"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
-    assert off["loras"] == ["detail_tweaker.safetensors"]
-    assert off["nsfw_models"] == []
+    # 全量枚举:成人底模与成人 LoRA 均在列(旧契约会剔除)
+    assert off["checkpoints"] == [
+        "DreamShaper_8.safetensors",
+        "ponyRealism.safetensors",
+        "autismmixSDXL_autismmixPony.safetensors",
+    ]
+    assert off["loras"] == ["detail_tweaker.safetensors", "nsfw_boost.safetensors"]
+    assert off["nsfw_models"] == ["autismmixSDXL_autismmixPony.safetensors"]
+    tagged = {it["name"]: it for it in off["checkpoints_tagged"]}
+    assert tagged["autismmixSDXL_autismmixPony.safetensors"]["nsfw"] is True
+    assert tagged["DreamShaper_8.safetensors"]["nsfw"] is False
 
     on = c.get(
         "/api/models/local",
         headers={"Authorization": f"Bearer {create_token(uid_on)}", "X-NSFW": "1"},
     ).json()
-    assert "autismmixSDXL_autismmixPony.safetensors" in on["checkpoints"]
-    assert "nsfw_boost.safetensors" in on["loras"]
+    assert on["checkpoints"] == off["checkpoints"]
+    assert on["loras"] == off["loras"]
+    assert on["nsfw_models"] == off["nsfw_models"]
+    # 其余类目仍原样透出(worker 无枚举 → 空列表,不是被过滤)
+    for key in ("vae", "controlnet", "upscale"):
+        assert on[key] == off[key] == []
 
 
 # --------------------------------------------------------------------------- #
@@ -791,24 +830,12 @@ def test_mode_switch_does_not_cancel_inflight_job(client):
         assert job.adult_at_submit is True
 
 
-def test_softening_skipped_for_adult():
-    from app.services.softening import maybe_soften_prompt
-    from types import SimpleNamespace
-
-    adult = SimpleNamespace(birthdate=None, content_mode="adult")
-    ordinary = SimpleNamespace(birthdate=None, content_mode="ordinary")
-    assert maybe_soften_prompt("raw nsfw prompt", adult) == "raw nsfw prompt"
-    assert maybe_soften_prompt("raw nsfw prompt", ordinary) == "raw nsfw prompt"
-
-
-def test_inventory_unknown_ordinary_hide_adult_show():
-    from app.services.nsfw_inventory import classify_model_nsfw, filter_names_for_account, _MISSING
-
-    # explicit unknown
-    assert classify_model_nsfw("mystery.safetensors", explicit=None) == "unknown"
-    names = ["DreamShaper_8.safetensors", "autismmixSDXL.safetensors", "mystery.safetensors"]
-    # force mystery unknown via explicit map simulation
+def test_inventory_classification_is_metadata_only():
+    """分级只是元数据:后端不再提供按账号态过滤模型名的函数(可见性由前端策略锁决定)。"""
     from app.services import nsfw_inventory as inv
+    from app.services.nsfw_inventory import classify_model_nsfw, _MISSING
+
+    assert not hasattr(inv, "filter_names_for_account")
 
     def fake_lookup(name: str):
         if "mystery" in name:
@@ -817,18 +844,9 @@ def test_inventory_unknown_ordinary_hide_adult_show():
 
     inv.lookup_explicit_nsfw = fake_lookup  # type: ignore
     inv._explicit_registry.cache_clear()
-    ordinary = filter_names_for_account(
-        ["DreamShaper_8.safetensors", "autismmixSDXL_autismmixPony.safetensors", "mystery.safetensors"],
-        adult=False,
-    )
-    adult = filter_names_for_account(
-        ["DreamShaper_8.safetensors", "autismmixSDXL_autismmixPony.safetensors", "mystery.safetensors"],
-        adult=True,
-    )
-    assert "mystery.safetensors" not in ordinary
-    assert "mystery.safetensors" in adult
-    assert "autismmixSDXL_autismmixPony.safetensors" not in ordinary
-    assert "autismmixSDXL_autismmixPony.safetensors" in adult
+    assert classify_model_nsfw("mystery.safetensors", explicit=None) == "unknown"
+    assert classify_model_nsfw("DreamShaper_8.safetensors") == "sfw"
+    assert classify_model_nsfw("autismmixSDXL_autismmixPony.safetensors") == "nsfw"
 
 
 def test_me_mode_get_patch(client):

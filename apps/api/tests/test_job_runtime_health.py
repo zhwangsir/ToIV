@@ -230,8 +230,9 @@ def test_jobs_and_lookup_expose_health_with_owner_isolation(client_ctx):
     response = client.get("/api/jobs", headers=headers)
     assert response.status_code == 200, response.text
     items = response.json()
-    assert [item["prompt_id"] for item in items] == ["owned-running"]
-    item = items[0]
+    # 后端不按内容分级过滤:R18 行默认也在列表里(前端策略锁自行分区)
+    assert [item["prompt_id"] for item in items] == ["hidden-nsfw", "owned-running"]
+    item = next(i for i in items if i["prompt_id"] == "owned-running")
     assert item["progress"]["pct"] == 40
     assert item["progress"]["phase"] == "generating"
     assert item["runtime"]["state"] == "fresh"
@@ -254,6 +255,7 @@ def test_jobs_and_lookup_expose_health_with_owner_isolation(client_ctx):
         headers={"Authorization": f"Bearer {other_token}"},
         params={"prompt_id": "owned-running"},
     ).status_code == 404
+    # 本人 R18 作业单查同样可见(no 内容门);他人仍 404
     assert client.get(
         "/api/jobs/lookup", headers=headers, params={"prompt_id": "hidden-nsfw"}
-    ).status_code == 404
+    ).status_code == 200

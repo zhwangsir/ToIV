@@ -111,6 +111,7 @@ async def get_image(
     # P0-5 R1:媒体 UX 闸已退役(assert 为 no-op);鉴权仍靠 sig/归属
     assert_image_content_mode_allows(db, user, filename)
 
+    await pool.refresh_registry()  # 冷池(刚重启/久未调度)也要能看到 LB 动态成员
     primary = resolve_worker(worker)  # SSRF 白名单校验
     host = _host(primary.base_url)
     # 同机其它 worker 共享同一输出目录,可作为主 worker 掉线时的回退
@@ -237,6 +238,7 @@ async def get_image_thumb(
         return Response(content=approx.read_bytes(), media_type="image/webp",
                         headers=_THUMB_CACHE_HEADERS)
 
+    await pool.refresh_registry()  # 与 /images 同款:取件前刷新动态池成员
     primary = resolve_worker(worker)
     host = _host(primary.base_url)
     siblings = [c for c in pool.clients if _host(c.base_url) == host and c.base_url != primary.base_url]

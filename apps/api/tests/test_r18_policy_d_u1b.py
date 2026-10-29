@@ -20,7 +20,6 @@ from app.redline import (
     adult_mode_enabled,
     require_not_underage,
     require_nsfw_context,
-    should_apply_softening,
 )
 
 
@@ -126,12 +125,9 @@ def test_job_nsfw_from_intent_fail_closed_and_explicit_only():
     assert job_nsfw_from_intent(minor, explicit=True) is True
 
 
-def test_adult_at_submit_snapshot_and_softening_gate():
+def test_adult_at_submit_snapshot():
     assert adult_at_submit(_adult()) is True
     assert adult_at_submit(_ordinary()) is False
-    assert should_apply_softening(_ordinary()) is True
-    assert should_apply_softening(_adult()) is False
-    assert should_apply_softening(None) is False
     # P0-5 R5:underage 不硬拐;跟 content_mode
     minor_ord = SimpleNamespace(
         birthdate=date.today() - timedelta(days=365 * 12),
@@ -143,8 +139,6 @@ def test_adult_at_submit_snapshot_and_softening_gate():
     )
     assert adult_at_submit(minor_ad) is True
     assert adult_at_submit(minor_ord) is False
-    assert should_apply_softening(minor_ord) is True
-    assert should_apply_softening(minor_ad) is False
 
 
 def test_middleware_still_wires_x_nsfw_for_audit_only():
@@ -177,18 +171,6 @@ def test_http_roundtrip_header_does_not_alone_allow():
             for r in app.router.routes
             if getattr(r, "path", None) != "/__toiv_r18_probe_d_u1b"
         ]
-
-
-def test_ltx_gate_ordinary_and_underage_ok_r5():
-    """P0-5 R5:LTX 闸对普通态/未成年均不再 403。"""
-    from app.routes.video import _gate_ltx_nsfw
-
-    _gate_ltx_nsfw(_ordinary())  # 不抛
-    minor = SimpleNamespace(
-        birthdate=date.today() - timedelta(days=365 * 12),
-        content_mode=CONTENT_MODE_ADULT,
-    )
-    _gate_ltx_nsfw(minor)  # R5 no-op
 
 
 def test_redline_is_decision_ssot():

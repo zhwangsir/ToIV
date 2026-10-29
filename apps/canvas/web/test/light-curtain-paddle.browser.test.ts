@@ -66,16 +66,16 @@ async function railGeometry(page: Page) {
     });
 }
 
-test("paddle keeps AA-oriented geometry, adult glow, compact and mobile states", async () => {
+test("paddle keeps AA-oriented geometry, neutral adult lock, compact and mobile states", async () => {
     const ordinary = await openHarness();
-    expect(await railGeometry(ordinary)).toMatchObject({ railHeight: 32, background: "rgb(16, 17, 24)", shadow: "none" });
+    expect(await railGeometry(ordinary)).toMatchObject({ railHeight: 28, background: "rgb(16, 17, 24)", shadow: "none" });
     expect((await railGeometry(ordinary)).optionHeight).toBeGreaterThanOrEqual(24);
     await ordinary.close();
 
     const adult = await openHarness({ adult: true });
     const adultGeometry = await railGeometry(adult);
-    expect(adultGeometry.shadow).toContain("79, 140, 255");
-    expect(await adult.locator(".cm-light-curtain-veil").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(79, 140, 255, 0.12)");
+    expect(adultGeometry.shadow).toContain("107, 114, 128");
+    expect(await adult.locator(".cm-light-curtain-veil").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(107, 114, 128, 0.12)");
     await adult.close();
 
     const compact = await openHarness({ compact: true });
@@ -93,7 +93,7 @@ test("keyboard focus is visible and confirmation supports focus, Escape and outs
     const adult = page.getByTestId("content-mode-a-adult");
     await adult.focus();
     expect(await adult.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
-    expect(await adult.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(122, 180, 255)");
+    expect(await adult.evaluate((element) => getComputedStyle(element).outlineColor)).toBe("rgb(74, 127, 193)");
     await adult.click();
     const confirm = page.getByTestId("content-mode-confirm-enable");
     expect(await confirm.evaluate((element) => element === document.activeElement)).toBe(true);
@@ -111,7 +111,7 @@ test("light theme, reduced motion and underage state are explicit", async () => 
     const light = await openHarness({ light: true });
     expect((await railGeometry(light)).background).toBe("rgb(255, 255, 255)");
     await light.getByTestId("content-mode-a-adult").click();
-    expect(await light.getByTestId("content-mode-confirm").evaluate((element) => getComputedStyle(element).color)).toBe("rgb(29, 29, 33)");
+    expect(await light.getByTestId("content-mode-confirm").evaluate((element) => getComputedStyle(element).color)).toBe("rgb(18, 18, 20)");
     await light.emulateMedia({ reducedMotion: "reduce" });
     expect(await light.locator(".cm-light-curtain-veil").evaluate((element) => getComputedStyle(element).transitionProperty)).toBe("none");
     await light.close();

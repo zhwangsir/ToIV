@@ -220,12 +220,9 @@ def card_by_name(name: str) -> LoraCard | None:
     return _BY_NAME.get(base)
 
 
-def cards_for(engine: str, *, nsfw: bool | None = None) -> tuple[LoraCard, ...]:
-    """engine 过滤;nsfw=False 剔除 R18 卡,None 全要,True 保留 SFW+NSFW(R18 上下文可用运镜等)。"""
-    out = [c for c in CATALOG if engine in c.engines]
-    if nsfw is False:
-        out = [c for c in out if not c.nsfw]
-    return tuple(out)
+def cards_for(engine: str) -> tuple[LoraCard, ...]:
+    """engine 过滤;卡的 nsfw 只作元数据,后端不按内容分级剔除。"""
+    return tuple(c for c in CATALOG if engine in c.engines)
 
 
 def catalog_options(engine: str) -> list[dict]:

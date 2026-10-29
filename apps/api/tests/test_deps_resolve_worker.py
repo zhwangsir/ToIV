@@ -181,3 +181,100 @@ def test_resolve_worker_unknown_host_still_rejected(settings_ts_workers):
 
     with pytest.raises(HTTPException):
         resolve_worker("http://10.0.0.5:8188")
+
+
+def test_resolve_worker_matches_live_pool_member_before_hostname_fallback(monkeypatch):
+    """注册表跟随的动态池成员(如 gpu3 :8263)必须精确命中,不能折叠到 LB。
+
+    静态白名单通常只配 LB(8188),调度按 LB 注册表把作业派到 8196/8263/8265。
+    产物 URL 记的是真实实例;这里若回退到同机第一个白名单地址(LB),而 LB
+    /view 尚未学习 filename→backend 映射时按序盲试后端,会返回其它实例上的
+    同名陈旧文件(2026-10-29 画布出图错图实证:ToIV_00004_ 被 gpu0 旧图截胡)。
+    """
+    from app.comfy.client import ComfyUIClient
+
+    fake = type(
+        "S",
+        (),
+        {"worker_urls": ["http://192.168.71.127:8188"], "request_timeout": 30.0},
+    )()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    monkeypatch.setattr(
+        "app.deps.get_pool",
+        lambda: type(
+            "P",
+            (),
+            {
+                "clients": [
+                    ComfyUIClient("http://192.168.71.127:8188"),
+                    ComfyUIClient("http://192.168.71.127:8263"),
+                    ComfyUIClient("http://192.168.71.127:8196"),
+                ]
+            },
+        )(),
+    )
+    client = resolve_worker("http://192.168.71.127:8263")
+    assert client.base_url == "http://192.168.71.127:8263"
+
+
+def _dual_network_settings(**overrides):
+    base = {
+        "worker_urls": ["http://192.168.71.127:8188"],
+        "request_timeout": 30.0,
+        "worker_host_groups": [{"192.168.71.127", "100.68.100.90"}],
+        "h3_base_urls": "http://192.168.71.127:8264",
+        "h3_base_url": "http://192.168.71.127:8264",
+        "longcat_base": "",
+        "qwen_edit_base": "",
+        "wan_animate2_base": "",
+        "infinitetalk_base": "",
+    }
+    base.update(overrides)
+    return type("S", (), base)()
+
+
+def test_resolve_worker_ts_h3_url_maps_to_lan_instance(monkeypatch):
+    """旧产物 URL 记 H3 的 TS 地址,现网只配 LAN → 必须还原到 H3 实例。
+
+    否则 hostname 回退会把 :8264 折叠到同机 LB :8188,其 output 目录没有
+    ToIV_h3 产物(2026-10-29 作品库 50 条 H3 视频 502 实证)。
+    """
+    fake = _dual_network_settings()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    monkeypatch.setattr("app.services.h3.get_settings", lambda: fake)
+    client = resolve_worker("http://100.68.100.90:8264")
+    assert client.base_url == "http://192.168.71.127:8264"
+
+
+def test_resolve_worker_ts_pool_member_maps_to_lan_member(monkeypatch):
+    """池成员同款:旧产物记 TS :8263,注册表池成员是 LAN :8263 → 回到该实例。"""
+    from app.comfy.client import ComfyUIClient
+
+    fake = _dual_network_settings()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    monkeypatch.setattr("app.services.h3.get_settings", lambda: fake)
+    monkeypatch.setattr(
+        "app.deps.get_pool",
+        lambda: type(
+            "P",
+            (),
+            {"clients": [
+                ComfyUIClient("http://192.168.71.127:8196"),
+                ComfyUIClient("http://192.168.71.127:8263"),
+            ]},
+        )(),
+    )
+    client = resolve_worker("http://100.68.100.90:8263")
+    assert client.base_url == "http://192.168.71.127:8263"
+
+
+def test_resolve_worker_dual_network_keeps_hostname_fallback_for_retired_ports(
+    monkeypatch,
+):
+    """双网络归一只对配置过的端口生效;退役端口仍走 hostname 回退(同机存活 worker)。"""
+    fake = _dual_network_settings()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    monkeypatch.setattr("app.services.h3.get_settings", lambda: fake)
+    monkeypatch.setattr("app.deps.get_pool", lambda: type("P", (), {"clients": []})())
+    client = resolve_worker("http://100.68.100.90:8189")
+    assert client.base_url == "http://192.168.71.127:8188"

@@ -2,7 +2,7 @@
 
 - POST /api/admin/apps/{aid}/use-case/generate  LLM 打标落库(产出不在枚举回退 other)
 - PUT  /api/admin/apps/{aid}/curation           人工改 use_case / featured 开关
-- GET  /api/apps/use-cases/summary              分类导航统计(可见性/NSFW 门控同列表)
+- GET  /api/apps/use-cases/summary              分类导航统计(可见性口径与列表一致;NSFW 只作元数据)
 
 注意:本路由的 /apps/use-cases/summary 是两段路径,与 routes/apps 的
 GET /apps/{aid}(单段)不冲突;注册顺序在 apps 之后(main.py)。

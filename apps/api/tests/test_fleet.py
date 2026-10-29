@@ -96,7 +96,7 @@ def test_registry_spark_and_whisper_naming_n1():
     s2 = DEVICES_BY_ID["spark02"]
     assert "DSv4" in s2["role"] or "DeepSeek" in s2["role"]
     assert "Qwen3.8" not in s2["role"]
-    assert s2["services"][0]["probe"] == "http" and s2["services"][0]["port"] == 8000
+    assert s2["services"][0]["probe"] == "http" and s2["services"][0]["port"] == 8888
     for oc in ("openclaw01", "openclaw02", "openclaw03", "openclaw04"):
         wh = next(s for s in DEVICES_BY_ID[oc]["services"] if s["port"] == 9310)
         assert wh.get("path") == "/health", f"{oc} whisper 探针须 /health 非 /v1/models"

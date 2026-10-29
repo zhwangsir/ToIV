@@ -97,8 +97,7 @@ export function resolveCanvasLiveFailureInput(
 /** Notice prop: no live input → blocked; otherwise same gate as retry submission. */
 export function canvasFailureRetryBlockedByFingerprint(metadata: CanvasNodeMetadata | undefined, liveInput?: CanvasGenerationFailureInput) {
     const error = { code: metadata?.generationErrorCode || metadata?.taskErrorCode, message: metadata?.errorDetails };
-    const explained = explainGenerationError(error);
-    if (!(explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult")) return false;
+    if (!explainGenerationError(error).contentGate) return false;
     if (!liveInput) return true;
     return canvasGenerationRetryBlocked(metadata, liveInput);
 }
@@ -106,14 +105,14 @@ export function canvasFailureRetryBlockedByFingerprint(metadata: CanvasNodeMetad
 export function canvasGenerationRetryBlocked(metadata: CanvasNodeMetadata | undefined, input?: CanvasGenerationFailureInput) {
     const error = { code: metadata?.generationErrorCode || metadata?.taskErrorCode, message: metadata?.errorDetails };
     if (!shouldBlockAutomaticRetry(error, metadata?.taskStage)) return false;
-    // Only a resolved submission can prove that moderated input was changed.
-    if (input) {
-        const explained = explainGenerationError(error);
-        if (explained.moderation || explained.category === "r18_context_required" || explained.category === "route_guard_adult") {
-            if (!metadata?.failedInputFingerprint) return !metadata?.failedPromptFingerprint || metadata.failedPromptFingerprint === generationPromptFingerprint(input.prompt);
-            return unchangedModeratedPrompt(metadata, input.prompt, submittedReferences(input));
-        }
+    // 提交状态未确认时改输入也不能重提，否则会重复计费/重复任务。
+    if (metadata?.taskStage === "submission_unknown") return true;
+    const explained = explainGenerationError(error);
+    // Only a resolved submission can prove that gated input was changed.
+    if (input && explained.contentGate) {
+        if (!metadata?.failedInputFingerprint) return !metadata?.failedPromptFingerprint || metadata.failedPromptFingerprint === generationPromptFingerprint(input.prompt);
+        return unchangedModeratedPrompt(metadata, input.prompt, submittedReferences(input));
     }
-    if (input) return metadata?.taskStage === "submission_unknown" || ["submission_uncertain", "timeout", "download_failed", "results_missing", "partial_success", "canvas_conflict"].includes(explainGenerationError(error).category);
+    if (input) return metadata?.taskStage === "submission_unknown" || ["submission_uncertain", "timeout", "download_failed", "results_missing", "partial_success", "canvas_conflict"].includes(explained.category);
     return true;
 }

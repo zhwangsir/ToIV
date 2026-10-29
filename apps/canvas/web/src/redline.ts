@@ -1,21 +1,7 @@
-/**
- * 普通/成人红线 —— canvas 前端唯一 UX 决策面（2026-10-26 死令修订；2026-10-28 未成年硬关亦 FE-only）。
- *
- * POLICY（本文件 = 唯一闸，与 content_mode 同锁）：
- * - 成人态 UX + **未成年硬关**均以前端拦截为主；后端 R5 退役 `require_not_underage` 后仍须可靠拦截
- * - 成人态 = **账号全局**；服务端账号字段用于跨设备同步，本文件只负责前端 UX，不新增后端硬闸
- * - 未成年：`isUnderage()`（local `toiv_birthdate`，由 GET /auth/me 的 `birthdate` 同步）→
- *   `setR18Mode(true)` 返 false、`isR18Mode()` 恒 false、光幕成人钮 disabled、
- *   `applyAccountModePayload` 强制 ordinary（防他端脏 adult）
- * - localStorage 仅乐观缓存，非真相源；真源：GET/PATCH /api/me/mode → { content_mode: ordinary|adult, updated_at }；/auth/me 亦可读 content_mode + birthdate
- * - 他端 ≤30s 轮询刷新；切模式不 abort/cancel 在途任务（提交时快照模式）
- * - 拦截在前端路由守卫（本文件 + RequireR18）；Settings 两步确认仍用 R18SettingsPane
- * - NSFW 列表：已知 NSFW → 普通态灰化+锁+「NSFW」可见不可点；未知元数据 → 普通藏/成人显
- * - 显式元数据优先（is_nsfw / nsfw / content_rating），文件名仅兜底
- * - 软化仅普通路径；成人路径代码层不进 softening
- * - 市场应用可见性 / 提交 content_mode / 纯 NSFW 判据亦仅本文件（W1-A 单锁）
- */
-export const POLICY_ID = "D-U1=B-frontend-guard";
+import { contentPolicy } from "@content-lock";
+
+// 策略缺失时解析到 content-policy 的中性实现；账号状态与生成意图仍保留。
+export const POLICY_ID = contentPolicy.id;
 /** @deprecated 仅作乐观缓存键；真相源为账号 content_mode */
 export const R18_STORAGE_KEY = "toiv_r18_mode";
 export const BIRTHDATE_STORAGE_KEY = "toiv_birthdate";
@@ -23,29 +9,40 @@ export const REQUEST_HEADER = "X-NSFW";
 export const REQUEST_HEADER_VALUE = "1";
 export const R18_SETTINGS_GATE_PATH = "/settings?section=general&focus=r18";
 
+export function shouldConfirmContentModeSwitch(nextAdult: boolean): boolean {
+    return contentPolicy.shouldConfirmModeSwitch(isR18Mode(), nextAdult);
+}
+
 /** 账号模式轮询间隔（他端生效 ≤30s）。 */
 export const ACCOUNT_MODE_POLL_MS = 30_000;
 
-/** 切回普通时图/视频回落目标（死令）。 */
-export const FALLBACK_IMAGE_BASENAME = "Qwen-Rapid-AIO-SFW-v23.safetensors";
-export const FALLBACK_VIDEO_MODEL = "local-wan";
+export const FALLBACK_IMAGE_BASENAME = contentPolicy.fallbackImageBasename;
+export const FALLBACK_VIDEO_MODEL = contentPolicy.fallbackVideoModel;
 
 /** 用户可见文案（Wire 契约）；技术键仍用 r18 / X-NSFW / content_mode。 */
 export const COPY_MODE_NORMAL = "普通";
 export const COPY_MODE_ADULT = "成人";
-export const COPY_UNDERAGE_ADULT = "当前账号未满足成人内容使用条件";
-export const COPY_GUARD_REASON = "当前为普通模式，此页需切换到成人模式";
-export const COPY_SWITCH_TO_ADULT = "切换到成人模式";
-export const COPY_STAY_NORMAL = "留在普通内容";
-export const COPY_CONFIRM_SWITCH = "确认切换？将对你账号下所有设备生效。";
-export const COPY_SLOT_ADULT = "需成人";
-export const COPY_NSFW_LOCK_LABEL = "NSFW";
-export const COPY_NSFW_LOCKED_HINT = "当前为普通模式，成人模型已锁定";
-export const COPY_NSFW_MODELS_HIDDEN_EMPTY = "当前为普通模式，成人模型已锁定（灰化不可选）";
-export const COPY_NSFW_APPS_HIDDEN_EMPTY = "当前为普通模式，纯成人应用已隐藏";
+export const COPY_UNDERAGE_ADULT = contentPolicy.copy.underageAdult;
+export const COPY_GUARD_REASON = contentPolicy.copy.guardReason;
+export const COPY_SWITCH_TO_ADULT = contentPolicy.copy.switchToAdult;
+export const COPY_STAY_NORMAL = contentPolicy.copy.stayNormal;
+export const COPY_CONFIRM_SWITCH = contentPolicy.copy.confirmSwitch;
+export const COPY_SLOT_ADULT = contentPolicy.copy.slotAdult;
+export const COPY_NSFW_LOCK_LABEL = contentPolicy.copy.lockLabel;
+export const COPY_NSFW_LOCKED_HINT = contentPolicy.copy.lockedHint;
+export const COPY_NSFW_MODELS_HIDDEN_EMPTY = contentPolicy.copy.modelsHiddenEmpty;
+export const COPY_NSFW_APPS_HIDDEN_EMPTY = contentPolicy.copy.appsHiddenEmpty;
+export const COPY_MEDIA_LOCKED = contentPolicy.copy.mediaLocked;
+export const COPY_POSE_SYSTEMS_HIDDEN = contentPolicy.copy.poseSystemsHidden;
+export const COPY_RETRY_NEEDS_CHANGED_INPUT = contentPolicy.copy.retryNeedsChangedInput;
+export const COPY_MODE_UPDATED_NEW_ATTEMPT = contentPolicy.copy.modeUpdatedNewAttempt;
+export const COPY_LOCKED_LABEL = contentPolicy.copy.lockedLabel;
+export const COPY_ASSET_LOCKED_HINT = contentPolicy.copy.assetLockedHint;
+export const COPY_TASK_LOCKED_HINT = contentPolicy.copy.taskLockedHint;
+export const COPY_QUEUE_LOCKED_HINT = contentPolicy.copy.queueLockedHint;
 export const COPY_ACCOUNT_GLOBAL = "对此账号所有设备生效";
 export const COPY_ACCOUNT_SYNC_HINT = "切换后其他已登录设备通常在 30 秒内同步";
-export const COPY_FALLBACK_TIP = "已回落普通默认模型（出图 Qwen-Rapid-AIO-SFW-v23 / 出视频 local-wan）";
+export const COPY_FALLBACK_TIP = contentPolicy.copy.fallbackTip;
 export const COPY_IN_FLIGHT_SAFE = "切换不会中断已提交的在途任务；仅新请求受内容模式约束";
 export const SAFE_HOME_PATH = "/";
 
@@ -54,20 +51,8 @@ export const R18_MODE_EVENT = "toiv-r18-mode";
 /** 切回普通并完成回落后，一次性徽标提示。 */
 export const R18_FALLBACK_TIP_EVENT = "toiv-r18-fallback-tip";
 
-/** 纯路径前缀（命中即视为 NSFW 专属面）。 */
-export const NSFW_GATED_PATH_PREFIXES: readonly string[] = ["/nsfw"];
-
-/**
- * 查询参数：未开成人时命中则拦到设置闸。
- * 覆盖：市场 R18 分类、content_mode=nsfw、显式 nsfw 标记。
- */
-export const NSFW_GATED_QUERY: Readonly<Record<string, readonly string[]>> = {
-    category: ["r18", "nsfw"],
-    content_mode: ["nsfw"],
-    nsfw: ["1", "true", "yes"],
-    mode: ["nsfw", "r18"],
-    filter: ["r18", "nsfw"],
-};
+export const NSFW_GATED_PATH_PREFIXES = contentPolicy.gatedPaths;
+export const NSFW_GATED_QUERY = contentPolicy.gatedQuery;
 
 /** 经典 EngineStudio NSFW 引擎 → canvas 市场入口(孪生父卡或纯 R18 卡)。 */
 export const CLASSIC_NSFW_TO_MARKET: ReadonlyArray<{
@@ -133,7 +118,7 @@ export function canShowContentModeToggle(
     app: ContentModeApp | null | undefined,
     r18On: boolean,
 ): boolean {
-    if (!r18On || !app) return false;
+    if (!contentPolicy.allowsContent(r18On) || !app) return false;
     const modes = normalizeContentModes(app.content_modes);
     return modes.includes("sfw") && modes.includes("nsfw");
 }
@@ -150,7 +135,7 @@ export function resolveSubmitContentMode(opts: {
     selected: ContentMode | string | null | undefined;
 }): ContentMode {
     const { app, r18On } = opts;
-    if (!r18On) return "sfw";
+    if (!contentPolicy.allowsContent(r18On)) return "sfw";
     if (!app) return "sfw";
     const modes = normalizeContentModes(app.content_modes);
     const selected = String(opts.selected ?? "").trim().toLowerCase();
@@ -180,8 +165,7 @@ export function appIsPureNsfw(app: ContentModeApp | null | undefined): boolean {
 /** 普通模式隐藏纯成人应用；成人模式全部可见。双模卡始终可见（提交仍 fail-closed）。 */
 export function appVisibleForContentMode(app: ContentModeApp | null | undefined, r18On: boolean): boolean {
     if (!app) return false;
-    if (r18On) return true;
-    return !appIsPureNsfw(app);
+    return contentPolicy.isAppVisible(appIsPureNsfw(app), r18On);
 }
 
 /** 纯 R18 市场应用（via=is_nsfw_app）；深链 ?app= 命中且未开成人 → 守卫。 */
@@ -225,20 +209,8 @@ function storageSet(key: string, value: string | null): void {
     }
 }
 
-/** birthdate 空视为成年（兼容老数据）；ISO `YYYY-MM-DD`。 */
 export function isUnderage(birthdateIso?: string | null): boolean {
-    const raw = (birthdateIso ?? storageGet(BIRTHDATE_STORAGE_KEY) ?? "").trim();
-    if (!raw) return false;
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
-    if (!m) return false;
-    const birth = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    if (Number.isNaN(birth.getTime())) return false;
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const beforeBirthday =
-        today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
-    if (beforeBirthday) age -= 1;
-    return age < 18;
+    return contentPolicy.isUnderage(birthdateIso ?? storageGet(BIRTHDATE_STORAGE_KEY));
 }
 
 export function setStoredBirthdate(iso: string | null): void {
@@ -425,8 +397,7 @@ export function isR18Mode(): boolean {
     return optimisticAdult();
 }
 
-/** Pose gallery: systems only visible when content_mode=adult (underage hard-closed via isR18Mode). */
-export const POSE_ADULT_ONLY_SYSTEMS: readonly string[] = ["全身单人・性感系", "双人缠绵"] as const;
+export const POSE_ADULT_ONLY_SYSTEMS = contentPolicy.adultOnlyPoseSystems;
 
 export function isPoseSystemAdultOnly(system: string | null | undefined): boolean {
     const name = String(system ?? "").trim();
@@ -439,8 +410,7 @@ export function isPoseSystemAdultOnly(system: string | null | undefined): boolea
  * - 全身性感 / 双人缠绵：仅成人态（isR18Mode；未成年恒 false）
  */
 export function isPoseSystemVisible(system: string | null | undefined, adultOn = isR18Mode()): boolean {
-    if (!isPoseSystemAdultOnly(system)) return true;
-    return adultOn === true;
+    return contentPolicy.isPoseVisible(String(system ?? "").trim(), adultOn);
 }
 
 /** 当前账号 content_mode（ordinary|adult）。 */
@@ -480,7 +450,7 @@ export function applyAccountModePayload(payload: AccountModePayload | null | und
     storageSet(R18_STORAGE_KEY, nextAdult ? "1" : null);
     applyDataset(nextAdult);
     if (prev !== nextAdult) {
-        if (prev && !nextAdult) notifyFallbackTip();
+        if (contentPolicy.shouldFallback(prev, nextAdult)) notifyFallbackTip();
         notifyR18Listeners();
         return true;
     }
@@ -567,7 +537,7 @@ export function setR18Mode(on: boolean): boolean {
     void pushAccountContentMode(mode).then((ok) => {
         if (!ok) void refreshAccountContentMode();
     });
-    if (prev && !on) notifyFallbackTip();
+    if (contentPolicy.shouldFallback(prev, on)) notifyFallbackTip();
     notifyR18Listeners();
     return on;
 }
@@ -607,48 +577,17 @@ export function nsfwHeaderEnabled(): boolean {
 }
 
 export function nsfwAllowed(): boolean {
-    return isR18Mode();
+    return contentPolicy.allowsContent(isR18Mode());
 }
 
-/**
- * 软化门：仅普通模式可进 softening 代码路径；成人模式必须短路。
- */
 export function shouldApplyContentSoftening(): boolean {
-    return !isR18Mode();
+    return contentPolicy.shouldSoften(isR18Mode());
 }
 
 export type LocationLike = { pathname?: string; search?: string };
 
-function normalizePath(pathname: string): string {
-    if (!pathname) return "/";
-    const p = pathname.startsWith("/") ? pathname : `/${pathname}`;
-    return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
-}
-
-function queryHitsNsfwGate(search: string): boolean {
-    const q = search.startsWith("?") ? search.slice(1) : search;
-    if (!q) return false;
-    const params = new URLSearchParams(q);
-    for (const [key, values] of Object.entries(NSFW_GATED_QUERY)) {
-        const raw = (params.get(key) || "").trim().toLowerCase();
-        if (raw && values.includes(raw)) return true;
-    }
-    const appId = (params.get("app") || "").trim();
-    if (appId && NSFW_ONLY_APP_IDS.includes(appId)) return true;
-    return false;
-}
-
-/** 该 location 是否属 NSFW 专属面（需成人才进）。设置闸本身永不算 gated。 */
 export function isNsfwGatedLocation(loc: LocationLike): boolean {
-    const pathname = normalizePath(loc.pathname || "/");
-    const search = loc.search || "";
-    if (pathname === "/settings") {
-        return false;
-    }
-    if (NSFW_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-        return true;
-    }
-    return queryHitsNsfwGate(search);
+    return contentPolicy.isGatedLocation(loc, NSFW_ONLY_APP_IDS);
 }
 
 /**
@@ -757,9 +696,7 @@ export function assetLooksNsfw(asset: NsfwAssetLike): boolean {
  * - unknown：普通藏 / 成人显
  */
 export function isNsfwAssetListable(asset: NsfwAssetLike): boolean {
-    const cls = classifyAssetContent(asset);
-    if (cls === "unknown") return nsfwAllowed();
-    return true;
+    return contentPolicy.isAssetListable(classifyAssetContent(asset), isR18Mode());
 }
 
 /**
@@ -768,9 +705,7 @@ export function isNsfwAssetListable(asset: NsfwAssetLike): boolean {
  * - 普通：仅非 NSFW；已知 NSFW 可见不可点
  */
 export function isNsfwAssetSelectable(asset: NsfwAssetLike): boolean {
-    if (!isNsfwAssetListable(asset)) return false;
-    if (classifyAssetContent(asset) === "nsfw") return nsfwAllowed();
-    return true;
+    return contentPolicy.isAssetSelectable(classifyAssetContent(asset), isR18Mode());
 }
 
 /**
@@ -811,19 +746,4 @@ export function visibleSelectionOrFallback(selected: string | null | undefined, 
     return fallback;
 }
 
-/** 守卫覆盖清单（文档/TEST_LOG 引用）。 */
-export const REDLINE_GUARD_COVERAGE = [
-    "path /nsfw 及子路径",
-    "query category=r18|nsfw（市场 R18 分类）",
-    "query content_mode=nsfw|mode=nsfw|nsfw=1|filter=r18",
-    "query app= 纯 R18 市场应用（CLASSIC via=is_nsfw_app）",
-    "普通模式拦成人资源 → 出卡「切换到成人模式」→ /settings?section=general&focus=r18（两步闸）",
-    "/settings 含 focus=r18 永不拦截（开启入口）",
-    "选型列表：已知 NSFW 普通态灰化+锁+NSFW 标签（可见不可点）；未知元数据普通藏/成人显",
-    "显式 is_nsfw/nsfw/content_rating 优先；文件名仅兜底",
-    "账号 content_mode(ordinary|adult) / me/mode 为真源；localStorage 仅乐观缓存；≤30s 轮询",
-    "切模式不中断在途；软化仅普通路径",
-    "市场可见性/提交 content_mode/纯 NSFW：resolveSubmitContentMode|appVisibleForContentMode|appIsPureNsfw 仅本文件",
-    "未成年硬关 FE-only：isUnderage←/auth/me birthdate 同步；setR18Mode(true) 拒；apply 强制 ordinary；光幕成人钮 disabled",
-    "姿势库体系闸：全身单人・性感系 / 双人缠绵 仅 adult（isPoseSystemVisible；未成年硬关）",
-] as const;
+export const REDLINE_GUARD_COVERAGE = contentPolicy.coverage;

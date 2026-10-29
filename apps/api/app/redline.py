@@ -156,16 +156,6 @@ def adult_at_submit(user: User | None) -> bool:
     return nsfw_allowed(user)
 
 
-def should_apply_softening(user: User | None) -> bool:
-    """软化管道入口:仅普通模式可进;成人路径跳过。
-
-    只跟 content_mode;不因 underage 硬拐。匿名 → False。
-    """
-    if user is None:
-        return False
-    return account_content_mode(user) == CONTENT_MODE_ORDINARY
-
-
 def header_means_nsfw_intent(header_value: str | None) -> bool:
     """中间件解头入口(审计用):比较原始头值是否等于 REQUEST_HEADER_VALUE。
 

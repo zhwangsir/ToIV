@@ -7,7 +7,7 @@
 }
 .toiv-job-progress-fill {
   border-radius: inherit;
-  background: var(--toiv-job-progress-fill, var(--toiv-accent, #4A7FC1));
+  background: var(--toiv-job-progress-fill, var(--toiv-accent));
   transition: width var(--toiv-job-progress-dur, 420ms) var(--toiv-job-progress-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
 @media (prefers-reduced-motion: reduce) {

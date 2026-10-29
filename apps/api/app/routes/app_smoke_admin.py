@@ -26,7 +26,7 @@ router = APIRouter(tags=["app-smoke"])
 
 class SmokeBatchRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=500)
-    include_nsfw: bool = False  # R18 应用默认跳过(烟测走 SFW 口径)
+    include_nsfw: bool = False  # 批量范围是否含 R18 应用(运维负载口径,不是内容闸)
 
 
 class SmokeOneRequest(BaseModel):

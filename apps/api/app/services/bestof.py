@@ -28,7 +28,6 @@ from sqlmodel import Session, select
 
 from app.db import engine
 from app.models import EvalBatch, EvalScore, Job, User
-from app.redline import nsfw_allowed
 from app.services import h3 as h3_service
 from app.services.eval_scorers import (
     ArtifactScorer,
@@ -65,16 +64,15 @@ async def submit_h3_best_of_n(
 ) -> dict:
     """提交 n 个 H3 t2v 变体(seed 递增)并落批次分组。
 
-    复用路由层的 LoRA 门控/时长计划与 services.h3 的提交路径(预检/hold 排队
+    复用路由层的时长计划与 services.h3 的提交路径(预检/hold 排队
     全保留)。v1 边界:超单段上限的分段续写(extend 链)与 resolution_target
     超分链不进评测(评的是单段原生产物),显式 422 而非静默缩水。
     中途提交失败(实例不可达等):已提交的变体作为普通作业留库,批次不建,
     异常原样抛出。
     """
     # 延迟 import 避免 services → routes 的模块级反向依赖
-    from app.routes.h3_studio import _gate_h3_nsfw_loras, _h3_job_nsfw, _resolve_plan
+    from app.routes.h3_studio import _h3_job_nsfw, _resolve_plan
 
-    _gate_h3_nsfw_loras(req.loras, user)
     plan = _resolve_plan(req)
     if plan.strategy != "direct":
         raise HTTPException(
@@ -419,10 +417,8 @@ def get_batch_view(session: Session, batch_id: str, user: User) -> dict | None:
 
 
 def list_batches(session: Session, user: User, *, limit: int = 50) -> list[dict]:
-    """用户批次列表(新→旧)。nsfw 批次仅 R18 上下文可见(对齐 Job 过滤语义)。"""
+    """用户批次列表(新→旧)。只按归属过滤;内容分级仅作元数据透出,不在后端隐藏。"""
     stmt = select(EvalBatch).where(EvalBatch.user_id == user.id)
-    if not nsfw_allowed(user):
-        stmt = stmt.where(EvalBatch.nsfw.is_(False))  # type: ignore[attr-defined]
     rows = session.exec(
         stmt.order_by(EvalBatch.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
     ).all()

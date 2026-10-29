@@ -1326,7 +1326,7 @@ def test_generate_video_sfw_nsfw_ckpt_split(ctx):
             r_sfw = client.post(
                 f"/api/drama/shots/{sid_sfw}/generate-video", headers=H, json={}
             )
-            # nsfw=True 走 10Eros 成人底模,属 R18 门控:须账号成人态(X-NSFW 仅审计)
+            # nsfw=True 走 10Eros 成人底模;内容限制只在前端锁,后端不 403
             r_nsfw = client.post(
                 f"/api/drama/shots/{sid_nsfw}/generate-video",
                 headers={**H, "X-NSFW": "1"},
@@ -2449,9 +2449,9 @@ def test_reconcile_marks_interrupted_autorun_and_batch(ctx):
 
 
 # ---------------------------------------------------------------------------
-# R18 门控回归(2026-08-08):drama nsfw=true 必须带 X-NSFW 头,否则 403
-# 修复前 generate-video / generate-video-v2 的 nsfw 参数完全不校验,
-# 主站任意登录用户可直传 nsfw=true 用 10Eros 成人底模,破坏「主站零 R18」。
+# 内容分级回归(新契约:后端零审查 / 零过滤):drama nsfw=true 不再因缺 X-NSFW 头 403。
+# X-NSFW 头已退役为纯审计,R18 可见性交由前端可插拔策略锁;后端不因账号内容态或
+# 缺头去隐藏 / 拦截 generate-video / generate-video-v2 的 R18 生成(仅保留未成年硬阻断)。
 # ---------------------------------------------------------------------------
 
 
@@ -2472,39 +2472,41 @@ def _mk_shot_for_token_user(ctx, *, prompt: str = "a girl, cinematic") -> str:
         return shot.id
 
 
-def test_generate_video_nsfw_blocked_without_x_nsfw(ctx):
-    """generate-video:nsfw=true 无 X-NSFW 头 → 403,且不落任何 Job。"""
-    from app.db import engine
+def test_generate_video_nsfw_without_x_nsfw_not_content_gated(ctx):
+    """新契约:generate-video 不再因缺 X-NSFW 头对 nsfw=true 做内容闸 403。
 
+    死 pool 下请求落到 5xx(算力/参数类错误),证明已过任何内容门控;后端不因
+    账号内容态或缺头隐藏/拦截 R18 生成(X-NSFW 仅审计)。
+    """
     client, token, _ = ctx
     sid = _mk_shot_for_token_user(ctx)
-    r = client.post(
-        f"/api/drama/shots/{sid}/generate-video",
-        headers=_h(token),
-        json={"nsfw": True},
-    )
-    assert r.status_code == 403, r.text
-    assert "R18" in r.json()["detail"]
-    with Session(engine) as s:
-        assert s.exec(select(Job)).all() == []
-
-
-def test_generate_video_v2_nsfw_blocked_without_x_nsfw(ctx):
-    """generate-video-v2(含多候选 batch 路径):nsfw=true 无 X-NSFW 头 → 403。"""
-    from app.db import engine
-
-    client, token, _ = ctx
-    sid = _mk_shot_for_token_user(ctx)
-    for body in ({"nsfw": True}, {"nsfw": True, "num_candidates": 2}):
+    app.dependency_overrides[get_pool] = _dead_pool
+    try:
         r = client.post(
-            f"/api/drama/shots/{sid}/generate-video-v2",
-            headers=_h(token),
-            json=body,
+            f"/api/drama/shots/{sid}/generate-video",
+            headers=_h(token),  # 无 X-NSFW 头
+            json={"nsfw": True},
         )
-        assert r.status_code == 403, r.text
-        assert "R18" in r.json()["detail"]
-    with Session(engine) as s:
-        assert s.exec(select(Job)).all() == []
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+    assert r.status_code != 403, r.text
+
+
+def test_generate_video_v2_nsfw_without_x_nsfw_not_content_gated(ctx):
+    """新契约:generate-video-v2(含多候选 batch 路径)不再因缺 X-NSFW 头 403。"""
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    app.dependency_overrides[get_pool] = _dead_pool
+    try:
+        for body in ({"nsfw": True}, {"nsfw": True, "num_candidates": 2}):
+            r = client.post(
+                f"/api/drama/shots/{sid}/generate-video-v2",
+                headers=_h(token),  # 无 X-NSFW 头
+                json=body,
+            )
+            assert r.status_code != 403, r.text
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
 
 
 def test_generate_video_nsfw_allowed_with_x_nsfw(ctx):

@@ -853,6 +853,8 @@ function InfiniteCanvasPage() {
 
     // 停靠栏挤压画布时补偿一半位移：用户正在看的那块内容留在原处，视野不跳。
     const dockedAssistantWidth = rightPanel === "assistant" && assistantDockable ? assistant.width : 0;
+    // 助手侧栏占住右下角时，ToIV 智能体浮标会让位：两者都是助手入口，浮标压住发送按钮就点不了。
+    const assistantPanelVisible = rightPanel === "assistant" && !focusMode && !versions.preview;
     const previousDockedAssistantWidth = useRef(dockedAssistantWidth);
     useEffect(() => {
         const delta = dockedAssistantWidth - previousDockedAssistantWidth.current;
@@ -3402,7 +3404,7 @@ function InfiniteCanvasPage() {
                     {versions.preview ? <CanvasVersionPreview key={versions.preview.key} preview={versions.preview} busy={versions.restoring || versions.confirming} onReturn={versions.returnToCurrent} onShowVersions={versions.show} /> : null}
                     </div>
                 </CanvasOverlayLayerProvider>
-                {rightPanel === "assistant" && !focusMode && !versions.preview ? (
+                {assistantPanelVisible ? (
                     <CanvasAssistantSidebar
                         proposalFeedback={assistantProposalFeedback}
                         assistant={assistant}
@@ -3417,7 +3419,7 @@ function InfiniteCanvasPage() {
                     />
                 ) : null}
                 <CanvasVersionHistory history={versions} />
-                <ToivAgentFloat />
+                <ToivAgentFloat suppressLauncher={assistantPanelVisible} />
             </main>
         </>
     );

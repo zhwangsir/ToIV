@@ -16,7 +16,9 @@ import {
     getR18ModeSnapshot,
     getServerR18ModeSnapshot,
     isUnderage,
+    nsfwAllowed,
     setR18Mode,
+    shouldConfirmContentModeSwitch,
     subscribeR18Mode,
     CLASSIC_NSFW_TO_MARKET,
 } from "@/redline";
@@ -32,10 +34,12 @@ export function R18SettingsPane() {
     useEffect(() => {
         if (focusParam !== "r18") return;
         paneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (!enabled) setConfirming(true);
+        if (shouldConfirmContentModeSwitch(true)) setConfirming(true);
         const next = new URLSearchParams(searchParams);
         if (!next.has("focus")) return;
         next.delete("focus");
+        // 保留分区：只删 focus 会让父级按 section 重算回「模型」，本节的确认闸随之丢失
+        next.set("section", "general");
         setSearchParams(next, { replace: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to focus=r18 arrival
     }, [focusParam]);
@@ -80,7 +84,7 @@ export function R18SettingsPane() {
                 主切换在<strong className="text-foreground/80">顶栏右侧光幕</strong>
                 （普通 / 成人，图标+纹理双通道）。本页仅说明与只读当前态，不提供主开关。
                 {COPY_ACCOUNT_GLOBAL}。{COPY_ACCOUNT_SYNC_HINT}。{COPY_IN_FLIGHT_SAFE}。
-                深链 <code className="text-[10px]">?focus=r18</code> 仍可打开下方确认闸（失败卡跳转兼容）。
+                深链 <code className="text-[10px]">?focus=r18</code> 可定位到本节。
             </p>
 
             <ContentModeFallbackTip />
@@ -100,10 +104,10 @@ export function R18SettingsPane() {
                 </div>
             )}
 
-            {enabled && (
+            {nsfwAllowed() && (
                 <div className="mt-2 rounded-lg border border-[var(--border)] px-3 py-2.5 text-xs leading-5 text-[var(--muted-foreground)]">
                     <p className="font-medium text-foreground">入口</p>
-                    <p className="mt-1">应用市场 →「成人」筛选。切回普通后 NSFW 项灰化锁标「NSFW」。</p>
+                    <p className="mt-1">在应用市场按内容分类浏览。</p>
                     <p className="mt-2 flex flex-wrap gap-2">
                         <Link to="/toiv/market" className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-foreground hover:bg-muted/50">
                             应用市场

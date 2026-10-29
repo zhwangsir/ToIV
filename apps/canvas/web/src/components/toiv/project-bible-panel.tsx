@@ -318,7 +318,7 @@ export function ProjectBiblePanel({
                     </div>
 
                     <div>
-                        {error && load !== "api_only" ? (
+                        {error ? (
                             <p className="toiv-bible-error" role="alert" data-testid="project-bible-error">
                                 {error}
                             </p>

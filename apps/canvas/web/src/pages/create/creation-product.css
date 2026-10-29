@@ -529,7 +529,7 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
 .creation-featured-card .creation-inspiration-overlay,
 .creation-featured-card .creation-skill-hover-use {
   backdrop-filter: none !important;
-  background: color-mix(in srgb, var(--toiv-bg, #0b0c0f) 78%, transparent);
+  background: color-mix(in srgb, var(--toiv-bg) 78%, transparent);
   font-size: 12px;
   font-weight: 560;
 }
@@ -553,14 +553,14 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.01em;
-  color: var(--user-ink, var(--toiv-text, #f4f6f7));
+  color: var(--user-ink, var(--toiv-text));
 }
 .creation-home-heading-muted,
 .creation-home-heading p {
   margin: 8px 0 0;
   font-size: 13px;
   font-weight: 450;
-  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+  color: var(--user-ink-muted, var(--toiv-text-muted));
 }
 .creation-empty-quiet {
   width: min(720px, 100%);
@@ -573,7 +573,7 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
 .creation-empty-quiet-copy {
   margin: 0;
   font-size: 12px;
-  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+  color: var(--user-ink-muted, var(--toiv-text-muted));
 }
 .creation-empty-quiet-row {
   display: flex;
@@ -592,7 +592,7 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
   border: 1px solid var(--user-border, var(--toiv-border, rgba(255,255,255,.10)));
   border-radius: 8px;
   background: transparent;
-  color: var(--user-ink, var(--toiv-text, #f4f6f7));
+  color: var(--user-ink, var(--toiv-text));
   cursor: pointer;
   transition: background 220ms ease-out, border-color 220ms ease-out;
 }
@@ -602,14 +602,14 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
 }
 .creation-empty-quiet-cta span {
   font-size: 11px;
-  color: var(--user-ink-muted, var(--toiv-text-muted, #8b8e98));
+  color: var(--user-ink-muted, var(--toiv-text-muted));
 }
 .creation-empty-quiet-cta:hover {
-  background: color-mix(in srgb, var(--user-ink, #f4f6f7) 4%, transparent);
+  background: color-mix(in srgb, var(--user-ink) 4%, transparent);
   border-color: var(--user-border-strong, var(--toiv-border-strong, rgba(255,255,255,.14)));
 }
 .creation-empty-quiet-cta:focus-visible {
-  outline: 2px solid var(--user-accent, var(--toiv-accent, #4A7FC1));
+  outline: 2px solid var(--user-accent, var(--toiv-accent));
   outline-offset: 2px;
 }
 /* Hide legacy icon suggest / empty-art if any residual mount; featured inspirations restored BF1.1 */

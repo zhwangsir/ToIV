@@ -437,3 +437,53 @@ async def test_reconcile_resumes_generating_and_scoring_batches(db, user):
         # scoring 重跑 finalize 落过评分行;generating 经 watcher 同样评分
         assert s.exec(select(EvalScore).where(EvalScore.batch_id == gen_id)).all()
         assert s.exec(select(EvalScore).where(EvalScore.batch_id == scoring_id)).all()
+
+
+# ---------------------------------------------------------------------------
+# 6. 批次列表:只按归属过滤(内容分级仅元数据,后端零隐藏)
+# ---------------------------------------------------------------------------
+
+
+def test_list_batches_ignores_content_mode_but_keeps_ownership(db, user):
+    """普通态与成人态拿到同一份批次列表(nsfw 批次不隐藏);他人批次仍不可见。"""
+    other = User(id="u-eval-other", email="o", hashed_password="x", tenant_id="t-other")
+    with Session(db) as s:
+        s.add(other)
+        s.commit()
+        mine_nsfw = EvalBatch(
+            tenant_id=user.tenant_id, user_id=user.id, n=1, scorer="heuristic",
+            prompt="r18 prompt", seeds=json.dumps([1]), job_ids=json.dumps(["j-nsfw"]),
+            status="done", nsfw=True,
+        )
+        mine_sfw = EvalBatch(
+            tenant_id=user.tenant_id, user_id=user.id, n=1, scorer="heuristic",
+            prompt="sfw prompt", seeds=json.dumps([2]), job_ids=json.dumps(["j-sfw"]),
+            status="done", nsfw=False,
+        )
+        theirs = EvalBatch(
+            tenant_id=other.tenant_id, user_id=other.id, n=1, scorer="heuristic",
+            prompt="other", seeds=json.dumps([3]), job_ids=json.dumps(["j-other"]),
+            status="done", nsfw=True,
+        )
+        s.add_all([mine_nsfw, mine_sfw, theirs])
+        s.commit()
+        mine_ids = {mine_nsfw.id, mine_sfw.id}
+
+    user.content_mode = "ordinary"
+    with Session(db) as s:
+        ordinary = bestof.list_batches(s, user)
+    user.content_mode = "adult"
+    with Session(db) as s:
+        adult = bestof.list_batches(s, user)
+
+    # 归属过滤(安全)保留:他人批次不可见
+    assert {r["batch_id"] for r in ordinary} == mine_ids
+    # 零过滤契约:两种内容态同一份列表,nsfw 只作元数据透出
+    assert [r["batch_id"] for r in adult] == [r["batch_id"] for r in ordinary]
+    nsfw_row = next(r for r in ordinary if r["nsfw"] is True)
+    assert nsfw_row["prompt"] == "r18 prompt"
+    assert nsfw_row["status"] == "done" and nsfw_row["scorer"] == "heuristic"
+    assert any(r["nsfw"] is False for r in ordinary)
+    # limit 仍生效(新→旧截断,与分级无关)
+    with Session(db) as s:
+        assert len(bestof.list_batches(s, user, limit=1)) == 1

@@ -141,6 +141,8 @@ async def _fetch_glb_bytes(source: OpsSource, pool: WorkerPool | None) -> bytes:
     """按 /api/images 同源逻辑取 GLB:resolve_worker 白名单 + 同机 siblings 回退。"""
     if not source.filename.lower().endswith(".glb"):
         raise HTTPException(status_code=422, detail="仅支持 .glb 产物")
+    if pool is not None:
+        await pool.refresh_registry()  # 冷池也要能精确命中 LB 动态成员
     primary = resolve_worker(source.worker)  # 白名单校验,非白名单 4xx
     host = urlsplit(primary.base_url).hostname or ""
     siblings = []

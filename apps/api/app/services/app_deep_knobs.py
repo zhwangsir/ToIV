@@ -290,8 +290,6 @@ def apply_app_loras(
     graph: dict,
     app_id: str,
     values: dict,
-    *,
-    nsfw_intent: bool = False,
 ) -> dict:
     """按应用家族把 values['loras'] 注入图。返回 meta(applied/count/mode)。
 
@@ -320,7 +318,7 @@ def apply_app_loras(
         from app.services.lora_picker import resolve_submit_loras, to_specs
 
         positive = str(values.get("positive") or "")
-        picks, mode, reason = resolve_submit_loras(family, positive, nsfw_intent, None)
+        picks, mode, reason = resolve_submit_loras(family, positive, None)
         specs = to_specs(picks)
         meta["mode"] = mode
         meta["reason"] = reason

@@ -50,7 +50,6 @@ from app.models import (
     AgentTask,
     User,
 )
-from app.redline import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 from app.routes import reverse as reverse_svc
 from app.routes.upload import _validate_upload
@@ -695,7 +694,7 @@ async def task_action(
             raise HTTPException(status_code=404, detail="产物文件已丢失或非本地产物")
         mime = reverse_svc._MIME_FALLBACK[task.kind]
         result = await reverse_svc.reverse_visual(
-            path.read_bytes(), path.name, mime, task.kind, nsfw_allowed(user)
+            path.read_bytes(), path.name, mime, task.kind
         )
         inp = _loads(task.input_json, {})
         # 反推结果整体替换主文案(用户意图=从产物逆向提取提示词);有 negative 才覆盖

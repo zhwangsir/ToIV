@@ -38,6 +38,14 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/api") {
     return { url: apiMock, shortCircuit: true };
   }
+  // 内容策略锁:与 tsconfig paths 同序(锁文件存在用锁,删除后回落 no-op)
+  if (specifier === "@content-lock") {
+    const candidates = ["lib/content-lock.ts", "lib/content-policy.ts"];
+    const found = candidates
+      .map((rel) => path.join(webRoot, rel))
+      .find((abs) => fs.existsSync(abs));
+    return { url: pathToFileURL(found ?? path.join(webRoot, "lib/content-policy.ts")).href, shortCircuit: true };
+  }
   // next 子路径包无 exports 映射,ESM 下需显式 .js(中间件单测 import "next/server")
   if (specifier === "next/server") {
     return nextResolve("next/server.js", context);

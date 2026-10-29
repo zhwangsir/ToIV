@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BunPlugin } from "bun";
 import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 
 let browser: Browser;
@@ -27,6 +28,15 @@ function json(data: unknown) {
     return Response.json({ code: 0, data, msg: "ok" });
 }
 
+// 与 tsconfig paths/@content-lock 和 vite alias 保持一致：锁文件缺失时回落到中性策略。
+function tsconfigAlias(name: string) {
+    const srcDir = resolve(import.meta.dir, "../src");
+    const candidates = [resolve(srcDir, `${name.slice(1)}.ts`), resolve(srcDir, "content-policy.ts")];
+    const found = candidates.find((path) => existsSync(path));
+    if (!found) throw new Error(`missing module for ${name}`);
+    return found;
+}
+
 beforeAll(async () => {
     const plugins: BunPlugin[] = [
         {
@@ -34,6 +44,9 @@ beforeAll(async () => {
             setup(builder) {
                 builder.onResolve({ filter: /^@\// }, (args) => ({
                     path: Bun.resolveSync("../src/" + args.path.slice(2), import.meta.dir),
+                }));
+                builder.onResolve({ filter: /^@content-lock$/ }, () => ({
+                    path: tsconfigAlias("@content-lock"),
                 }));
                 builder.onLoad({ filter: /src\/services\/project-asset-sync\.ts$/ }, () => ({
                     contents: `

@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import "antd/dist/reset.css";
+import "./styles/antd-reset.css";
 import "./styles/toiv-freezone-tokens.css";
 import "@/components/canvas/canvas-node-graph-visual.css";
 import "@/components/create/creation-studio-media-pool.css";

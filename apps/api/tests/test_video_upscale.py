@@ -5,7 +5,7 @@
   · 目标推导四象限:横屏→3840×2160、竖屏→2160×3840、方形按横屏、非法档位报错
   · 画幅方向护栏:横竖不一致即 ValueError(易错点 28)
   · 端点:401 未认证 / 422 非法档位 / 422 非法来源前缀 / 404 无归属产物 /
-    403 R18 产物无专区上下文 / 503 fleet 全挂 / 200 建档秒回(kind/worker/params)
+    R18 产物普通态放行并继承 nsfw / 503 fleet 全挂 / 200 建档秒回(kind/worker/params)
   · 状态与产物端点:进度透出 / 他人作业 404 / 产物 200+206 Range / 非法名 400
   · Job 流程(mock fleet + mock ffmpeg):全成功 done+产物 URL+清帧目录;
     失败帧重试后仍缺失 → error+帧目录保留;断点续跑(已超分帧跳过);竖屏目标推导
@@ -261,26 +261,19 @@ def test_endpoint_images_url_without_sig_and_owner_404(ctx):
     assert r.status_code == 404
 
 
-def test_endpoint_nsfw_source_requires_r18_context(ctx, monkeypatch):
-    """R18 源产物:无 X-NSFW 上下文 → 403;带上下文 → 放行且新作业继承 nsfw。"""
+def test_endpoint_nsfw_source_not_gated(ctx, monkeypatch, tmp_path):
+    """R18 源产物不再按内容态拦截:普通账号也 200,新作业继承 nsfw 标。"""
     client, token, engine, uid, tmp_path = ctx
+    name = "upscale-" + "d" * 32 + ".mp4"
+    (tmp_path / name).write_bytes(_MP4)
+    url = f"/api/video/upscale/output/{name}"
     with Session(engine) as s:
         user = s.get(User, uid)
         s.add(Job(
             tenant_id=user.tenant_id, user_id=uid, prompt_id="p-nsfw",
             worker="http://w", kind="ltx_i2v", status="done", seed=1, nsfw=True,
-            result=json.dumps(["/api/images?filename=nsfw.mp4&worker=http://w"]),
+            result=json.dumps([url]),
         ))
-        s.commit()
-    url = "/api/images?filename=nsfw.mp4&subfolder=&type=output&worker=http://w"
-    r = client.post("/api/video/upscale", headers=_h(token), json={"video_url": url})
-    assert r.status_code == 403
-
-    # D-U1=B:账号成人态放行(X-NSFW 仅审计)
-    with Session(engine) as s:
-        u = s.get(User, uid)
-        u.content_mode = "adult"
-        s.add(u)
         s.commit()
 
     async def healthy(_urls=None):
@@ -289,12 +282,11 @@ def test_endpoint_nsfw_source_requires_r18_context(ctx, monkeypatch):
     monkeypatch.setattr(svc, "healthy_upscale_workers", healthy)
     monkeypatch.setattr(svc, "spawn_upscale", lambda *a, **k: _close_coro(a))
     monkeypatch.setattr(svc, "product_root", lambda: tmp_path)
-    headers = {**_h(token), "X-NSFW": "1"}
-    r = client.post("/api/video/upscale", headers=headers, json={"video_url": url})
+    r = client.post("/api/video/upscale", headers=_h(token), json={"video_url": url})
     assert r.status_code == 200, r.text
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.prompt_id == r.json()["prompt_id"])).first()
-        assert job.nsfw is True
+        assert job is not None and job.nsfw is True
 
 
 def _close_coro(args) -> None:

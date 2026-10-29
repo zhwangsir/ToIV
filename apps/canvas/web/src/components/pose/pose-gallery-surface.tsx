@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
     filterPoseGroups,
     listPoseCategories,
+    listPoseSystems,
     pickDefaultAngle,
     poseImgUrl,
     poseThumbUrl,
@@ -14,7 +15,7 @@ import {
     type PoseEntry,
     type PoseGroup,
 } from "@/lib/pose-catalog";
-import { getR18ModeSnapshot, getServerR18ModeSnapshot, subscribeR18Mode } from "@/redline";
+import { COPY_POSE_SYSTEMS_HIDDEN, getR18ModeSnapshot, getServerR18ModeSnapshot, subscribeR18Mode } from "@/redline";
 
 import "@/components/pose/pose-gallery-surface.css";
 
@@ -89,7 +90,7 @@ export function PoseGallerySurface({
                 <h2 className="toiv-pose-gallery__title">{title}</h2>
                 <p className="toiv-pose-gallery__meta">
                     {meta} · {groups.length} 组
-                    {!adultOn ? " · 成人体系已隐藏" : ""}
+                    {systems.length < listPoseSystems().length && COPY_POSE_SYSTEMS_HIDDEN ? ` · ${COPY_POSE_SYSTEMS_HIDDEN}` : ""}
                 </p>
             </header>
 
@@ -143,7 +144,7 @@ export function PoseGallerySurface({
 
             <div className="toiv-pose-gallery__grid" role="list" aria-label="姿势组">
                 {groups.length === 0 ? (
-                    <div className="toiv-pose-gallery__empty">当前筛选下没有可见姿势（成人体系需切换成人模式）。</div>
+                    <div className="toiv-pose-gallery__empty">当前筛选下没有匹配姿势，请调整关键词或分类。</div>
                 ) : (
                     groups.map((group) => {
                         const entry = pickDefaultAngle(group, angleByGroup[group.key] ?? null);

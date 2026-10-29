@@ -114,7 +114,7 @@ async def generate_ovi_t2v(
     result = await longcat_service.submit_longcat_job(
         graph, kind="ovi_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
-        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 上下文打标(同 longcat 门控语义)
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 意图打标(与 longcat 同一口径)
     )
     return result
 

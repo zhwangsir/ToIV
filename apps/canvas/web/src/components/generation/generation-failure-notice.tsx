@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 
 import { formatGenerationDiagnostics, type GenerationFailureContext, type GenerationFailureExplanation } from "@/lib/generation-error";
 import { navigateToR18SettingsGate } from "@/lib/settings-navigation";
-import { COPY_SWITCH_TO_ADULT } from "@/redline";
+import { COPY_MODE_UPDATED_NEW_ATTEMPT, COPY_RETRY_NEEDS_CHANGED_INPUT, COPY_SWITCH_TO_ADULT, nsfwAllowed } from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
 
 type GenerationFailureNoticeProps = {
@@ -37,13 +37,10 @@ export function GenerationFailureNotice({
     const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
     const diagnostics = formatGenerationDiagnostics(explanation, context);
     const r18On = typeof window !== "undefined" ? isR18Mode() : false;
-    const guideR18 = explanation.guideEnableR18 && !r18On;
-    const adultGate =
-        explanation.category === "r18_context_required" ||
-        explanation.category === "route_guard_adult" ||
-        explanation.slot === "route_guard_adult";
-    const contextUpdated = adultGate && r18On;
-    const policyRetry = Boolean(onRetry) && (explanation.moderation || adultGate) && !retryDisabled;
+    const guideR18 = explanation.guideEnableR18 && !nsfwAllowed();
+    const adultGate = explanation.contentGate && explanation.slot === "route_guard_adult";
+    const contextUpdated = adultGate && r18On && Boolean(COPY_MODE_UPDATED_NEW_ATTEMPT);
+    const policyRetry = Boolean(onRetry) && explanation.contentGate && !retryDisabled;
     const fingerprintBlocked = retryBlockedByFingerprint !== false;
     const showNewAttempt = policyRetry && !fingerprintBlocked;
     const showBlockedRetry = policyRetry && fingerprintBlocked;
@@ -143,11 +140,11 @@ export function GenerationFailureNotice({
             ) : null}
             <p className="generation-failure-reason">{explanation.reason}</p>
             {contextUpdated ? (
-                <p className="generation-failure-action">模式已更新 · 改输入后新建尝试</p>
+                <p className="generation-failure-action">{COPY_MODE_UPDATED_NEW_ATTEMPT}</p>
             ) : explanation.action ? (
                 <p className="generation-failure-action">{explanation.action}</p>
             ) : null}
-            {showBlockedRetry ? <p className="generation-failure-hint">请先修改提示词或参考</p> : null}
+            {showBlockedRetry && COPY_RETRY_NEEDS_CHANGED_INPUT ? <p className="generation-failure-hint">{COPY_RETRY_NEEDS_CHANGED_INPUT}</p> : null}
             <div className="generation-failure-actions">
                 {guideR18 ? (
                     <button

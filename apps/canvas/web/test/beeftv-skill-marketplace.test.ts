@@ -9,8 +9,8 @@ test("unfinished Skill marketplace routes stay unavailable in the public workspa
         source("../src/router.tsx"),
         source("../src/components/layout/workspace-sidebar-nav.tsx"),
     ]);
-    expect(router).toContain('{ path: "/skill", element: <Navigate to="/" replace /> }');
-    expect(router).toContain('{ path: "/skills", element: <Navigate to="/" replace /> }');
+    expect(router).toContain('{ path: "/skill", element: <Navigate to="/create" replace /> }');
+    expect(router).toContain('{ path: "/skills", element: <Navigate to="/create" replace /> }');
     expect(router).not.toContain("SkillsReferencePage");
     expect(router).not.toContain("SkillsPage");
     expect(sidebar).not.toContain('id: "skill", title: "Skill"');

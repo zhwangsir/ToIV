@@ -505,27 +505,25 @@ def test_run_continue_probe_fallback_to_project(ctx, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# R18 回归(2026-08-08):续写段 nsfw 门控 + 打标传播
-# 修复前 continue-video 硬编码 nsfw=False:R18 分镜续写产物漏进主站作品库,
-# 且入口无 _gate_ltx_nsfw,主站可借续写绕过 G1。判定来源与 generate-video
-# 同一套(请求体 nsfw 字段 + X-NSFW 头门控,10Eros 底模分流)。
+# R18 回归(2026-08-08;2026-10-29 改为元数据口径):续写段 nsfw 打标传播
+# 请求体 nsfw 字段决定段图底模(10Eros)与 Job.nsfw 标;后端不做内容态门控,
+# 限制只在前端锁。
 # ---------------------------------------------------------------------------
 
 
-def test_continue_nsfw_blocked_without_x_nsfw(ctx):
-    """continue-video:nsfw=true 无 X-NSFW 头 → 403,分镜状态不被置 continuing。"""
+def test_continue_nsfw_allowed_without_x_nsfw(ctx, monkeypatch):
+    """continue-video:普通账号 + 无 X-NSFW 头也可续写(限制只在前端锁)。"""
     client, token, engine, pid, sid, _ = ctx
+    monkeypatch.setattr(drama_studio_route, "_spawn", _close_coro)
     r = client.post(
         f"/api/drama/shots/{sid}/continue-video",
         headers=_h(token),
-        json={"nsfw": True},
+        json={"nsfw": True, "segments": 1},
     )
-    assert r.status_code == 403, r.text
-    assert "R18" in r.json()["detail"]
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "continuing"
     with Session(engine) as s:
-        shot = s.get(DramaShot, sid)
-        assert shot.continue_status == ""  # 门控先于状态置位,无副作用
-        assert s.exec(select(Job)).all() == []
+        assert s.get(DramaShot, sid).continue_status == "continuing"
 
 
 def test_continue_nsfw_allowed_with_x_nsfw(ctx, monkeypatch):

@@ -24,6 +24,12 @@ func (h *Host) EffectiveConfig() (HostConfig, bool) {
 			config.HostCommand = bundled.HostCommand
 			config.HostArgs = bundled.HostArgs
 			configured = true
+		} else if sibling := SiblingAgentHost(h.executablePath(), workingDir(), h.goos()); sibling.HostCommand != "" {
+			// 源码/自托管布局没有应用包:agent-host 就在检出的 apps/canvas 下,
+			// 不发现它的话本地面板只会得到 host_start_failed,功能静默缺失。
+			config.HostCommand = sibling.HostCommand
+			config.HostArgs = sibling.HostArgs
+			configured = true
 		}
 	}
 	return config, configured
@@ -82,6 +88,10 @@ func BundledConfig(executable, goos string) HostConfig {
 		root = filepath.Join(filepath.Dir(executable), "agent-host")
 		node = filepath.Join(root, "runtime", "node.exe")
 	}
+	return bundledHostConfig(root, node)
+}
+
+func bundledHostConfig(root, node string) HostConfig {
 	entry := filepath.Join(root, "server.mjs")
 	for _, file := range []string{node, entry} {
 		if info, err := os.Stat(file); err != nil || info.IsDir() {
@@ -89,4 +99,73 @@ func BundledConfig(executable, goos string) HostConfig {
 		}
 	}
 	return HostConfig{HostCommand: node, HostArgs: []string{entry}}
+}
+
+// SiblingAgentHost 解析源码/自托管布局：agent-host 目录在可执行文件旁（bin/ 的上跳）
+// 或工作目录旁（go run ./cmd/server 从 backend/ 启动）。
+//
+// 与 BundledConfig 的区别：随包运行时缺失时允许用 run-agent-host.sh，
+// 由它在机器上没有 Node 时明确报错——这层回退只属于开发者自己的机器，
+// 应用包布局仍然只认 runtime/ 里的固定 Node。
+func SiblingAgentHost(executable, cwd, goos string) HostConfig {
+	for _, dir := range siblingHostDirs(executable, cwd) {
+		node := filepath.Join(dir, "runtime", "bin", "node")
+		if goos == "windows" {
+			node = filepath.Join(dir, "runtime", "node.exe")
+		}
+		if config := bundledHostConfig(dir, node); config.HostCommand != "" {
+			return config
+		}
+		if goos == "windows" {
+			continue // run-agent-host.sh 是 POSIX 脚本
+		}
+		runner := filepath.Join(dir, "run-agent-host.sh")
+		if runnerExecutable(runner) && fileExists(filepath.Join(dir, "server.mjs")) {
+			return HostConfig{HostCommand: runner}
+		}
+	}
+	return HostConfig{}
+}
+
+func siblingHostDirs(executable, cwd string) []string {
+	roots := make([]string, 0, 5)
+	if strings.TrimSpace(executable) != "" {
+		dir := filepath.Dir(executable)
+		roots = append(roots, dir, filepath.Dir(dir), filepath.Dir(filepath.Dir(dir)))
+	}
+	if strings.TrimSpace(cwd) != "" {
+		roots = append(roots, cwd, filepath.Dir(cwd))
+	}
+	dirs := make([]string, 0, len(roots))
+	seen := make(map[string]bool, len(roots))
+	for _, root := range roots {
+		if root == "." || root == string(filepath.Separator) || root == "" {
+			continue
+		}
+		dir := filepath.Join(root, "agent-host")
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		dirs = append(dirs, dir)
+	}
+	return dirs
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func runnerExecutable(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0
+}
+
+func workingDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return dir
 }

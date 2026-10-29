@@ -36,12 +36,12 @@ class User(SQLModel, table=True):
     # [DEPRECATED] 遗留 R18 账户软开关:历史记录保留;判定改走 content_mode。
     nsfw_enabled: bool = False
     # 账号全局内容模式(2026-10-26 TL):ordinary|adult,默认 ordinary。
-    # 后端 403 / nsfw_allowed 唯一判据;X-NSFW 仅审计。未成年硬关优先,不得被成人态覆盖。
+    # P0-5 R5:后端不据此 403;限制只在画布前端锁。X-NSFW 仅审计。
     content_mode: str = Field(default="ordinary", index=True)
     # 模式切换时间(多设备 ≤30s 一致:客户端轮询 /auth/me 或 /account/content-mode)。
     content_mode_updated_at: Optional[datetime] = Field(default=None, index=True)
-    # 出生日期(可选,空=未填写)。用于未成年防护硬阻断:nsfw_allowed 与
-    # content_mode 切换均会校验,未成年一律不可见 R18。空视为成年以兼容老数据。
+    # 出生日期(可选,空=未填写;空视为成年以兼容老数据)。
+    # 仅经 /auth/me 只读透出,供前端做未成年判定;后端不据此 403。
     birthdate: Optional[date] = Field(default=None, index=True)
     # 当前默认智能体 id(顶栏全局默认;为空=走 kind 默认系统提示)。见 Agent 表。
     # 外键不强制(删除 agent 时此处自然失效, optimize 端兜底为 kind 默认)。
@@ -344,7 +344,7 @@ class Agent(SQLModel, table=True):
 # (对标 RunningHub):params_schema 声明表单字段,bindings 把字段值映射到图内
 # 指定节点的 inputs/widgets_values 叶子,运行时校验表单 → 写图 → 提交。
 # 可见性同 Agent 三区:内置(is_builtin)/ 公共(user_id 空,admin 建)/ 个人
-# (fork 自市场,user_id=属主);is_nsfw 应用仅 R18 上下文可见/可运行。
+# (fork 自市场,user_id=属主);is_nsfw 只是内容标(元数据),后端不过滤。
 # ---------------------------------------------------------------------------
 
 
@@ -668,7 +668,7 @@ class Entity(SQLModel, table=True):
     # 数字人形象(kind=avatar)扩展(归并自 ReferenceAsset,2026-08-29):
     green_screen: bool = False  # 绿幕素材标记(抠像/合成工作流用)
     ref_audio: str = ""  # 形象默认音色参考音频 URL(可空)
-    nsfw: bool = False  # R18 主体:SFW 上下文(无 X-NSFW 头)查询过滤(预留,消费侧下轮)
+    nsfw: bool = False  # R18 主体:内容标(元数据,后端不过滤)
     # 三视图生成状态(异步回写,同 DramaCharacter 模式):"" / generating / done / error
     reference_status: str = ""
     reference_error: str = ""
@@ -911,7 +911,7 @@ class ReferenceAsset(SQLModel, table=True):
     # 参考图句柄列表 list[{filename, worker}]。选 JSON 列而非关联表:
     # 数量硬上限 4 张、无独立生命周期、不跨资产复用,关联表纯属过度设计。
     images: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
-    nsfw: bool = False  # R18 资产:SFW 上下文(无 X-NSFW 头)查询时过滤
+    nsfw: bool = False  # R18 资产:内容标(元数据,后端不过滤)
     # 数字人形象(kind=avatar,对标 aigcpanel「我的形象」)扩展两列:
     green_screen: bool = False  # 绿幕素材标记(后续抠像/合成工作流用)
     ref_audio: str = ""  # 形象默认音色参考音频 URL(可空;空=合成时用默认音色)
@@ -989,13 +989,13 @@ class AgentApproval(SQLModel, table=True):
 
 
 class AgentSession(SQLModel, table=True):
-    """一次对话会话(AssistantView 对话流)。nsfw=True 的会话仅 R18 上下文可见
-    (对齐 Job 过滤语义,见 routes/agent.py 与 redline.nsfw_allowed)。"""
+    """一次对话会话(AssistantView 对话流)。nsfw 只是建档时的内容标(元数据),
+    后端不据此过滤列表或详情。"""
 
     id: str = Field(default_factory=_uid, primary_key=True)
     user_id: str = Field(index=True)
     title: str = ""  # 首条 user 消息前 30 字自动生成
-    nsfw: bool = False  # 建档时按请求上下文(X-NSFW)决定
+    nsfw: bool = False  # 建档时的账号内容标(元数据,后端不过滤)
     # 深度接管:待确认的提案(JSON 字符串,可空)。propose_plan 工具写入
     # (status=pending),/agent/chat/resume 确认/修改/拒绝后改写 status 保留存根。
     pending_proposal: Optional[str] = Field(default=None)
@@ -1046,7 +1046,7 @@ class EvalBatch(SQLModel, table=True):
     scorer: str = "auto"  # 请求指定的评分器:auto | heuristic | vlm
     status: str = "generating"  # generating | scoring | done
     winner_job_id: str = ""
-    nsfw: bool = False  # 建档时按请求上下文(X-NSFW)打标,查询对齐 Job 过滤语义
+    nsfw: bool = False  # 建档时打的内容标(元数据,后端不过滤)
     created_at: datetime = Field(default_factory=_now, index=True)
     updated_at: datetime = Field(default_factory=_now)
 

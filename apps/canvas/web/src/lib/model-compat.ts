@@ -342,7 +342,6 @@ export function queryCompat(opts: {
     slot?: CompatSlot;
     minConfidence?: CompatConfidence;
     includeTriggers?: boolean;
-    excludeNsfw?: boolean;
     allowDegraded?: boolean;
 }): CompatQueryResult {
     const minConf = opts.minConfidence ?? "B";
@@ -367,8 +366,6 @@ export function queryCompat(opts: {
             if (st === "incompatible") continue;
             if (st === "unknown" && !isH3ExclusiveLora(inv.id, inv)) continue;
         }
-
-        if (opts.excludeNsfw && inv.nsfw) continue;
 
         const row = INDEX.byLora.get(inv.id);
         let status: CompatStatus;

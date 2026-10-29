@@ -47,7 +47,7 @@
   --toiv-accent-cyan-hover: var(--toiv-accent-interactive-hover, var(--toiv-accent-hover));
   --toiv-accent-cyan-soft: var(--toiv-accent-interactive-soft, var(--toiv-accent-soft));
   --toiv-primary: var(--toiv-accent); /* A6: form CTA = accent */
-  --toiv-text-on-accent: #f4f6f7;
+  --toiv-text-on-accent: #0b0c0f; /* AA: 暗墨字在 accent 上对比 4.7:1（白字仅 3.8） */
   /* legacy alias used by landing bridge before rename */
   --toiv-accent-secondary: var(--toiv-accent);
   --toiv-accent-secondary-rgb: var(--toiv-accent-rgb);

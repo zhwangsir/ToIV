@@ -297,8 +297,14 @@ def test_images_nsfw_gate_ordinary_404_adult_ok(ctx, monkeypatch):
         async def get_image_bytes(self, *a, **k):
             return b"PNGDATA", "image/png"
 
+    class _Pool:
+        clients: list = []
+
+        async def refresh_registry(self):
+            return None
+
     monkeypatch.setattr("app.routes.images.resolve_worker", lambda w: _Worker())
-    app.dependency_overrides[get_pool] = lambda: type("P", (), {"clients": []})()
+    app.dependency_overrides[get_pool] = lambda: _Pool()
 
     sig = image_sig(filename, "", "output", worker)
     path = (

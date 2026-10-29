@@ -1,5 +1,5 @@
 import { File, Loader2, Music, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ToivEmptyState } from "@/components/toiv/toiv-empty-state";
 import { ToolButton } from "@/components/ui/base/buttons";
@@ -52,6 +52,60 @@ function statusLabel(job: ToivWorkJob): { text: string; tone: "ok" | "run" | "er
     if (job.status === "error" || job.status === "failed") return { text: "失败", tone: "err" };
     if (job.status === "processing" || job.status === "queued" || job.status === "running") return { text: "生成中", tone: "run" };
     return { text: job.status || "—", tone: "run" };
+}
+
+/**
+ * 作品封面。产物文件可能已被 worker 清理（/api/images 回 502），
+ * 媒体元素加载失败时必须退成可读占位，而不是留一块空白。
+ * 502 多为 worker 饱和期的瞬态错误，先隔 4s 重试一次再判死。
+ */
+function WorkCover({ cover }: { cover: string }) {
+    const kind = mediaKind(cover);
+    const [src, setSrc] = useState(() => (kind === "image" ? toivCoverImageUrl(cover) : toivMediaUrl(cover)));
+    const [broken, setBroken] = useState(false);
+    const retriedRef = useRef(false);
+    const retryTimerRef = useRef<number | undefined>(undefined);
+    useEffect(() => () => window.clearTimeout(retryTimerRef.current), []);
+
+    const onError = () => {
+        if (!retriedRef.current) {
+            retriedRef.current = true;
+            retryTimerRef.current = window.setTimeout(() => {
+                setSrc((prev) => `${prev}${prev.includes("?") ? "&" : "?"}r=1`);
+            }, 4000);
+            return;
+        }
+        setBroken(true);
+    };
+
+    if (broken) {
+        return (
+            <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                <File className="size-6" aria-hidden="true" />
+                产物暂不可取
+            </div>
+        );
+    }
+    if (kind === "video") {
+        return <video src={src} muted preload="metadata" playsInline onError={onError} className="size-full object-cover" />;
+    }
+    if (kind === "audio") {
+        return (
+            <div className="flex size-full flex-col items-center justify-center gap-2 px-3">
+                <Music className="size-7 text-muted-foreground" aria-hidden="true" />
+                <audio src={src} controls preload="none" onError={onError} className="w-full max-w-56" />
+            </div>
+        );
+    }
+    if (kind === "image") {
+        return <img src={src} alt="" loading="lazy" onError={onError} className="size-full object-cover" />;
+    }
+    return (
+        <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+            <File className="size-6" aria-hidden="true" />
+            {cover ? "该类型不提供预览" : "无预览"}
+        </div>
+    );
 }
 
 export default function LibraryWorks() {
@@ -179,7 +233,6 @@ export default function LibraryWorks() {
                     {visible.map((job) => {
                         const st = statusLabel(job);
                         const cover = (Array.isArray(job.results) ? job.results[0] : undefined) ?? "";
-                        const mediaKind_ = mediaKind(cover);
                         return (
                             <div
                                 key={job.id}
@@ -191,37 +244,10 @@ export default function LibraryWorks() {
                                     aria-label={`预览作品 ${job.id.slice(0, 8)}`}
                                     className="block aspect-video w-full cursor-zoom-in overflow-hidden bg-black/20 text-left"
                                 >
-                                    {cover && mediaKind_ === "video" ? (
-                                        <video src={toivMediaUrl(cover)} muted preload="metadata" className="size-full object-cover" />
-                                    ) : cover && mediaKind_ === "audio" ? (
-                                        <div className="flex size-full flex-col items-center justify-center gap-2 px-3">
-                                            <Music className="size-7 text-muted-foreground" aria-hidden="true" />
-                                            <audio src={toivMediaUrl(cover)} controls preload="none" className="w-full max-w-56" />
-                                        </div>
-                                    ) : cover && mediaKind_ === "image" ? (
-                                        <img
-                                            src={toivCoverImageUrl(cover)}
-                                            alt=""
-                                            loading="lazy"
-                                            className="size-full object-cover"
-                                            onError={(e) => {
-                                                // 永不露碎图:加载失败退成占位块(原生碎图标对用户零信息量)。
-                                                // worker 饱和期 /api/images 代理会 502(瞬态),先延迟重试一次再退占位。
-                                                const el = e.currentTarget;
-                                                if (!el.dataset.retried) {
-                                                    el.dataset.retried = "1";
-                                                    const src = el.src;
-                                                    window.setTimeout(() => { el.src = `${src}${src.includes("?") ? "&" : "?"}r=1`; }, 4000);
-                                                    return;
-                                                }
-                                                el.style.display = "none";
-                                                el.dataset.broken = "1";
-                                            }}
-                                        />
-                                    ) : (
+                                    {cover ? <WorkCover key={job.id} cover={cover} /> : (
                                         <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
                                             <File className="size-6" aria-hidden="true" />
-                                            {cover ? "该类型不提供预览" : "无预览"}
+                                            无预览
                                         </div>
                                     )}
                                 </button>

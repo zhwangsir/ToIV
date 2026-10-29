@@ -1,0 +1,378 @@
+{
+  "audit_id": "LICENSE-AUDIT-20261029",
+  "generated_at": "2026-10-29T15:10:00+08:00",
+  "scope": "ToIV 单仓：apps/canvas、apps/api、apps/web、apps/admin 的代码来源/许可归属；docs/MODEL_SOURCES.json 登记的 NAS 模型权重；生产链实际引用的模型家族。",
+  "method": [
+    "git ls-files / git check-ignore 区分「入仓代码」与「仅本地对照源码」",
+    "对入仓文件读取 LICENSE/NOTICE/文件头归属声明",
+    "git grep 扫描入仓源码中的受限许可标记（AGPL/Affero/Elastic/SAL/CC-BY-NC/SSPL），排除 docs 与 third_party/licenses",
+    "docs/MODEL_SOURCES.json 统计 license_or_gated 字段覆盖率与状态分布",
+    "GitHub REST /repos 读取上游仓 license.spdx_id（2026-10-29 实查，非文档转述）",
+    "生产模型家族按 ledger repo 字段归类，核对上游仓许可；HF 直连不可达，HF-only 权重标记未核实"
+  ],
+  "conclusion": {
+    "zero_licensing_risk_claim": false,
+    "summary": "入仓代码侧未发现受限许可代码并入；模型权重侧许可账本几乎为空（1056 条中仅 48 条有许可/门禁标注），且有 2 个生产必需上游使用自定义许可（HunyuanVideo、IndexTTS-2），故不能宣称零许可风险。",
+    "blockers_for_zero_risk": [
+      "HunyuanVideo(H3 生产链)与 IndexTTS-2(TTS 生产链)上游为自定义许可，原文未逐条读过",
+      "MODEL_SOURCES.json 1056 条中 1008 条无许可字段、384 条来源未定位(blocked)",
+      "HF 不可达导致 Kijai/Comfy-Org 转包权重、GGUF/abliterated 派生的许可无法逐仓核实",
+      "仓库根无 LICENSE：ToIV 自研面(apps/api、apps/web、apps/admin)目前未声明对外授权"
+    ]
+  },
+  "code": {
+    "product_license": {
+      "path": "apps/canvas",
+      "license": "MIT",
+      "license_file": "apps/canvas/LICENSE",
+      "notice_file": "apps/canvas/NOTICE",
+      "third_party_notices": "apps/canvas/THIRD_PARTY_NOTICES.md",
+      "upstream": {
+        "name": "Infinite Canvas (basketikun/infinite-canvas)",
+        "base_version": "v0.5.0",
+        "base_commit": "568f0f1838df8de31fe885a4e130e2f346dd14ab",
+        "relicensed_to_mit_at": "890ba95858bbb13496d23978003716656109abb2"
+      },
+      "note": "BeefTV 已从 SAL 口径完成 MIT 重授权并在 NOTICE 记录上游；早期 R1 闸里的 SAL 结论已被仓内 LICENSE 取代。"
+    },
+    "monorepo_root_license": null,
+    "absorbed_into_canvas": [
+      {
+        "upstream": "HBAI-Ltd/Toonflow-app",
+        "license": "MIT",
+        "commit": "30139c931e80476caa718b31684b86383c6e83ce",
+        "files": [
+          "apps/canvas/web/src/lib/absorb/toonflow/arrange-selection.ts",
+          "apps/canvas/web/src/lib/absorb/toonflow/floating-agent-geometry.ts",
+          "apps/canvas/web/src/lib/absorb/toonflow/index.ts"
+        ],
+        "notice": "apps/canvas/web/src/lib/absorb/toonflow/NOTICE",
+        "license_text": "third_party/licenses/toonflow-MIT.txt",
+        "attribution_headers": "3/3（2026-10-29 补齐 index.ts 头注）"
+      },
+      {
+        "upstream": "alibaba/lumenx",
+        "license": "MIT",
+        "commit": "f2a02e23171447c939e7d8e1386b24d17049bbf1",
+        "files": [
+          "apps/canvas/web/src/lib/absorb/lumenx/character-image.ts",
+          "apps/canvas/web/src/lib/absorb/lumenx/three-view-lock.ts",
+          "apps/canvas/web/src/lib/absorb/lumenx/index.ts"
+        ],
+        "notice": "apps/canvas/web/src/lib/absorb/lumenx/NOTICE",
+        "license_text": ".wave2-absorb-src/lumenx/LICENSE（仅本地，不入仓）",
+        "attribution_headers": "3/3（2026-10-29 补齐 index.ts 头注）"
+      }
+    ],
+    "ported_or_design_adopted_in_api": [
+      {
+        "target": "apps/api/app/services/edit_view.py",
+        "upstream": "browser-use/video-use",
+        "license": "MIT",
+        "mode": "移植并改编",
+        "evidence": "文件头注明 upstream 与 MIT 版权"
+      },
+      {
+        "target": "apps/api/app/services/edit_pack.py",
+        "upstream": "browser-use/video-use",
+        "license": "MIT",
+        "mode": "已收编为 media/packed_transcript.py 单一源，本文件为兼容面",
+        "evidence": "文件头说明不再重复实现 video-use 同类逻辑"
+      },
+      {
+        "target": "apps/api/app/services/svml_lite.py / svml_timeline.py",
+        "upstream": "hypit-ai/hypit",
+        "license": "modified Apache-2.0（单租户）",
+        "mode": "语法与投影语义借鉴，仓内重实现",
+        "evidence": "文件头注明设计来源与许可；third_party/licenses/hypit-modified-Apache.txt 入仓"
+      },
+      {
+        "target": "apps/api/app/routes/drama_scenes.py / models.py scene_asset",
+        "upstream": "dramaclaw/dramaclaw",
+        "license": "Elastic-2.0",
+        "mode": "设计采纳，未复制代码",
+        "evidence": "源码注释明写「设计采纳,未复制其代码」"
+      },
+      {
+        "target": "apps/api/app/services/studio/export_timeline.py / jianying_draft.py",
+        "upstream": "无（原创）",
+        "license": "ToIV",
+        "mode": "自研拼装，显式声明不拷贝 AGPL/GPL 草稿库",
+        "evidence": "文件内 license_note"
+      }
+    ],
+    "reference_trees_not_in_git": {
+      "paths": [
+        ".wave2-absorb-src/",
+        "third_party/dramaclaw/",
+        "third_party/hypit/",
+        "third_party/toonflow/",
+        "third_party/video-use/",
+        "third_party/reference-repos/"
+      ],
+      "status": "全部 gitignore 且 git ls-files 为空；仅用于本地对照，不随仓分发"
+    },
+    "tracked_license_texts": [
+      "third_party/licenses/dramaclaw-Apache-2.0.txt",
+      "third_party/licenses/dramaclaw-Elastic-2.0.txt",
+      "third_party/licenses/dramaclaw-NOTICE.txt",
+      "third_party/licenses/hypit-modified-Apache.txt",
+      "third_party/licenses/toonflow-MIT.txt",
+      "third_party/licenses/video-use-MIT.txt"
+    ],
+    "copyleft_or_restricted_components": [
+      {
+        "component": "@ffmpeg/core (ffmpeg.wasm)",
+        "license": "GPL-2.0-or-later",
+        "distribution": "随 web dist 打包",
+        "obligation": "对外分发二进制时须履行 GPL 源码提供与声明；本机自用不触发分发义务",
+        "disclosed_in": "apps/canvas/THIRD_PARTY_NOTICES.md"
+      },
+      {
+        "component": "ComfyUI（workstation 运行时，GPL-3.0）",
+        "license": "GPL-3.0",
+        "distribution": "外部服务，不入仓不分发",
+        "obligation": "作为独立进程提供服务，不构成并入；若随产品分发需另行评估"
+      },
+      {
+        "component": "ffmpeg CLI（workstation/core 服务端）",
+        "license": "构建相关（LGPL/GPL）",
+        "distribution": "外部二进制，不分发"
+      }
+    ],
+    "restricted_marker_scan": {
+      "command": "git grep -E 'AGPL|Affero|Elastic License|Sustainable Use License|CC BY-NC|Server Side Public License'（排除 docs/、third_party/licenses/、.archive/）",
+      "code_hits": 0,
+      "doc_hits": "命中均在策略文档/STATE/TEST_LOG 与「未拷贝」声明中",
+      "limitation": "标记扫描只能发现显式许可头，不能作为未抄码的充分证明"
+    }
+  },
+  "models": {
+    "ledger": {
+      "path": "docs/MODEL_SOURCES.json",
+      "updated_at": "2026-10-27T05:16:04+08:00",
+      "items": 1056,
+      "status": {
+        "ok": 671,
+        "blocked": 384
+      },
+      "license_field_populated": 48,
+      "license_field_empty": 1008,
+      "named_licenses": {
+        "apache-2.0": 3,
+        "CC-BY-NC-4.0(Bria/RMBG-2.0)": 1
+      },
+      "other_values": "其余 44 条为 Civitai 授权位（credit/derivatives/allowCommercialUse）、gated 标注或镜像状态，不是 SPDX 许可名"
+    },
+    "production_families": [
+      {
+        "family": "Wan2.2 视频(含 t2v/i2v)",
+        "ledger_items": 84,
+        "upstream_repos": [
+          "Wan-Video/Wan2.2",
+          "Kijai/WanVideo_comfy",
+          "Kijai/WanVideo_comfy_fp8_scaled",
+          "lightx2v/Wan2.2-Lightning"
+        ],
+        "upstream_license_verified": "Apache-2.0 (Wan-Video/Wan2.2)",
+        "unverified_derivatives": "Kijai 转包与 Lightning LoRA 的仓库级许可未逐仓核实"
+      },
+      {
+        "family": "H3 (HunyuanVideo)",
+        "ledger_items": 3,
+        "upstream_repos": [
+          "Tencent-Hunyuan/HunyuanVideo",
+          "Kijai/HunyuanVideo_comfy"
+        ],
+        "upstream_license_verified": "NOASSERTION（自定义 Tencent Hunyuan 社区许可）",
+        "risk": "自定义许可含地域/规模条款，未逐条读过"
+      },
+      {
+        "family": "LongCat-Video",
+        "ledger_items": 5,
+        "upstream_repos": [
+          "meituan-longcat/LongCat-Video"
+        ],
+        "upstream_license_verified": "MIT"
+      },
+      {
+        "family": "Wan-Animate-2",
+        "ledger_items": 13,
+        "upstream_repos": [
+          "Wan-AI/Wan2.2-Animate-14B",
+          "QuantStack/Wan2.2-Animate-14B-GGUF"
+        ],
+        "upstream_license_verified": "未核实（GitHub 无对应仓；HF 不可达）"
+      },
+      {
+        "family": "Qwen-Image-Edit / Qwen-Image",
+        "ledger_items": 68,
+        "upstream_repos": [
+          "QwenLM/Qwen-Image",
+          "Comfy-Org/Qwen-Image-Edit_ComfyUI",
+          "lightx2v/Qwen-Image-Lightning"
+        ],
+        "upstream_license_verified": "Apache-2.0 (QwenLM/Qwen-Image)",
+        "unverified_derivatives": "Comfy-Org 转包与 Lightning LoRA 未逐仓核实"
+      },
+      {
+        "family": "Qwen3-VL (VLM 生产)",
+        "ledger_items": 10,
+        "upstream_repos": [
+          "Qwen/Qwen3-VL-8B-Instruct",
+          "QwenLM/Qwen3-VL"
+        ],
+        "upstream_license_verified": "Apache-2.0 (QwenLM/Qwen3-VL)",
+        "note": "现网 VLM 服务用 Qwen3-VL-8B-Instruct；ledger 另有 abliterated GGUF 派生，许可继承但派生仓未核实"
+      },
+      {
+        "family": "IndexTTS-2 (TTS 生产)",
+        "ledger_items": 1,
+        "upstream_repos": [
+          "IndexTeam/IndexTTS-2"
+        ],
+        "upstream_license_verified": "NOASSERTION（自定义许可）",
+        "risk": "自定义许可条款未读，商用/分发前必须核"
+      },
+      {
+        "family": "whisper (ASR 生产)",
+        "ledger_items": 1,
+        "upstream_repos": [
+          "openai/whisper"
+        ],
+        "upstream_license_verified": "MIT",
+        "note": "现网跑 whisper-mlx 实现，属独立实现，另需核其许可"
+      },
+      {
+        "family": "demucs (分离生产)",
+        "ledger_items": 1,
+        "upstream_repos": [
+          "facebookresearch/demucs"
+        ],
+        "upstream_license_verified": "MIT"
+      },
+      {
+        "family": "Lightning/加速 LoRA",
+        "ledger_items": 14,
+        "upstream_repos": [
+          "ModelTC/LightX2V",
+          "lightx2v/*"
+        ],
+        "upstream_license_verified": "Apache-2.0 (ModelTC/LightX2V)",
+        "unverified_derivatives": "具体 LoRA 权重仓许可未逐仓核实"
+      }
+    ],
+    "noncommercial_weights_present": [
+      {
+        "model": "RMBG-2.0 (Bria)",
+        "license": "CC-BY-NC-4.0",
+        "ledger_ref": "apps/api/app/data/model_sources.json:8188",
+        "usage": "仅社区应用链路的 easy imageRemBg 节点；apps/api/app/routes/apps.py:1515 将其 remap 到 RMBG-1.4（同为 Bria 非商用）",
+        "impact": "用户跑该类应用产出内容不可商用；不在默认创作主链"
+      }
+    ]
+  },
+  "risks": [
+    {
+      "id": "R-1",
+      "severity": "medium",
+      "item": "仓库根无 LICENSE，ToIV 自研面（apps/api、apps/web、apps/admin）未声明对外授权",
+      "evidence": "根目录无 LICENSE/NOTICE；仅 apps/canvas 有",
+      "mitigation": "若要公开发布，先在根加 LICENSE 与 NOTICE，并在五件套标注许可口径"
+    },
+    {
+      "id": "R-2",
+      "severity": "resolved",
+      "item": "两个 absorb/index.ts 纯 re-export 桶无归属头注",
+      "evidence": "apps/canvas/web/src/lib/absorb/{toonflow,lumenx}/index.ts",
+      "mitigation": "已补：两个 index.ts 各加一行归属头注（2026-10-29）"
+    },
+    {
+      "id": "R-3",
+      "severity": "medium",
+      "item": "生产链两个自定义许可未读原文：HunyuanVideo(H3)、IndexTTS-2",
+      "evidence": "GitHub API license.spdx_id = NOASSERTION",
+      "mitigation": "分发/商用前逐条读 LICENSE；本地自用可先跑"
+    },
+    {
+      "id": "R-4",
+      "severity": "medium",
+      "item": "web dist 打包 GPL-2.0-or-later 的 @ffmpeg/core",
+      "evidence": "apps/canvas/THIRD_PARTY_NOTICES.md 已披露",
+      "mitigation": "本机自用不触发；对外分发需提供对应源码与 GPL 声明，或改用非 GPL 构建"
+    },
+    {
+      "id": "R-5",
+      "severity": "medium",
+      "item": "模型许可账本不完整：1008/1056 条无许可字段，384 条来源未定位",
+      "evidence": "docs/MODEL_SOURCES.json totals",
+      "mitigation": "生产默认链已按家族核实上游；NAS 长尾权重在使用前逐条补 source+license"
+    },
+    {
+      "id": "R-6",
+      "severity": "low",
+      "item": "Bria RMBG-1.4/2.0 非商用许可存在，社区应用链路可触达",
+      "evidence": "apps/api/app/routes/apps.py:1513-1522；model_sources.json:8188",
+      "mitigation": "保持「非默认链」现状；商用场景替换为可商用抠图模型"
+    },
+    {
+      "id": "R-7",
+      "severity": "low",
+      "item": "Kijai/Comfy-Org 转包、GGUF/abliterated 派生的许可未逐仓核实（HF 不可达）",
+      "evidence": "ledger repo 字段；HF 直连被阻断",
+      "mitigation": "恢复 HF 通路或经镜像读 LICENSE 后回填 ledger"
+    }
+  ],
+  "sources_checked": [
+    {
+      "repo": "Wan-Video/Wan2.2",
+      "spdx_id": "Apache-2.0",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "QwenLM/Qwen-Image",
+      "spdx_id": "Apache-2.0",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "QwenLM/Qwen3-VL",
+      "spdx_id": "Apache-2.0",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "meituan-longcat/LongCat-Video",
+      "spdx_id": "MIT",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "facebookresearch/demucs",
+      "spdx_id": "MIT",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "openai/whisper",
+      "spdx_id": "MIT",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "ModelTC/LightX2V",
+      "spdx_id": "Apache-2.0",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "Tencent-Hunyuan/HunyuanVideo",
+      "spdx_id": "NOASSERTION",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "index-tts/index-tts",
+      "spdx_id": "NOASSERTION",
+      "checked_at": "2026-10-29"
+    },
+    {
+      "repo": "Comfy-Org/ComfyUI",
+      "spdx_id": "GPL-3.0",
+      "checked_at": "2026-10-29"
+    }
+  ]
+}

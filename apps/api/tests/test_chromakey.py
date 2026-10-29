@@ -5,7 +5,7 @@
     chromakey 滤镜串(key_color/similarity/blend)、overlay shortest=1、音轨透传
   · 契约校验:401 未认证 / image 缺 background_url 400 / 背景非白名单 400 /
     key_color、similarity 非法 422 / 前景来源前缀非法 422
-  · 前景:下载失败 400 / 非视频 400(真 ffprobe)/ R18 源无专区上下文 403
+  · 前景:下载失败 400 / 非视频 400(真 ffprobe)/ R18 源普通态放行并继承 nsfw
   · 成功链路(mock ffmpeg):纯色 + 图片背景,断言滤镜串与产物建档
     (Job kind=chromakey status=done result=产物 URL,params 快照溯源,nsfw 继承)
   · ffmpeg 缺失/失败 → 500(detail 带 stderr 尾部)
@@ -261,22 +261,28 @@ def test_foreground_not_video_400(ctx, monkeypatch, tmp_path):
     assert "有效视频" in r.json()["detail"]
 
 
-def test_r18_foreground_requires_context_403(ctx, monkeypatch, tmp_path):
-    """R18 绿幕源(本人 Job 产物)无 X-NSFW 上下文 → 403。"""
+def test_r18_foreground_not_gated_and_tag_inherited(ctx, monkeypatch, tmp_path):
+    """R18 绿幕源(本人 Job 产物)普通态放行,产物 Job 继承 nsfw 标。"""
     client, token, engine, uid, tmp_path = ctx
+    _patch_storage(monkeypatch, tmp_path)
+    recorded: dict = {}
+    _patch_pipeline(monkeypatch, tmp_path, recorded)
+    url = _fg_url(tmp_path)
     with Session(engine) as s:
         user = s.get(User, uid)
         s.add(Job(
             tenant_id=user.tenant_id, user_id=uid, prompt_id="p-gs",
             worker="http://w", kind="avatar_talk", status="done", seed=1, nsfw=True,
-            result=json.dumps(["/api/images?filename=green.mp4&worker=http://w"]),
+            result=json.dumps([url]),
         ))
         s.commit()
-    url = "/api/images?filename=green.mp4&subfolder=&type=output&worker=http://w"
     r = client.post(
         "/api/video/chromakey", headers=_h(token), json={"foreground_url": url}
     )
-    assert r.status_code == 403
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.kind == "chromakey")).first()
+        assert job is not None and job.nsfw is True
 
 
 # ---------------------------------------------------------------------------

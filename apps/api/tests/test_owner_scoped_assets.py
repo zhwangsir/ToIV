@@ -33,10 +33,18 @@ class _FakeWorker:
         return _DATA, "image/png"
 
 
+class _FakePool:
+    """假池:取件路径会先刷新注册表(冷池也要精确命中动态成员)。"""
+
+    def __init__(self, worker):
+        self.clients = [worker]
+
+    async def refresh_registry(self):
+        pass
+
+
 @pytest.fixture
 def ctx(monkeypatch, tmp_path):
-    from types import SimpleNamespace
-
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -50,7 +58,7 @@ def ctx(monkeypatch, tmp_path):
 
     app.dependency_overrides[get_session] = override
     fake_worker = _FakeWorker()
-    app.dependency_overrides[get_pool] = lambda: SimpleNamespace(clients=[fake_worker])
+    app.dependency_overrides[get_pool] = lambda: _FakePool(fake_worker)
     monkeypatch.setattr(images_mod, "resolve_worker", lambda w: fake_worker)
 
     # dub output 目录

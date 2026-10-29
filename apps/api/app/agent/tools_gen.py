@@ -7,12 +7,10 @@ H3(:8195)/LongCat(:8197)/animate2(:8199)/qwen-edit(:8194) 等专用实例,
 
 设计纪律:
 - 提交全部委托 routes 层的端点函数(同一服务函数,带原有的请求模型校验/
-  R18 门控/资源预检/hold 排队/tracker 落库),本文件不复制任何生成逻辑;
+  分级打标/资源预检/hold 排队/tracker 落库),本文件不复制任何生成逻辑;
 - 引擎清单/可用性以 services.engine_registry 为唯一事实源(get_engine_spec
   取原始条目做 R18 判定,list_engines 做可用性探测);
-- R18 引擎门控:tool_seam 的静态 nsfw=True 标记会把整个工具锁死(SFW 引擎
-  也用不了),故本工具在**执行器内按目标引擎逐条**判定,拦截文案与
-  tool_seam._nsfw_guard 已 no-op(P0-5 R5);限制只前端 redline.ts。
+- 分级只作元数据:引擎的 nsfw 标记只用于成品打标/前端灰化,后端不拦提交。
 - 工具结果里的事件 dict(type=job/proposal/tool_event)由 runner 原样透出,
   路由层映射为同名 SSE 事件(协议见 routes/agent.py 头注释)。
 """
@@ -35,12 +33,6 @@ from app.models import AgentSession, App, Entity, Job, User
 # P0-5 R5:后端未成年/成人 UX 闸已退役;不再 import is_underage/nsfw_allowed
 
 logger = logging.getLogger(__name__)
-
-# 与 tool_seam._nsfw_guard 同一 403 语义文案(按引擎逐条判定的版本)
-_R18_BLOCK_TEXT = (
-    "引擎 {label}({engine_id})仅 R18 模式可用(403),"
-    "本轮请改用常规引擎或提示用户切换到 /nsfw 专区后重试。"
-)
 
 TOOL_SCHEMAS_GEN = [
     {
@@ -382,7 +374,6 @@ TOOL_SCHEMAS_GEN = [
                 "用户要做视频/H3 时优先用本工具选应用,再 get_app 看参数、run_app 提交;"
                 "不要先走 submit_generation。"
                 "可选按 category(image|video|audio|edit|3d|other) 或关键词 q 过滤。"
-                "NSFW 应用仅 R18 上下文可见。"
             ),
             "parameters": {
                 "type": "object",
@@ -445,7 +436,7 @@ TOOL_SCHEMAS_GEN = [
 # 引擎 → routes 端点函数分发(与前端工作台同一提交链路,不复制逻辑)
 # ---------------------------------------------------------------------------
 # 每条:async (positive, negative, params, pool, user, session) -> routes 返回 dict。
-# 请求模型校验/门控/hold/tracker 全在路由函数内,这里只做参数搬运与媒体回填。
+# 请求模型校验/分级打标/hold/tracker 全在路由函数内,这里只做参数搬运与媒体回填。
 
 def _media_defaults(params: dict, attachment: dict | None, *keys: str) -> dict:
     """参考媒体回填:params 缺 image/worker 等键且本轮有上传图时,用上传句柄补上。"""
@@ -1073,7 +1064,7 @@ def _app_media_defaults(values: dict, attachment: dict | None, schema: list) -> 
 
 
 async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
-    """应用市场列表:委托 routes/apps.list_apps(同一可见性/NSFW 门控)。"""
+    """应用市场列表:委托 routes/apps.list_apps(同一可见性口径)。"""
     from app.routes import apps as apps_route
 
     user: User = ctx["user"]
@@ -1153,7 +1144,7 @@ async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
 
 
 async def exec_get_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
-    """应用详情:params_schema + 填值说明。不可见/NSFW 拦截与路由同一 404。"""
+    """应用详情:params_schema + 填值说明。不可见与路由同一 404(NSFW 只作元数据)。"""
     from app.routes import apps as apps_route
 
     user: User = ctx["user"]

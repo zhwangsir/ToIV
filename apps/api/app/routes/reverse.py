@@ -1,17 +1,17 @@
 """POST /api/reverse —— 反推提示词:上传图/视频/音频,反推出可复用的生成提示词。
 
 链路(2026-08-08 集群重排后):
-- SFW 图像 + 全部视频 → studio04 MLX Qwen2.5-VL-72B-Instruct-4bit 自定义 /v1/reverse
-  服务(reverse_vlm_base_url;GPU3 toiv-vlm 停而不删作热回退)。图像走 image_url、视频走
-  video_url(base64 data URL;reverse_video_mac_prefix 非空时走 NAS 中转本地路径)。
-  系统提示作为 prompt 传入,模型返回自然语言描述,core 侧按 JSON/纯文本兜底解析。
-  视频反推按六段式(镜头运动/主体/动作/场景/光线/风格)组织叙事长描述。
-- NSFW 图像(X-NSFW)→ JoyCaption 专线(joycaption_base_url,空串回退 Qwen3-VL)。
+- 图像 → 配了 JoyCaption 专线(joycaption_base_url)优先走它,否则走
+  reverse_vlm_base_url 的 Qwen3-VL 自定义 /v1/reverse 服务(图像 image_url);
+- 全部视频 → reverse_vlm_base_url 服务(video_url,base64 data URL;
+  reverse_video_mac_prefix 非空时走 NAS 中转本地路径)。系统提示作为 prompt 传入,
+  模型返回自然语言描述,core 侧按 JSON/纯文本兜底解析;视频按六段式
+  (镜头运动/主体/动作/场景/光线/风格)组织叙事长描述。
 - 音频 → SenseVoice(sensevoice_url):转写 + 情绪 + 音频事件 + 语种,组合成人声描述;
   配了 omni_captioner_base_url 时再走增强链:demucs 分离伴奏 → Omni-Captioner 生成
   音乐描述,合并进 prompt(增强链失败只降级不 502)。
-R18 上下文(X-NSFW)在系统提示中要求如实描述不回避;Qwen3-VL 官方对齐仍可能拒答,
-R18 图像走 JoyCaption 专线解决。
+系统提示固定要求如实描述不回避(无内容分级分支);Qwen3-VL 官方对齐仍可能拒答,
+此时靠 JoyCaption 专线兜底。
 """
 from __future__ import annotations
 
@@ -32,7 +32,6 @@ from app.config import get_settings
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import User
-from app.redline import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 from app.services.audio_sep import separate_accompaniment
 
@@ -329,27 +328,24 @@ async def reverse_visual(
     filename: str,
     content_type: str,
     kind: str,
-    nsfw: bool,
 ) -> ReverseResponse:
     """图像/视频字节流 → 反推提示词(/reverse 端点与 Agent Team reprompt 共用链)。
 
-    kind 仅收 image/video(音频走 SenseVoice 专线,不在此列);NSFW 图像走
-    JoyCaption 专线,视频一律 Qwen3-VL;reverse_video_mac_prefix 非空时视频
-    经 NAS 中转本地路径(studio04 MLX 只认路径),用后清理。
+    kind 仅收 image/video(音频走 SenseVoice 专线,不在此列);图像优先走已配置的
+    JoyCaption(无审查设计),未配置回落 Qwen3-VL;视频一律 Qwen3-VL。分析能力只按
+    配置与素材类型选择,不按账号内容态降级(可见性/软化由前端策略锁负责)。
+    reverse_video_mac_prefix 非空时视频经 NAS 中转本地路径(studio04 MLX 只认路径),
+    用后清理。
     """
     s = get_settings()
     staged_remote: str | None = None
     if kind == "image":
-        system = _IMAGE_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
+        system = _IMAGE_SYSTEM + _NSFW_CLAUSE
         part = {"type": "image_url", "image_url": {"url": _data_url(content, kind, content_type)}}
-        # NSFW 图像 → JoyCaption 专线(无审查设计);未配置时回退 Qwen3-VL
-        base_url = (
-            s.joycaption_base_url.strip()
-            if nsfw and s.joycaption_base_url.strip()
-            else s.reverse_vlm_base_url
-        )
+        # 图像优先 JoyCaption 专线(无审查设计);未配置时回退 Qwen3-VL
+        base_url = s.joycaption_base_url.strip() or s.reverse_vlm_base_url
     else:
-        system = _VIDEO_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
+        system = _VIDEO_SYSTEM + _NSFW_CLAUSE
         base_url = s.reverse_vlm_base_url  # JoyCaption 是纯图像模型,视频一律走 Qwen3-VL
         if s.reverse_video_mac_prefix.strip():
             # studio04 MLX 模式:video_url 只认本地路径 → SFTP 中转 NAS 传挂载路径
@@ -397,8 +393,6 @@ async def reverse_prompt(
             detail=f"文件过大({kind} 上限 {limit // 1024 // 1024}MB)",
         )
 
-    nsfw = nsfw_allowed(user)
-
     if kind == "audio":
         data = await _sensevoice_analyze(content, file.filename or "", file.content_type or "")
         text = (data.get("text") or "").strip()
@@ -424,4 +418,4 @@ async def reverse_prompt(
             },
         )
 
-    return await reverse_visual(content, file.filename or "", file.content_type or "", kind, nsfw)
+    return await reverse_visual(content, file.filename or "", file.content_type or "", kind)

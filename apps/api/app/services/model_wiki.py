@@ -3,7 +3,7 @@
 三层语料合成一张卡:
   1. curated(workflows/model_wiki.card_for):平台在用模型的确定性中文卡片
   2. civitai 富化(ModelCard 表):按文件名搜 civitai,缓存描述/触发词/基模/许可
-  3. 本地事实:文件名 + 类目 + NSFW 过滤状态
+  3. 本地事实:文件名 + 类目 + NSFW 元数据标
 
 RAG 问答(ask):卡片文本化 → Qwen3-Embedding(:9302,复用 agent/rag._embed)→
 内存余弦 top-k(卡片量级 ~数百,无需 pgvector)→ LLM L2 中文作答并引用模型名。
@@ -165,7 +165,7 @@ def _pick_version(model: dict) -> dict:
 
 async def _search_civitai(query: str, model_type: str) -> dict | None:
     """按名搜 civitai 取 top1 原始 model 节点;无 key/网络失败/无结果 → None。"""
-    params = {"limit": 4, "query": query, "nsfw": "true"}  # 富化要完整信息,NSFW 由卡片展示层过滤
+    params = {"limit": 4, "query": query, "nsfw": "true"}  # 富化要完整信息;NSFW 可见性由前端展示层决定
     if model_type == "loras":
         params["types"] = "LORA"
     elif model_type in ("checkpoints", "diffusion_models"):

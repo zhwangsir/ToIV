@@ -1,5 +1,5 @@
 import { ArrowLeft, Loader2, Play, Plus, RefreshCw, Search, Sparkles, Upload, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { TasksCenterLink } from "@/components/toiv/tasks-center-link";
@@ -55,8 +55,11 @@ import {
     appShowsR18Badge,
     appVisibleForContentMode,
     canShowContentModeToggle,
+    getR18ModeSnapshot,
+    getServerR18ModeSnapshot,
+    nsfwAllowed,
     resolveSubmitContentMode,
-    shouldApplyContentSoftening,
+    subscribeR18Mode,
     type ContentMode,
 } from "@/redline";
 import { isR18Mode } from "@/services/toiv/r18-mode";
@@ -579,7 +582,8 @@ export default function MarketPage() {
     const [deepOpen, setDeepOpen] = useState(false);
     /** 双模卡 SFW|R18；R18 关时 resolve 强制 sfw */
     const [contentMode, setContentMode] = useState<ContentMode>("sfw");
-    const [r18On, setR18On] = useState(() => isR18Mode());
+    const r18On = useSyncExternalStore(subscribeR18Mode, getR18ModeSnapshot, getServerR18ModeSnapshot);
+    const contentAllowed = nsfwAllowed();
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -618,19 +622,8 @@ export default function MarketPage() {
     }, [load]);
 
     useEffect(() => {
-        const sync = () => setR18On(isR18Mode());
-        sync();
-        window.addEventListener("focus", sync);
-        window.addEventListener("storage", sync);
-        return () => {
-            window.removeEventListener("focus", sync);
-            window.removeEventListener("storage", sync);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!r18On && category === "r18") setCategory("all");
-    }, [r18On, category]);
+        if (!contentAllowed && category === "r18") setCategory("all");
+    }, [contentAllowed, category]);
 
     const openDetail = useCallback(
         async (appOrId: ToivApp | string) => {
@@ -724,20 +717,18 @@ export default function MarketPage() {
         const set = new Map<string, number>();
         apps.forEach((a) => set.set(a.category || "other", (set.get(a.category || "other") ?? 0) + 1));
         const rows: Array<[string, number]> = [["all", apps.length], ...Array.from(set.entries())];
-        if (r18On) {
+        if (contentAllowed) {
             const n = apps.filter((a) => appShowsR18Badge(a)).length;
             rows.splice(1, 0, ["r18", n]);
         }
         return rows;
-    }, [apps, r18On]);
+    }, [apps, contentAllowed]);
 
     const filtered = useMemo(() => {
-        const soften = shouldApplyContentSoftening(); // 成人路径物理上不进软化
         const base = apps.filter((a) => {
-            // 普通态软化：藏纯成人卡；成人态不做软化过滤
-            if (soften && !appVisibleForContentMode(a, r18On)) return false;
+            if (!appVisibleForContentMode(a, r18On)) return false;
             if (category === "r18") {
-                if (!r18On || !appShowsR18Badge(a)) return false;
+                if (!contentAllowed || !appShowsR18Badge(a)) return false;
             } else if (category !== "all" && (a.category || "other") !== category) {
                 return false;
             }
@@ -754,7 +745,7 @@ export default function MarketPage() {
             return sortMarketAppsDefault(base);
         }
         return base;
-    }, [apps, category, q, r18On]);
+    }, [apps, category, q, r18On, contentAllowed]);
 
     const featuredLocal = useMemo(() => {
         const byId = new Map(apps.map((a) => [a.id, a]));
@@ -1111,14 +1102,9 @@ export default function MarketPage() {
                                             })}
                                         </div>
                                         <p className="text-[11px] text-[var(--muted-foreground)]">
-                                            普通模式可对孪生工作流软隐藏；成人模式禁用软化，直接使用成人面。
+                                            选择本次生成的内容模式，不改变账号模式。
                                         </p>
                                     </div>
-                                )}
-                                {r18On && detail.is_nsfw && !canShowContentModeToggle(detail, r18On) && (
-                                    <Callout tone="warning" title="成人专用应用">
-                                        本卡仅成人向工作流；须保持成人模式开启才能运行。
-                                    </Callout>
                                 )}
                                 {audioBlocked && (
                                     <Callout tone="warning" title="本地音频能力未接">

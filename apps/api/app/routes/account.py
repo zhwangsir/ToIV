@@ -24,7 +24,6 @@ from app.redline import (
     CONTENT_MODES,
     account_content_mode,
     normalize_content_mode,
-    require_not_underage,
 )
 
 router = APIRouter()
@@ -58,9 +57,6 @@ def _mode_payload(user: User) -> dict:
 
 def _set_content_mode(user: User, mode: str, session: Session) -> User:
     mode = normalize_content_mode(mode)
-    if mode == CONTENT_MODE_ADULT:
-        # P0-5 R5:require_not_underage 已 no-op;切 adult 不得 403
-        require_not_underage(user)
     prev = account_content_mode(user)
     user.content_mode = mode
     # 兼容遗留列:成人态时标记曾经开启

@@ -7,7 +7,7 @@ M1 CRUD(可见性三区同 routes/agents 范式):
   列表 slim:params_schema=[] / bindings={} / required_nodes=[] / workflow_json=None
   (1166 张 rh-* H3 社区卡的图 schema 否则会撑成数 MB)。运行页走详情拿完整 schema。
 - GET /api/apps/{id}:详情;workflow_json+params_schema+bindings 对所有可见用户透出
-  (2026-09-02 产品决策:运行页「工作流」模式把流程图展现给用户,最可控;可见性/NSFW 门控不变)。
+  (2026-09-02 产品决策:运行页「工作流」模式把流程图展现给用户,最可控;可见性口径不变)。
 - POST /api/apps:创建公共应用(user_id 空),仅 admin。
 - PUT /api/apps/{id}:内置一律 403;个人应用仅属主可改;公共应用(user_id 空)需 admin。
 - DELETE /api/apps/{id}:同上(内置 403;个人属主可删;公共需 admin)。
@@ -75,7 +75,7 @@ from app.services.provenance import (
     public_app_description,
     rh_webapp_url,
 )
-from app.redline import adult_at_submit, require_not_underage
+from app.redline import adult_at_submit
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.agents import _slugify
 from app.routes.images import _ranged_response
@@ -3628,7 +3628,8 @@ def get_app_variants(
     modes = []
     for m in v["modes"]:
         t = session.get(App, m["app_id"])
-        if not t or not _visible(t, user):
+        # 模式目标本就软隐藏,可经代表卡进入(与详情/运行同一可见性口径)
+        if not t or not (_visible(t, user) or _visible_as_mode(session, t, user)):
             continue
         modes.append({"label": m["label"], "desc": m.get("desc") or "", "app_id": t.id,
                       "is_nsfw": bool(t.is_nsfw)})
@@ -4420,9 +4421,6 @@ async def run_app(
     a = session.get(App, aid)
     if not a or not (_visible(a, user) or _visible_as_mode(session, a, user)):
         raise HTTPException(status_code=404, detail="应用不存在")
-    # P0-5 R3:成人 UX 403 退役;is_nsfw 应用仅未成年硬关
-    if a.is_nsfw:
-        require_not_underage(user)
     mode = (body.content_mode or ("nsfw" if a.is_nsfw else "sfw")).strip().lower()
     if mode not in ("sfw", "nsfw"):
         raise HTTPException(status_code=422, detail="content_mode 须为 sfw 或 nsfw")
@@ -4434,7 +4432,6 @@ async def run_app(
             twin = session.get(App, twin_id)
             if not twin:
                 raise HTTPException(status_code=422, detail=f"R18 变体不存在: {twin_id}")
-            require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
             run_app = twin
             run_nsfw = True
         elif not a.is_nsfw:
@@ -4460,7 +4457,7 @@ async def run_app(
         raise HTTPException(status_code=422, detail="应用未配置工作流图")
     # 更深参数:H3/LTX LoRA 真注入图(无 loras 键则 noop,保持历史行为)
     try:
-        lora_meta = app_deep_knobs_svc.apply_app_loras(graph, run_app.id, values, nsfw_intent=run_nsfw)
+        lora_meta = app_deep_knobs_svc.apply_app_loras(graph, run_app.id, values)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     # 全卡种子策略:未指定则每次随机写满图内 seed/noise_seed(含未绑定的 TextEncodeAce 等)

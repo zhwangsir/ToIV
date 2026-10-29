@@ -2,7 +2,7 @@
   ① 作品软删除:列表隐藏 + 保留期内 undo 恢复 + 二次 undo 409 + 过期 410 + 越权 404
   ② 审计日志:删除落 log(带 undo_token);admin 可查 /admin/audit-logs;普通用户 403
   ③ 关键删除端点全部落审计(drama/studio 项目与角色、agent 会话、admin 删用户)
-  ④ 社区配方:R18 门控(主站剔除 nsfw 配方)+ engine 过滤
+  ④ 社区配方:全量返回(nsfw 仅元数据,后端不过滤)+ engine 过滤
 """
 from sqlmodel import Session, SQLModel, select
 from sqlalchemy import create_engine
@@ -172,23 +172,29 @@ def test_agent_session_delete_audited(ctx):
 
 # ── ④ 社区配方门控 ──────────────────────────────────────────────
 
-def test_recipes_nsfw_gating(ctx):
+def test_recipes_returned_in_full_nsfw_is_metadata(ctx):
+    """新契约:配方全量返回,nsfw 只作元数据;后端不再按账号内容态剔除 R18 配方。
+
+    可见性/灰化交由前端可插拔策略锁;engine 过滤(与分级无关)仍生效。
+    """
     client, token, _, uid, _, engine = ctx
     H = _h(token)
     r = client.get("/api/models/recipes", headers=H)
     assert r.status_code == 200
     rows = r.json()["recipes"]
-    # 普通账号只有 SFW 配方(D-U1=B:账号态为判据)
-    assert all(not x["nsfw"] for x in rows)
-    # 成人态可见 R18 配方(X-NSFW 仅审计)
+    # 普通账号(未切成人态、无 X-NSFW 头)也能看到 R18 配方:后端不做分级门
+    assert any(x["id"] == "wan-kenpechi-missionary" for x in rows)
+    # nsfw 作为元数据透出(R18 配方带 nsfw=True),供前端策略锁灰化/隐藏
+    assert any(x.get("nsfw") for x in rows)
+    # 账号切成人态 + X-NSFW(仅审计)后配方集合不变:后端不按账号内容态过滤
     with Session(engine) as s:
         u = s.get(User, uid)
         u.content_mode = "adult"
         s.add(u)
         s.commit()
     rows2 = client.get("/api/models/recipes", headers={**H, "X-NSFW": "1"}).json()["recipes"]
-    assert any(x["id"] == "wan-kenpechi-missionary" for x in rows2)
-    # engine 过滤
+    assert {x["id"] for x in rows2} == {x["id"] for x in rows}
+    # engine 过滤仍生效(与分级无关)
     rows3 = client.get(
         "/api/models/recipes?engine=wan-nsfw-i2v", headers={**H, "X-NSFW": "1"}
     ).json()["recipes"]

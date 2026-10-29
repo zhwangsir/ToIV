@@ -162,48 +162,42 @@ class Settings(BaseSettings):
 
     # AI 智能体的 LLM 大脑(OpenAI 兼容端点)
     # 命名规范(2026-10-23):一个磁盘权重一个 weight id；served 名不得伪装成另一家模型家族。
-    # 真机权重 weight.dsv4.flash-dspark-ablit @ spark02:8000(TP2；spark01=headless rank1)。
-    # 规范 model id = deepseek-v4-flash-dspark；禁止默认声称 Qwen/GLM。
-    llm_base_url: str = "http://192.168.71.84:8000/v1"  # ep.llm.primary spark-b
+    # 真机权重 @ spark02:8888(TP2；spark01=headless rank1)，served 仅 DeepSeek-V4.1-Flash-1017。
+    # 兼容别名 deepseek-v4-flash-dspark 由 LLM 代理改写；禁止默认声称 Qwen/GLM。
+    llm_base_url: str = "http://192.168.71.84:8888/v1"  # ep.llm.primary spark02
     llm_api_key: str = "lm-studio"
-    llm_model: str = "deepseek-v4-flash-dspark"
+    llm_model: str = "DeepSeek-V4.1-Flash-1017"
     # 顶栏展示须与真实 weight 家族一致(不得谎称 Qwen/GLM 参数量)。
-    llm_display_name: str = "DeepSeek-V4-Flash-DSpark (abliterated, spark TP2)"
+    llm_display_name: str = "DeepSeek-V4.1-Flash-1017 (spark02 TP2 :8888)"
     # OpenAI 兼容 LLM 代理 /api/llm/v1（routes/llm_proxy.py）：BeefTV 助手等客户端用 ToIV JWT 调用，
     # 不暴露内网 LLM 地址。base_url/api_key 留空 = 复用 llm_base_url/llm_api_key。
     llm_proxy_base_url: str = ""
     llm_proxy_api_key: str = ""
     # 对外可用的模型 ID（逗号分隔，第一个为默认=canonical）。
-    # N2(2026-10-23)后仅 deepseek-v4-flash-dspark；qwen*/glm* 伪装别名已从
-    # spark --served-model-name 清除，禁止再写回。环境变量：TOIV_LLM_PROXY_MODELS
-    llm_proxy_models: str = "deepseek-v4-flash-dspark"
+    # 上游 served 仅 DeepSeek-V4.1-Flash-1017；旧别名 deepseek-v4-flash-dspark 保留为
+    # 客户端兼容别名（sanitize_body 统一改写为 llm_model）。环境变量：TOIV_LLM_PROXY_MODELS
+    llm_proxy_models: str = "DeepSeek-V4.1-Flash-1017,deepseek-v4-flash-dspark"
     llm_proxy_connect_timeout: float = 10.0
     llm_proxy_read_timeout: float = 180.0
     llm_proxy_max_body_bytes: int = 2_000_000
-    llm_proxy_max_tokens: int = 16384
+    llm_proxy_max_tokens: int = 32768  # spark02 单次输出上限 32768(超过上游会截断)
     llm_proxy_max_concurrency: int = 2
     # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
     # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
     llm_fallback_base_url: str = ""
     llm_fallback_api_key: str = ""
     llm_fallback_model: str = ""
-    # NSFW 模式专用 LLM(X-NSFW: 1 时启用);空 model = NSFW 模式复用主 LLM。
-    # 生产:L4 与 L1 同模型(spark02 deepseek-v4-flash-dspark;2026-08-08 llama-70b 退役后统一)。
-    llm_nsfw_base_url: str = ""
-    llm_nsfw_api_key: str = ""
-    llm_nsfw_model: str = ""
-
     # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
-    # L1 初稿 = llm_base_url/llm_model（deepseek-v4-flash-dspark @ spark02:8000）
-    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（生产同上 spark02,.env 覆盖）
+    # L1 初稿 = llm_base_url/llm_model（DeepSeek-V4.1-Flash-1017 @ spark02:8888）
+    # L4 = 与 L1 同源(2026-10-29 统一:成人/长文共用主 LLM,不再有 NSFW 专用端点)
     # L2 主力润色 / L3 终稿精修:2026-08-29 Studio01-04(EXO RDMA :52415)全线下线,
-    # 两层收拢到 spark02 同一 DSv4 权重(canonical id=deepseek-v4-flash-dspark)。
+    # 两层收拢到 spark02 同一 DSv4 权重(canonical id=DeepSeek-V4.1-Flash-1017)。
     # 层间差异只剩超时/预算语义——Studio 恢复上架后再分开指。
-    llm_l2_base_url: str = "http://192.168.71.84:8000/v1"
-    llm_l2_model: str = "deepseek-v4-flash-dspark"
+    llm_l2_base_url: str = "http://192.168.71.84:8888/v1"
+    llm_l2_model: str = "DeepSeek-V4.1-Flash-1017"
     llm_l2_timeout: float = 120.0
-    llm_l3_base_url: str = "http://192.168.71.84:8000/v1"
-    llm_l3_model: str = "deepseek-v4-flash-dspark"
+    llm_l3_base_url: str = "http://192.168.71.84:8888/v1"
+    llm_l3_model: str = "DeepSeek-V4.1-Flash-1017"
     llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
@@ -272,8 +266,8 @@ class Settings(BaseSettings):
     # 图像走 image_url、视频走 video_url(base64 data URL 或 NAS 中转本地路径)。
     reverse_vlm_base_url: str = "http://192.168.71.127:9303/v1"
     # NSFW 图像反推专线:JoyCaption Beta One bf16(toiv-joycaption.service, GPU3, :9304)。
-    # 仅 X-NSFW 上下文的图像反推路由到这里(它是纯图像模型,视频仍走 Qwen3-VL);
-    # 官方 bf16 ~17GB,无审查设计,R18 不拒答。空串 = 未部署,NSFW 图像也走 Qwen3-VL。
+    # 配置后图像反推优先走这里(它是纯图像模型,视频仍走 Qwen3-VL);
+    # 官方 bf16 ~17GB,无审查设计,R18 不拒答。空串 = 未部署,图像也走 Qwen3-VL。
     joycaption_base_url: str = "http://192.168.71.127:9304/v1"
     # 视频反推路径模式:空串 = base64 内联(GPU3 vLLM);非空 = studio04 MLX 模式
     # (其 video_url 只认本地路径)→ 视频先 SFTP 中转 NAS reverse_video_nas_subdir,
@@ -402,7 +396,7 @@ class Settings(BaseSettings):
     h3_co_workers: str = "http://192.168.71.127:8262"
     # H3 NSFW 场景默认 UNET:10Eros-Max H3 嫁接版 TURBO(NAS toiv/comfyui-models/h3/
     # diffusion_models/,经 extra_model_paths 对 H3 实例可见;2026-08-23 真机实测 R18+音画
-    # 直出完好)。仅 nsfw=True(X-NSFW 专区)提交时替换模板节点 "6" 的 unet_name;
+    # 直出完好)。仅 nsfw=True(成人意图)提交时替换模板节点 "6" 的 unet_name;
     # SFW 保持模板 minimax_h3_fl2va_pruned_int8_convrot 不变。
     h3_nsfw_unet: str = "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
     # H3 智能加速机读规格文件路径(services/h3_accel;空 = 仓库根

@@ -52,7 +52,7 @@ describe("project library covers", () => {
         expect(home).toContain("listWorkspaceCanvasProjectsPage");
         expect(home).toContain("previewNodesForWorkspaceProject");
         expect(home).not.toContain("fetchDramaProjects()");
-        expect(dashboard).toContain("最近项目");
+        expect(dashboard).toContain("最近自由画布（专家）");
         expect(dashboard).toContain("ProjectPreview");
         expect(dashboard).toContain("to={`/canvas/${project.id}`}");
         expect(folderCard).toContain("<ProjectPreview project={{ id: project.id, nodes: project.previewNodes }}");

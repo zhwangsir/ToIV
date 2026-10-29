@@ -82,15 +82,3 @@ def classify_model_nsfw(name: str, *, explicit: bool | None | object = _MISSING)
     if explicit is None:
         return "unknown"
     return "nsfw" if explicit else "sfw"
-
-
-def model_visible_for_account(*, name: str, adult: bool, explicit: bool | None | object = _MISSING) -> bool:
-    """按账号成人态决定模型是否可见。"""
-    cls = classify_model_nsfw(name, explicit=explicit)
-    if adult:
-        return cls in ("nsfw", "unknown")
-    return cls == "sfw"
-
-
-def filter_names_for_account(names: list[str], *, adult: bool) -> list[str]:
-    return [n for n in names if model_visible_for_account(name=n, adult=adult)]

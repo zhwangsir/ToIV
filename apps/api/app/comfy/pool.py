@@ -193,6 +193,17 @@ class WorkerPool:
         self._apply_registry(urls)
 
 
+    async def refresh_registry(self, *, force: bool = False) -> None:
+        """取件路径按需刷新池成员(TTL 内直接跳过)。
+
+        pick() 之外的调用方(产物取回)在重启后看不到动态成员——注册表只在调度时
+        惰性跟随,而取件必须回到生成它的实例,否则会落到同机 LB 拿到同名陈旧文件。
+        """
+        if force:
+            self._registry_last_fetch = 0.0
+        await self._maybe_refresh_registry()
+
+
     def mark_busy(self, url: str) -> None:
         """标记 worker 训练中 → pick() 跳过它(ComfyUI 进程不停,只不派新出图任务)。"""
         self._busy.add(url.rstrip("/"))

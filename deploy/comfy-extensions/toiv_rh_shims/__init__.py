@@ -37,9 +37,9 @@ _DEFAULTS = {
     # 图生文:workstation 本机 Qwen3-VL(served id 实测为 toiv-vlm)
     "VLM_BASE": "http://127.0.0.1:9311/v1",
     "VLM_MODEL": "toiv-vlm",
-    # 纯文本:spark02 DSv4(served id 实测为 deepseek-v4-flash-dspark)
-    "LLM_BASE": "http://192.168.71.84:8000/v1",
-    "LLM_MODEL": "deepseek-v4-flash-dspark",
+    # 纯文本:spark02 Mia(served id 实测为 DeepSeek-V4.1-Flash-1017)
+    "LLM_BASE": "http://192.168.71.84:8888/v1",
+    "LLM_MODEL": "DeepSeek-V4.1-Flash-1017",
     "TIMEOUT": "300",
     "RETRIES": "2",
 }

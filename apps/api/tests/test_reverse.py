@@ -94,8 +94,11 @@ def test_image_json_path(ctx, monkeypatch):
     assert body["negative"] == "blurry, watermark"
     assert calls["part"]["type"] == "image_url"
     assert calls["part"]["image_url"]["url"].startswith("data:image/png;base64,")
-    assert "成人" not in calls["system"]  # 主站上下文不带 NSFW 条款
-    assert "9303" in calls["base_url"]  # SFW 图像走 Qwen3-VL
+    # 分析链只按配置与素材类型选择,与账号内容态无关:条款恒在,
+    # 图像走 JoyCaption(已配置时)否则 Qwen3-VL。
+    s = reverse.get_settings()
+    assert reverse._NSFW_CLAUSE.strip() in calls["system"]
+    assert calls["base_url"] == (s.joycaption_base_url.strip() or s.reverse_vlm_base_url)
 
 
 def test_image_nsfw_clause(ctx, monkeypatch):

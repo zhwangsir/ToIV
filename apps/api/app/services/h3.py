@@ -42,8 +42,8 @@ H3_NODE = "MiniMaxH3ImageToVideo"
 H3_R2V_NODE = "MiniMaxH3ReferenceToVideo"
 
 # 已知 H3 NSFW LoRA 文件名(civitai 调研,base 均 MiniMax H3;详见 routes/models.py
-# NSFW_RECOMMENDATIONS 的 h3 分类)。请求引用其中任一 → 须过 R18 门控(nsfw_allowed),
-# 与 ltx_studio 的 _NSFW_UNETS 同款名单制。engine_registry 的 LoRA 选项也按此打 nsfw 标。
+# NSFW_RECOMMENDATIONS 的 h3 分类)。仅用于给选项打 nsfw 元数据标;
+# engine_registry 的 LoRA 选项也按此打标,后端不据此拦截。
 H3_NSFW_LORAS: frozenset[str] = frozenset(
     {
         "riding_pose_H3_i2v_v1.0.safetensors",  # civitai 2446218 Riding POV (I2V)
@@ -398,9 +398,8 @@ async def submit_h3_job(
 ) -> dict:
     """提交 H3 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
 
-    nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库)并换 10Eros UNET;调用方须先过
-    显式意图判定(body nsfw=true 或钉选 R18 LoRA,经 job_nsfw_from_intent),
-    此处不重复校验。X-NSFW 头不能单独把 nsfw 置 True。
+    nsfw=True 时 Job 打 R18 标(元数据)并换 10Eros UNET;调用方按显式意图判定
+    (body nsfw=true 或钉选 R18 LoRA,经 job_nsfw_from_intent)。X-NSFW 头不参与判定。
     """
     ensure_h3_enabled()
     client = client or await pick_h3_client()

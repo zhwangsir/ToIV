@@ -172,7 +172,7 @@ def get_asset(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> AssetOut:
-    """单查;他人资产与 nsfw 资产(SFW 上下文)均 404。"""
+    """单查;他人资产 404(不泄露存在性),内容分级不过滤。"""
     return _to_out(_get_visible(session, asset_id, user))
 
 
@@ -218,8 +218,8 @@ async def get_asset_image(
     """资产参考图回显(缩略图/预览)。
 
     上传句柄(filename, worker)不一定挂在任何 Job 上,/api/images 的 DB 归属
-    回退不适用;资产记录的 user_id + NSFW 上下文即归属证明(复用 _get_visible,
-    他人资产/SFW 上下文 nsfw 资产一律 404)。文件本体从落点 worker 的 input 目录
+    回退不适用;资产记录的 user_id 即归属证明(复用 _get_visible,
+    他人资产一律 404)。文件本体从落点 worker 的 input 目录
     取字节(type=input),主 worker 掉线时回退同机 worker(共享同一输入目录)。
     """
     a = _get_visible(session, asset_id, user)
@@ -231,6 +231,7 @@ async def get_asset_image(
     except PathTraversalError as e:
         raise HTTPException(status_code=400, detail=f"非法路径: {e}") from e
 
+    await pool.refresh_registry()  # 冷池也要能精确命中 LB 动态成员
     primary = resolve_worker(img["worker"])  # SSRF 白名单校验
     host = _host(primary.base_url)
     siblings = [

@@ -1,12 +1,11 @@
-"""任意工作流(raw)端点的 R18 门槛扫描单测。"""
+"""任意工作流(raw)端点的分级扫描单测。
+
+P0-5 R5 语义:扫描只用于给 Job 打 nsfw 标(返回图内是否含成人模型),
+后端不因 content_mode / X-NSFW / 未成年做 403。
+"""
 from __future__ import annotations
 
-from types import SimpleNamespace
-
-import pytest
-from fastapi import HTTPException
-
-from app.routes.generate import _gate_raw_graph_nsfw
+from app.routes.generate import _tag_raw_graph_nsfw
 
 _SFW = "DreamShaper_8_pruned.safetensors"
 _NSFW = "moodyPornMix_zitV7.safetensors"
@@ -20,49 +19,42 @@ def _graph(ckpt: str) -> dict:
 
 
 def test_sfw_graph_passes_returns_false():
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
-    assert _gate_raw_graph_nsfw(_graph(_SFW), user) is False
+    assert _tag_raw_graph_nsfw(_graph(_SFW)) is False
 
 
-def test_nsfw_graph_blocked_when_disabled():
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
-    with pytest.raises(HTTPException) as ei:
-        _gate_raw_graph_nsfw(_graph(_NSFW), user)
-    assert ei.value.status_code == 403
+def test_nsfw_graph_tagged_for_ordinary_account():
+    """普通账号提交含 R18 底模的图:只打标,不 403(限制只在前端锁)。"""
+    assert _tag_raw_graph_nsfw(_graph(_NSFW)) is True
 
 
-def test_nsfw_graph_allowed_when_enabled():
-    """新语义:放行看 X-NSFW 头(nsfw_intent ContextVar),账户开关不再生效。"""
+def test_nsfw_graph_tagged_with_nsfw_header():
+    """带 X-NSFW 上下文时扫描结果不变(头只是审计)。"""
     from app.nsfw_ctx import nsfw_intent_var
 
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="adult")
-    token = nsfw_intent_var.set(True)  # 审计旁路;放行看 content_mode
+    token = nsfw_intent_var.set(True)
     try:
-        assert _gate_raw_graph_nsfw(_graph(_NSFW), user) is True
+        assert _tag_raw_graph_nsfw(_graph(_NSFW)) is True
     finally:
         nsfw_intent_var.reset(token)
 
 
 def test_graph_without_ckpt_is_sfw():
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
     g = {"1": {"class_type": "EmptyLatentImage", "inputs": {"width": 512}}}
-    assert _gate_raw_graph_nsfw(g, user) is False
+    assert _tag_raw_graph_nsfw(g) is False
 
 
 def test_malformed_nodes_ignored():
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
     g = {"1": "not a dict", "2": {"no_inputs": True}, "3": {"inputs": "bad"}}
-    assert _gate_raw_graph_nsfw(g, user) is False
+    assert _tag_raw_graph_nsfw(g) is False
 
 
 # ---------------------------------------------------------------------------
-# 扫描键扩展(T0 安全红线):ckpt_name 之外的模型引用同样过 R18 门控
+# 扫描键扩展:ckpt_name 之外的模型引用同样参与分级打标
 # ---------------------------------------------------------------------------
 
 
-def test_unet_name_10eros_blocked():
-    """UNETLoader.unet_name 挂 10Eros 系 R18 UNET(绕开 ckpt_name 扫描)→ 403。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
+def test_unet_name_10eros_scanned():
+    """UNETLoader.unet_name 挂 10Eros 系 R18 UNET(绕开 ckpt_name 扫描)→ 打标。"""
     g = {
         "1": {
             "class_type": "UNETLoader",
@@ -73,89 +65,55 @@ def test_unet_name_10eros_blocked():
         },
         "2": {"class_type": "SaveImage", "inputs": {}},
     }
-    with pytest.raises(HTTPException) as ei:
-        _gate_raw_graph_nsfw(g, user)
-    assert ei.value.status_code == 403
-    assert "R18" in ei.value.detail
+    assert _tag_raw_graph_nsfw(g) is True
 
 
-def test_lora_name_h3_nsfw_blocked():
-    """LoraLoader.lora_name 挂 H3 已知 NSFW LoRA(文件名无 NSFW 子串,is_nsfw 漏判)→ 403。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
+def test_lora_name_h3_nsfw_scanned():
+    """LoraLoader.lora_name 挂 H3 已知 NSFW LoRA(文件名无 NSFW 子串,is_nsfw 漏判)→ 打标。"""
     g = {
         "1": {
             "class_type": "LoraLoader",
             "inputs": {"lora_name": "riding_pose_H3_i2v_v1.0.safetensors"},
         },
     }
-    with pytest.raises(HTTPException) as ei:
-        _gate_raw_graph_nsfw(g, user)
-    assert ei.value.status_code == 403
+    assert _tag_raw_graph_nsfw(g) is True
 
 
-def test_lora_name_nsfw_hint_blocked():
-    """lora_name 命中通用 NSFW 子串 → 403。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
+def test_lora_name_nsfw_hint_scanned():
+    """lora_name 命中通用 NSFW 子串 → 打标。"""
     g = {
         "1": {"class_type": "LoraLoader", "inputs": {"lora_name": "nsfw_boost.safetensors"}},
     }
-    with pytest.raises(HTTPException) as ei:
-        _gate_raw_graph_nsfw(g, user)
-    assert ei.value.status_code == 403
+    assert _tag_raw_graph_nsfw(g) is True
 
 
 def test_vae_and_model_name_scanned():
     """vae_name / model_name 等其余模型引用字段同样扫描。
 
-    门控样本须用显式成人向文件名:fb78872 后 pony/wai/illustrious 等两用底模
-    不再归为 R18(不再触发 403),故改用 10Eros 系 R18 UNET 验证扫描覆盖。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
+    样本须用显式成人向文件名:pony/wai/illustrious 等两用底模不归为 R18,
+    故用 10Eros 系 R18 UNET 验证扫描覆盖。"""
     for key in ("vae_name", "model_name"):
         g = {"1": {"class_type": "AnyLoader", "inputs": {key: "10Eros_v1.safetensors"}}}
-        with pytest.raises(HTTPException) as ei:
-            _gate_raw_graph_nsfw(g, user)
-        assert ei.value.status_code == 403
+        assert _tag_raw_graph_nsfw(g) is True
 
 
 def test_nested_inputs_scanned():
     """嵌套 list/dict 内的模型引用也扫到(LoRA 链参数等)。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
     g = {
         "1": {
             "class_type": "LoraLoaderModelOnly",
             "inputs": {"lora_name": ["deepthroat_v1.safetensors", 0.6]},
         },
     }
-    with pytest.raises(HTTPException) as ei:
-        _gate_raw_graph_nsfw(g, user)
-    assert ei.value.status_code == 403
+    assert _tag_raw_graph_nsfw(g) is True
 
 
 def test_sfw_unet_lora_vae_pass():
-    """SFW UNET/LoRA/VAE 不误伤(放行且不打 nsfw 标)。"""
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="ordinary")
+    """SFW UNET/LoRA/VAE 不误伤(不打 nsfw 标)。"""
     g = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "z_image_bf16.safetensors"}},
         "2": {"class_type": "LoraLoader", "inputs": {"lora_name": "detail_tweaker.safetensors"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
         "4": {"class_type": "CLIPTextEncode", "inputs": {"text": "a pony in a meadow"}},
     }
-    assert _gate_raw_graph_nsfw(g, user) is False
-
-
-def test_nsfw_unet_allowed_with_nsfw_header():
-    """带 X-NSFW 上下文时 10Eros UNET 放行并打标(与其它端点同语义)。"""
-    from app.nsfw_ctx import nsfw_intent_var
-
-    user = SimpleNamespace(nsfw_enabled=False, content_mode="adult")
-    g = {
-        "1": {
-            "class_type": "UNETLoader",
-            "inputs": {"unet_name": "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"},
-        },
-    }
-    token = nsfw_intent_var.set(True)
-    try:
-        assert _gate_raw_graph_nsfw(g, user) is True
-    finally:
-        nsfw_intent_var.reset(token)
+    assert _tag_raw_graph_nsfw(g) is False

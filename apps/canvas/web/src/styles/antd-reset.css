@@ -1,0 +1,5 @@
+/* Ant Design 的 reset 必须在图层内：它带 input/button 的 color/font-size:inherit，
+   若保持无层（unlayered）会压过 Tailwind 的 utilities 层，导致全站按钮上的
+   text-* 工具类（字号/颜色）整体失效。Tailwind preflight 已覆盖同等规范化，
+   这里只需把 vendor reset 降到 base 层。 */
+@import "antd/dist/reset.css" layer(base);

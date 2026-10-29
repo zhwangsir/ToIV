@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
     COPY_MODE_ADULT,
     COPY_MODE_NORMAL,
+    COPY_MEDIA_LOCKED,
     assetLooksNsfw,
     filterNsfwListableAssets,
     getR18ModeSnapshot,
@@ -17,6 +18,7 @@ import {
     isNsfwAssetSelectable,
     subscribeR18Mode,
     type NsfwAssetLike,
+    COPY_LOCKED_LABEL,
 } from "@/redline";
 import { useAssetStore, type Asset, type AssetKind } from "@/stores/use-asset-store";
 
@@ -242,7 +244,7 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
                                     data-locked={locked ? "1" : "0"}
                                     tabIndex={locked ? -1 : 0}
                                     aria-disabled={locked || undefined}
-                                    title={locked ? `已锁定（${COPY_MODE_NORMAL}）` : asset.title}
+                                    title={locked && COPY_LOCKED_LABEL ? `${COPY_LOCKED_LABEL}（${COPY_MODE_NORMAL}）` : asset.title}
                                     onClick={() => {
                                         if (locked) return;
                                         navigate(`${assetsHref}${assetsHref.includes("?") ? "&" : "?"}focus=${encodeURIComponent(asset.id)}`);
@@ -293,7 +295,8 @@ export function CreationStudioMediaPool({ projectId }: { projectId: string | nul
             )}
 
             <p className="toiv-asset-pool-foot">
-                {adultOn ? `${COPY_MODE_ADULT}内容可见` : `${COPY_MODE_NORMAL} · 成人内容已锁定`}
+                {adultOn ? COPY_MODE_ADULT : COPY_MODE_NORMAL}
+                {lockedCount > 0 && COPY_MEDIA_LOCKED ? ` · ${COPY_MEDIA_LOCKED}` : ""}
             </p>
         </section>
     );

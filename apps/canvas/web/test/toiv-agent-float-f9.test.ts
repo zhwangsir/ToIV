@@ -136,4 +136,17 @@ describe("F9 toiv agent float", () => {
         );
         expect(html).toContain('aria-label="打开 ToIV 智能体"');
     });
+
+    test("收起态让位: 画布助手展开时 launcher 不渲染(右下角会压住助手发送按钮)", () => {
+        const html = renderToStaticMarkup(
+            createElement(MemoryRouter, null, createElement(ToivAgentFloat, { suppressLauncher: true })),
+        );
+        expect(html).not.toContain('aria-label="打开 ToIV 智能体"');
+    });
+
+    test("画布项目把助手可见态接到浮标(与侧栏渲染同一条件)", () => {
+        const src = read("src/pages/canvas/project.tsx");
+        expect(src).toContain("const assistantPanelVisible = rightPanel === \"assistant\" && !focusMode && !versions.preview;");
+        expect(src).toContain("<ToivAgentFloat suppressLauncher={assistantPanelVisible} />");
+    });
 });

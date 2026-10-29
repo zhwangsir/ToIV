@@ -25,7 +25,6 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import Agent, User
-from app.redline import nsfw_allowed, require_not_underage
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 from app.workflows.style_presets import ALL_PRESETS
@@ -463,7 +462,7 @@ def _resolve_agent_prefix(
     """解析智能体并返回要拼在 kind 系统提示前的人格前缀(空串=不拼)。
 
     解析顺序:body.agent_id → user.default_agent_id → 空(走 kind 默认)。
-    校验:agent 不存在→404;is_nsfw 时仅未成年硬关;applies_to 不含 kind 且
+    校验:agent 不存在→404;applies_to 不含 kind 且
     不含 all→400。返回 agent.system_prompt(调用方负责拼 "\n\n" + kind 系统提示)。
     """
     aid = body.agent_id or getattr(user, "default_agent_id", None)
@@ -472,8 +471,6 @@ def _resolve_agent_prefix(
     agent = session.get(Agent, aid)
     if not agent:
         raise HTTPException(status_code=404, detail="智能体不存在")
-    if agent.is_nsfw:
-        require_not_underage(user)  # P0-5 R3:成人 UX 403 退役
     applies = [s.strip() for s in (agent.applies_to or "").split(",") if s.strip()]
     if body.kind not in applies and "all" not in applies:
         raise HTTPException(status_code=400, detail="该智能体不适用于此 kind")

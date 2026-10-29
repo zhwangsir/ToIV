@@ -4,7 +4,7 @@
 
 AI 短剧工作室 —— 剧本→分镜→视频→配音→成片 一站式 MVP 管线。
 
-P0 核心端点(nsfw=true 须 X-NSFW 头,与 ltx_studio 同款 R18 门控):
+P0 核心端点(nsfw=true 选择成人底模;内容限制只在前端锁,后端不拦):
   · 项目 CRUD            POST/GET/PATCH /api/drama/projects
   · 剧本 LLM 拆解        POST /api/drama/projects/{pid}/storyboard
   · 角色库 CRUD          POST/GET/DELETE  /api/drama/projects/{pid}/characters
@@ -72,7 +72,6 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.routes.reverse import _chat_completion, _data_url
-from app.routes.video import _gate_ltx_nsfw
 from app.services.entities import CharacterRef, resolve_shot_characters
 from app.services.h3_refs import ref_prefix_for_shot
 from app.services.drama_image import analyze_storyboard_images
@@ -328,7 +327,7 @@ class ContinueVideoRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     prompt_override: str | None = Field(default=None, max_length=2000)
     # NSFW 开关:True 续写段用 NSFW 专用视频底模(10Eros)并给段 Job 打 nsfw 标
-    # (须 X-NSFW 头,与 generate-video 同一判定来源;R18 分镜续写产物不进主站作品库)
+    # (仅意图与元数据;后端不做内容门控)
     nsfw: bool = False
 
     @field_validator("engine")
@@ -1944,12 +1943,8 @@ async def generate_shot_video(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """单分镜视频生成(LTX t2v)。nsfw=true(10Eros 成人底模)仅限 /nsfw 专区。"""
+    """单分镜视频生成(LTX t2v)。nsfw=true 选择 10Eros 成人底模(仅意图,不做内容门控)。"""
     enforce_generation_rate_limit(user)
-    # R18 门控:nsfw=true 走 NSFW 专用视频底模(10Eros),无 X-NSFW 头一律 403,
-    # 与 ltx_studio 选 10eros 底模同款门槛(堵主站直传 nsfw=true 的绕过)
-    if body.nsfw:
-        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     project = session.get(DramaProject, shot.project_id)
     if not project:
@@ -2134,7 +2129,7 @@ async def _run_continue_video(
 
             # LTX:worker 一次选定,按实际 i2v 参数推所需模型/节点(同 ltx_studio 推导)
             ltx_client = None
-            # SFW/NSFW 底模分流:nsfw=True(端点已过 R18 门控)用 10Eros,与 generate-video 同一来源
+            # 底模分流:nsfw=True 用 10Eros(只换底模与打标,不拦提交),与 generate-video 同一来源
             video_ckpt = settings.nsfw_default_video_ckpt if body.nsfw else settings.default_video_ckpt
             if engine_name == "ltx":
                 from app.capabilities import required_nodes
@@ -2213,7 +2208,7 @@ async def _run_continue_video(
                             user=user_obj,
                             session=s,
                             client=h3_client,
-                            nsfw=body.nsfw,  # R18 分镜续写段打标(端点已过门控)
+                            nsfw=body.nsfw,  # 续写段打标(分级只作元数据)
                         )
                         prompt_id = result["prompt_id"]
                     else:
@@ -2250,7 +2245,7 @@ async def _run_continue_video(
                                 status="queued",
                                 prompt=prompt,
                                 seed=seed_i,
-                                nsfw=body.nsfw,  # R18 分镜续写段打标,不进主站作品库
+                                nsfw=body.nsfw,  # 续写段打标(分级只作元数据)
                                 params=params_snapshot(body, seed=seed_i),
                             )
                         )
@@ -2351,10 +2346,6 @@ async def continue_shot_video(
     (continue_status / continue_urls / continue_concat_url / continue_error)。
     """
     enforce_generation_rate_limit(user)
-    # R18 门控:nsfw=true(续写段走 10Eros 成人底模)无 X-NSFW 头一律 403,
-    # 与 generate-video 同款(堵主站借续写绕过 G1;R18 分镜续写产物打标隔离)
-    if body.nsfw:
-        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     if shot.video_status != "done" or not shot.video_url:
         raise HTTPException(status_code=422, detail="分镜尚无已完成视频,无法末帧续写")
@@ -4221,7 +4212,7 @@ async def list_video_generators(
 
     engines = {e["id"]: e for e in await list_engines(pool, user)}
     # 生成器 → 引擎注册表条目映射;ltx 仅余 R18 链路(LTX-2.5 SFW 已退役),
-    # 映射 ltx-nsfw-t2v——SFW 上下文该条目被过滤,eng=None → 标不可用;
+    # 映射 ltx-nsfw-t2v——条目缺失(已退役)时 eng=None → 标不可用;
     # liveact 无注册表条目(走独立 worker,可用性=已配置
     # 基址);seedance/kling 为 stub(规划中,generate 返回固定错误),固定不可用。
     _ENGINE_OF = {"ltx": "ltx-nsfw-t2v", "h3": "h3-t2v"}
@@ -4232,7 +4223,7 @@ async def list_video_generators(
         if eid is not None:
             eng = engines.get(eid)
             if eng is None:
-                # 映射条目在当前上下文不可见(如 R18 引擎在 SFW 上下文被过滤)
+                # 映射条目缺失(引擎已退役)
                 g["available"] = False
                 g["unavailable_reason"] = "引擎在当前内容上下文不可用(R18 专用或已退役)"
             else:
@@ -4514,11 +4505,8 @@ async def generate_shot_video_v2(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """M6/M1: 多模型视频生成分发,支持单镜多候选。nsfw=true(10Eros)仅限 /nsfw 专区。"""
+    """M6/M1: 多模型视频生成分发,支持单镜多候选。nsfw=true 选择 10Eros 成人底模。"""
     enforce_generation_rate_limit(user)
-    # R18 门控:nsfw=true 走 NSFW 专用视频底模(10Eros),无 X-NSFW 头一律 403(与 v1 同款)
-    if body.nsfw:
-        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     project = session.get(DramaProject, shot.project_id)
     if not project:

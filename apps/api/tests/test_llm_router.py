@@ -3,7 +3,7 @@
 断言:
 - resolve_llm_endpoint 四层端点全部取自 settings(与 agent/llm.py 同源);
 - 改 settings 后 route_llm / list_llm_endpoints 结果跟随(不再有硬编码腐化);
-- L4 NSFW 未配专用端点时回落主模型(与 chat() 的 NSFW 路由一致);
+- L4 与 L1 同源(NSFW/SFW 共用主 LLM,2026-10-29 统一);
 - drama refine/polish 分别读各自的配置层。
 """
 from __future__ import annotations
@@ -31,8 +31,6 @@ def _custom_settings() -> Settings:
         llm_l3_base_url="http://l3.example:3000/v1/",
         llm_l3_model="test-l3-model",
         llm_l3_timeout=333.0,
-        llm_nsfw_base_url="http://l4.example:4000/v1/",
-        llm_nsfw_model="test-l4-model",
     )
 
 
@@ -58,22 +56,11 @@ def test_resolve_l2_l3_match_settings():
     )
 
 
-def test_resolve_l4_uses_nsfw_settings():
+def test_resolve_l4_uses_primary_model():
+    """NSFW/SFW 共用同一个 LLM:L4 与 L1 同端点同模型。"""
     s = _custom_settings()
     ep = resolve_llm_endpoint("L4", s)
-    assert ep.base_url == "http://l4.example:4000/v1"  # 尾斜杠已去
-    assert ep.model_id == "test-l4-model"
-
-
-def test_resolve_l4_falls_back_to_primary_when_nsfw_unset():
-    s = Settings(
-        llm_base_url="http://l1.example:1000/v1",
-        llm_model="test-l1-model",
-        llm_nsfw_base_url="",
-        llm_nsfw_model="",
-    )
-    ep = resolve_llm_endpoint("L4", s)
-    assert ep.base_url == "http://l1.example:1000/v1"
+    assert ep.base_url == "http://l1.example:1000/v1"  # 尾斜杠已去
     assert ep.model_id == "test-l1-model"
 
 
@@ -94,8 +81,8 @@ def test_route_llm_follows_settings_change(monkeypatch):
     assert ep.model_id == "test-l3-model"
     assert ep.timeout == 333.0
 
-    ep = route_llm(ContentType.CHAT, is_nsfw=True)  # → L4
-    assert ep.model_id == "test-l4-model"
+    ep = route_llm(ContentType.CHAT, is_nsfw=True)  # → L4 = 主模型
+    assert ep.model_id == "test-l1-model"
 
     ep = route_llm(ContentType.CHAT, force_layer="L3")  # 强制层
     assert ep.model_id == "test-l3-model"
@@ -111,7 +98,7 @@ def test_llm_endpoints_snapshot_follows_settings(monkeypatch):
     listed = {e["layer"]: e for e in list_llm_endpoints()}
     assert listed["L3"]["model_id"] == "test-l3-model"
     assert listed["L3"]["timeout"] == 333.0
-    assert listed["L4"]["base_url"] == "http://l4.example:4000/v1"
+    assert listed["L4"]["base_url"] == "http://l1.example:1000/v1"
 
 
 # ── drama refine / polish 分层配置 ────────────────────────────────────────

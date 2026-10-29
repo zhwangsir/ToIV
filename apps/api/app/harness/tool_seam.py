@@ -6,7 +6,7 @@
 - Provider:ToolPlugin —— harness bootstrap 时在 LLMPlugin 之后激活(见
   plugin.bootstrap_default),注册内建工具(10 个同步小工具,执行器事实源在
   app.agent.tools;+ 4 个深度接管生成工具,事实源在 app.agent.tools_gen)
-  与两条内建守卫(R18 门 / 限流记配额)。
+  与限流守卫(按 rate_scope 记配额)。
 - Consumer:agent/runner 与 routes 经 get_ctx().service("tools") 取用;
   app.agent.tools.execute 保留兼容入口(委托本注册表)。
 
@@ -27,7 +27,6 @@ from fastapi import HTTPException
 
 from app.harness import events as ev
 from app.harness.context import HarnessContext
-# P0-5 R5: _nsfw_guard no-op;不再依赖 is_underage/nsfw_allowed
 from app.ratelimit import enforce_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ class ToolSpec:
     schema: dict
     executor: ToolExecutor
     summary: str
-    nsfw: bool = False  # True=R18 工具;P0-5 R3 仅未成年硬拦
+    nsfw: bool = False  # True=R18 工具元数据;后端不据此拦截
     rate_scope: str = "generation"  # 限流配额维度(空串=不记配额)
 
 
@@ -122,11 +121,6 @@ class ToolRegistry:
 # ---------------------------------------------------------------------------
 # 内建守卫(TOOLS_PRE_EXECUTE waterfall 监听器;顺序 = 注册顺序)
 # ---------------------------------------------------------------------------
-
-
-async def _nsfw_guard(payload: dict, nxt: ev.WaterfallNext) -> tuple[str, list[dict]]:
-    """R18 门:P0-5 R5 no-op(未成年/成人 UX 硬关均改前端 redline.ts)。"""
-    return await nxt(payload)
 
 
 async def _rate_guard(payload: dict, nxt: ev.WaterfallNext) -> tuple[str, list[dict]]:
@@ -373,5 +367,4 @@ class ToolPlugin:
             registry.register(spec)
         ctx.register_service("tools", registry)
         # 守卫顺序:R18 门在前(被拦的工具不消耗配额),限流在后
-        ctx.on_dispose(ctx.events.on_waterfall(ev.TOOLS_PRE_EXECUTE, _nsfw_guard))
         ctx.on_dispose(ctx.events.on_waterfall(ev.TOOLS_PRE_EXECUTE, _rate_guard))

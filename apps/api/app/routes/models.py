@@ -22,8 +22,6 @@ from app.services.provenance import (
     redact_nsfw_recommendation,
     redact_wiki_card,
 )
-from app.redline import nsfw_allowed, require_not_underage
-from app.services.nsfw_inventory import filter_names_for_account
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
 from app.workflows.ace_step import AceStep15Params
@@ -98,16 +96,6 @@ def _video_models() -> list[str]:
     return [p.high_unet, p.low_unet]
 
 
-def _sfw_only(names: list[str]) -> list[str]:
-    """普通模式可见:已知 SFW;藏 NSFW 与 unknown。"""
-    return filter_names_for_account(names, adult=False)
-
-
-def _nsfw_only(names: list[str]) -> list[str]:
-    """成人模式可见:NSFW + unknown(已知 SFW 不进成人专列)。"""
-    return filter_names_for_account(names, adult=True)
-
-
 async def _pick_live_client(pool: WorkerPool):
     """在 worker 池里找第一台可达的 worker,返回 (client, ckpt_info)。
 
@@ -144,21 +132,15 @@ async def list_models(
     # 次世代族排前(可发现性:它们是 A 期升级的推荐底模,列表首位默认落在次世代)
     image_ckpts = _nextgen_image_models(all_unets) + _image_checkpoints(all_ckpts)
 
-    # 模型过滤:成人态→NSFW+unknown;普通→仅已知 SFW(显式优先/文件名兜底)。
-    if nsfw_allowed(user):
-        image_ckpts = _nsfw_only(image_ckpts)
-    else:
-        image_ckpts = _sfw_only(image_ckpts)
-
+    # 底模清单不按账号内容态过滤:分级只作元数据,可见性/灰化由前端策略锁决定。
     # 把全局默认底模提到首位，确保前端下拉/画布的默认选中与 settings.default_ckpt 一致。
-    # 默认模型若因 NSFW 过滤被剔除，则不强行置顶（避免在 SFW 上下文出现不可选项）。
     default_ckpt_name = get_settings().default_ckpt
     if default_ckpt_name and default_ckpt_name in image_ckpts:
         image_ckpts = [default_ckpt_name] + [c for c in image_ckpts if c != default_ckpt_name]
 
     # 给图像底模附 nsfw/vpred 分类标(不过滤);并抽出便捷名单供前端筛选。
     image_tagged = _tagged(image_ckpts)
-    # 未开 R18 时已剔除 nsfw 底模,nsfw_models 必为 []。
+    # nsfw_models 为分级元数据,始终返回全量名单(后端不按账号内容态剔除)。
     nsfw_models = [it["name"] for it in image_tagged if it["nsfw"]]
     vpred_models = [it["name"] for it in image_tagged if it["vpred"]]
 
@@ -220,21 +202,10 @@ async def local_models(
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
-    # 模型过滤:成人态→NSFW+unknown;普通→仅已知 SFW(显式优先/文件名兜底)。
-    if nsfw_allowed(user):
-        for key in ("checkpoints", "loras"):
-            names = out.get(key, [])
-            if isinstance(names, list):
-                out[key] = _nsfw_only(names)
-    else:
-        for key in ("checkpoints", "loras"):
-            names = out.get(key, [])
-            if isinstance(names, list):
-                out[key] = _sfw_only(names)
     ckpts = out.get("checkpoints", [])
     tagged = _tagged(ckpts if isinstance(ckpts, list) else [])
     out["checkpoints_tagged"] = tagged
-    # 未开 R18 时 checkpoints 已剔除 nsfw,nsfw_models 必为 []。
+    # nsfw_models 只是分级元数据,供前端策略锁灰化/隐藏;后端不再据此剔除 checkpoints。
     out["nsfw_models"] = [it["name"] for it in tagged if it["nsfw"]]
     out["vpred_models"] = [it["name"] for it in tagged if it["vpred"]]
     return out
@@ -580,9 +551,8 @@ async def nsfw_recommendations(
 ) -> dict:
     """返回静态 NSFW 模型推荐清单(基于 civitai 调研,不从 API 实时拉取)。
 
-    P0-5 R3:成人 UX 403 退役;仅未成年硬关。前端自行灰化/隐藏面板。
+    后端不设内容门槛;分级只作元数据,灰化/隐藏由前端策略锁决定。
     """
-    require_not_underage(user)
     admin = is_admin_user(user)
     items = [redact_nsfw_recommendation(it, is_admin=admin) for it in NSFW_RECOMMENDATIONS]
     return {"items": items, "count": len(items)}
@@ -596,8 +566,7 @@ async def list_generation_engines(
     """统一生成工作台引擎注册表:引擎元信息 + 参数 schema + 实时可用性。
 
     接入新引擎 = 在 services/engine_registry 注册条目,前端按 schema 动态渲染参数区。
-    NSFW 引擎(10Eros 系)仅在 R18 上下文(X-NSFW 头)出现;SFW 上下文同时剔除
-    select 选项里的 R18 项(如 ltx2 白名单的 10eros 底模)。
+    NSFW 引擎/选项只带 nsfw 元数据标,后端不按账号内容态过滤。
     """
     engines = await list_engines(pool, user)
     return {"engines": engines, "count": len(engines)}
@@ -610,7 +579,7 @@ async def refresh_generation_engines(
 ) -> dict:
     """清空引擎可用性缓存并重新探测,返回全量引擎(前端「重新检测」按钮)。
 
-    与 GET /models/engines 的差别仅在强制重探测;R18 上下文过滤规则一致。
+    与 GET /models/engines 的差别仅在强制重探测;返回内容一致。
     """
     reset_avail_cache()
     engines = await list_engines(pool, user)
@@ -655,23 +624,18 @@ async def list_community_recipes(
 ) -> dict:
     """社区精选配方(CivitAI 真实作品逆向):prompt 模板 + 负向模板 + LoRA 组合 + 参数。
 
-    R18 门控:仅 /nsfw 专页上下文(nsfw_allowed)才返回 nsfw 配方,主站一律剔除。
+    配方全量返回(nsfw 只是元数据);可见性由前端策略锁决定。
     engine 可选过滤(如 wan-nsfw-i2v / h3-t2v)。
     """
     from app.workflows.community_recipes import recipes_for
 
-    rows = recipes_for(engine_id=engine, include_nsfw=nsfw_allowed(user))
+    rows = recipes_for(engine_id=engine)
     return {"recipes": rows, "count": len(rows)}
 
 
 # ---------------------------------------------------------------------------
 # 模型百科(WIKI-2026-08-18):每个模型「是什么/怎么用/哪里来」+ RAG 自然语言问答
 # ---------------------------------------------------------------------------
-
-def _visible(card: dict, user: User) -> bool:
-    """R18 门控:主站剔除 nsfw 卡片(与 /models/local 的过滤口径一致)。"""
-    return (not card.get("nsfw")) or nsfw_allowed(user)
-
 
 @router.get("/models/wiki")
 async def model_wiki_list(
@@ -689,7 +653,6 @@ async def model_wiki_list(
 
     inventory = await svc.local_inventory(pool)
     cards = svc.build_cards(inventory, session)
-    cards = [c for c in cards if _visible(c, user)]
     if type:
         cards = [c for c in cards if c["model_type"] == type]
     if q:
@@ -713,12 +676,10 @@ async def model_wiki_detail(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """单模型卡片详情(模型库文件点击展开);R18 模型主站 404(不泄露存在性)。"""
+    """单模型卡片详情(模型库文件点击展开);分级只作元数据,不再按内容态 404。"""
     from app.services import model_wiki as svc
 
     card = svc._merge(filename, type, session.get(ModelCard, svc._card_id(filename, type)))
-    if not _visible(card, user):
-        raise HTTPException(status_code=404, detail="模型不存在")
     return redact_wiki_card(card, is_admin=is_admin_user(user))
 
 
@@ -773,7 +734,7 @@ async def model_wiki_ask(
     admin = is_admin_user(user)
     cards = [
         redact_wiki_card(c, is_admin=admin)
-        for c in svc.build_cards(inventory, session) if _visible(c, user)
+        for c in svc.build_cards(inventory, session)
     ]
     result = await svc.ask_model_wiki(question, cards)
     # 再抹一次匹配卡(防服务层回填出处字段)

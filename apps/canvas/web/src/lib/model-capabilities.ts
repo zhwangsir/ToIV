@@ -121,8 +121,20 @@ export function normalizeCapabilityString(value: unknown) {
     return normalized.startsWith("string:") ? normalized.slice("string:".length) : normalized;
 }
 
-function normalizeCapabilityStrings(values: unknown[]) {
-    return Array.from(new Set(values.map(normalizeCapabilityString)));
+function normalizeCapabilityStrings(values: unknown): string[] | undefined {
+    return Array.isArray(values) ? Array.from(new Set(values.map(normalizeCapabilityString))) : undefined;
+}
+
+// 持久化配置可能只保存部分键（网关模板的 video 就只有四个键）。缺失字段必须保持
+// 缺失，交给 modelCapabilityConfigFor 用协议默认值兜底；写入 undefined 会把默认值覆盖掉。
+function normalizedStringsField<T extends object>(source: T, key: keyof T & string) {
+    const normalized = normalizeCapabilityStrings(source[key]);
+    return normalized ? { [key]: normalized } : {};
+}
+
+function normalizedStringField<T extends object>(source: T, key: keyof T & string) {
+    const value = source[key];
+    return typeof value === "string" ? { [key]: normalizeCapabilityString(value) } : {};
 }
 
 export function normalizeModelCapabilityConfig(config: ModelCapabilityConfig): ModelCapabilityConfig {
@@ -132,27 +144,31 @@ export function normalizeModelCapabilityConfig(config: ModelCapabilityConfig): M
         image: config.image
             ? {
                   ...config.image,
-                  size: {
-                      ...config.image.size,
-                      values: normalizeCapabilityStrings(config.image.size.values),
-                      default: normalizeCapabilityString(config.image.size.default),
-                  },
-                  quality: {
-                      ...config.image.quality,
-                      values: normalizeCapabilityStrings(config.image.quality.values),
-                      default: normalizeCapabilityString(config.image.quality.default),
-                  },
+                  size: config.image.size
+                      ? {
+                            ...config.image.size,
+                            ...normalizedStringsField(config.image.size, "values"),
+                            ...normalizedStringField(config.image.size, "default"),
+                        }
+                      : config.image.size,
+                  quality: config.image.quality
+                      ? {
+                            ...config.image.quality,
+                            ...normalizedStringsField(config.image.quality, "values"),
+                            ...normalizedStringField(config.image.quality, "default"),
+                        }
+                      : config.image.quality,
               }
             : undefined,
         video: config.video
             ? {
                   ...config.video,
-                  ratios: normalizeCapabilityStrings(config.video.ratios),
-                  defaultRatio: normalizeCapabilityString(config.video.defaultRatio),
-                  resolutions: normalizeCapabilityStrings(config.video.resolutions),
-                  defaultResolution: normalizeCapabilityString(config.video.defaultResolution),
-                  operations: normalizeCapabilityStrings(config.video.operations),
-                  defaultOperation: normalizeCapabilityString(config.video.defaultOperation),
+                  ...normalizedStringsField(config.video, "ratios"),
+                  ...normalizedStringField(config.video, "defaultRatio"),
+                  ...normalizedStringsField(config.video, "resolutions"),
+                  ...normalizedStringField(config.video, "defaultResolution"),
+                  ...normalizedStringsField(config.video, "operations"),
+                  ...normalizedStringField(config.video, "defaultOperation"),
               }
             : undefined,
     };

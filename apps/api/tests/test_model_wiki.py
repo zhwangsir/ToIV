@@ -3,8 +3,9 @@
 ① workflows/model_wiki.card_for:curated 卡片前缀/类目匹配;list_card_summaries 完整
 ② services/model_wiki:build_cards 三层合并(curated∪富化缓存);clean_model_name 噪音清洗;
    _keyword_hits 关键词兜底;ask_model_wiki LLM 失败降级卡片直出(embedding mock 失败)
-③ 路由:/models/wiki 列表+R18 过滤;/models/wiki/detail;/models/wiki/enrich admin 门+
-   civitai mock 落库幂等;/models/ask 空 question 422、正常路径走 mock
+③ 路由:/models/wiki 列表全量下发(nsfw 只作元数据);/models/wiki/detail(R18 也 200,
+   admin 出处脱敏保留);/models/wiki/enrich admin 门+civitai mock 落库幂等;
+   /models/ask 空 question 422、正常路径走 mock
 ④ 助手工具:exec_model_qa 关键词路径返回卡片文本;tool_seam 注册表含 model_qa
 """
 from __future__ import annotations
@@ -183,29 +184,67 @@ def test_keyword_hits_ranks():
 
 # ── ③ 路由 ────────────────────────────────────────────────────────────────
 
-def test_wiki_list_and_r18_filter(ctx):
+def test_wiki_list_full_inventory_with_nsfw_metadata(ctx):
+    """列表全量下发:R18 卡片不再剔除,nsfw 只作元数据;type/q 过滤仍生效。"""
     client, tok, tok_admin, _ = ctx
     r = client.get("/api/models/wiki", headers=_h(tok))
     assert r.status_code == 200, r.text
-    names = [c["filename"] for c in r.json()["cards"]]
+    cards = r.json()["cards"]
+    assert r.json()["count"] == len(cards)
+    names = [c["filename"] for c in cards]
     assert "majicMIX realistic 麦橘写实_v7.safetensors" in names
-    assert "lustifySDXLNSFW_apexV8.safetensors" not in names  # 主站 R18 剔除
+    assert "lustifySDXLNSFW_apexV8.safetensors" in names  # R18 卡片照样透出
     assert "campus_classroom_v1.safetensors" in names  # loras 类目
-    # 搜索过滤
+    by_name = {c["filename"]: c for c in cards}
+    # 分级元数据保留:前端策略锁据此灰化/隐藏
+    assert by_name["lustifySDXLNSFW_apexV8.safetensors"]["nsfw"] is True
+    assert by_name["majicMIX realistic 麦橘写实_v7.safetensors"]["nsfw"] is False
+    assert by_name["lustifySDXLNSFW_apexV8.safetensors"]["has_detail"] is True
+    # 普通用户与 admin 拿到同一份清单(分级不影响可见集合)
+    admin_cards = client.get("/api/models/wiki", headers=_h(tok_admin)).json()["cards"]
+    assert [c["filename"] for c in admin_cards] == names
+    # 搜索过滤(与分级无关)仍生效
     r = client.get("/api/models/wiki", headers=_h(tok), params={"q": "麦橘"})
     assert all("麦橘" in c["filename"] for c in r.json()["cards"])
+    # 类目过滤仍生效
+    loras = client.get("/api/models/wiki", headers=_h(tok), params={"type": "loras"}).json()["cards"]
+    assert loras and all(c["model_type"] == "loras" for c in loras)
 
 
 def test_wiki_detail(ctx):
-    client, tok, _, _ = ctx
-    r = client.get("/api/models/wiki/detail", headers=_h(tok), params={
-        "filename": "majicMIX realistic 麦橘写实_v7.safetensors", "type": "checkpoints"})
+    """详情不再按内容态 404:R18 模型返回 200 卡片;admin 出处脱敏仍生效。"""
+    client, tok, tok_admin, session = ctx
+    params_sfw = {"filename": "majicMIX realistic 麦橘写实_v7.safetensors", "type": "checkpoints"}
+    r = client.get("/api/models/wiki/detail", headers=_h(tok), params=params_sfw)
     assert r.status_code == 200
     assert r.json()["has_detail"] is True
-    # R18 模型主站 404
-    r2 = client.get("/api/models/wiki/detail", headers=_h(tok), params={
-        "filename": "lustifySDXLNSFW_apexV8.safetensors", "type": "checkpoints"})
-    assert r2.status_code == 404
+    assert r.json()["nsfw"] is False
+
+    # R18 模型:200 + 卡片(nsfw 只作元数据,可见性交前端策略锁)
+    params_r18 = {"filename": "lustifySDXLNSFW_apexV8.safetensors", "type": "checkpoints"}
+    r2 = client.get("/api/models/wiki/detail", headers=_h(tok), params=params_r18)
+    assert r2.status_code == 200
+    card = r2.json()
+    assert card["nsfw"] is True and card["has_detail"] is True
+    assert card["label"].startswith("Lustify")
+    assert card["filename"] == params_r18["filename"]
+
+    # admin 脱敏与分级无关:civitai 出处链只给 admin
+    from app.services.model_wiki import _card_id
+
+    session.merge(ModelCard(
+        id=_card_id(params_r18["filename"], "checkpoints"),
+        filename=params_r18["filename"], model_type="checkpoints",
+        civitai_url="https://civitai.red/models/777", civitai_id="777",
+    ))
+    session.commit()
+    user_card = client.get("/api/models/wiki/detail", headers=_h(tok), params=params_r18).json()
+    admin_card = client.get("/api/models/wiki/detail", headers=_h(tok_admin), params=params_r18).json()
+    assert user_card["civitai_url"] == ""
+    assert admin_card["civitai_url"].endswith("/models/777")
+
+    # 归属/鉴权口径不变:未登录仍 401(安全,不是内容审查)
+    assert client.get("/api/models/wiki/detail", params=params_r18).status_code == 401
 
 
 def test_enrich_admin_gate_and_upsert(ctx):

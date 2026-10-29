@@ -504,8 +504,8 @@ def test_multishot_marks_job_nsfw_and_swaps_unet(client, monkeypatch):
         assert job is not None and job.kind == "h3_multishot" and job.nsfw is True
 
 
-def test_multishot_nsfw_lora_rejected_without_header(client, monkeypatch):
-    """NSFW LoRA 主站直传:403(与 t2v 门控同源),不触碰 H3 实例。"""
+def test_multishot_nsfw_lora_allowed_for_ordinary(client, monkeypatch):
+    """NSFW LoRA 普通账号直传:不再 403(限制只在前端锁),正常提交。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ms-nsfw-lora")
@@ -519,8 +519,8 @@ def test_multishot_nsfw_lora_rejected_without_header(client, monkeypatch):
             "loras": [{"name": "h3_musubi_v4-000040.safetensors"}],
         },
     )
-    assert r.status_code == 403
-    assert fake.graphs == []
+    assert r.status_code == 200, r.text
+    assert fake.graphs
 
 
 def test_multishot_sfw_keeps_template_unet(client, monkeypatch):

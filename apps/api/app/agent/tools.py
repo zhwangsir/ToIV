@@ -273,15 +273,14 @@ async def exec_model_qa(args: dict, pool: WorkerPool, user: User, session, attac
     与直接调 /api/models/ask 的差异:助手场景已有外层 LLM,这里只做检索返回卡片文本,
     避免嵌套 LLM 调用(延迟/费用双省);embedding 失败自动降级关键词命中。
     """
-    from app.redline import nsfw_allowed
     from app.services import model_wiki as wiki
 
     question = str(args.get("question") or "").strip()[:300]
     if not question:
         return "问题为空。", []
     inventory = await wiki.local_inventory(pool)
+    # 卡片全量参与检索:nsfw 只是卡面元数据,后端不按账号内容态剔除。
     cards = wiki.build_cards(inventory, session)
-    cards = [c for c in cards if (not c["nsfw"]) or nsfw_allowed(user)]
     matched = await wiki._topk_by_embed(question, cards) or wiki._keyword_hits(question, cards)
     if not matched:
         return "本地模型库未匹配到相关模型。可请管理员在模型库页运行「Civitai 富化」补全介绍。", []

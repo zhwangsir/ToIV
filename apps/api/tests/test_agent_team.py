@@ -551,7 +551,7 @@ def test_reprompt_writes_reversed_prompt(ctx, monkeypatch, tmp_path):
     from app.routes import agent_team as at
     from app.routes.reverse import ReverseResponse
 
-    async def fake_reverse(content, filename, content_type, kind, nsfw):  # noqa: ANN001
+    async def fake_reverse(content, filename, content_type, kind):  # noqa: ANN001
         assert kind == "video" and content.startswith(b"\x00\x00\x00\x18ftyp")
         return ReverseResponse(kind=kind, prompt="reversed cinematic prompt", negative="blurry")
 

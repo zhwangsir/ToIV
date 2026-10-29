@@ -35,7 +35,7 @@ from app.deps import get_current_user, get_pool, resolve_worker
 from app.jsonutil import parse_json_obj
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.generate import _gate_nsfw_ckpt
+from app.routes.generate import _tag_nsfw_ckpt
 from app.versioning import params_snapshot
 from app.workflows.ipadapter import (
     DEFAULT_PRESET,
@@ -324,8 +324,8 @@ async def render_shot(
     enforce_generation_rate_limit(user)
     settings = get_settings()
     ckpt_name = req.ckpt_name or settings.default_ckpt
-    # R18 硬门槛 + 打标:与 generate 各端点同一门槛(rerun overrides 换底模时同样复检)
-    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+    # 底模分级打标(Job.nsfw);rerun overrides 换底模时同样重算
+    job_nsfw = _tag_nsfw_ckpt(ckpt_name)
     # 给定 worker → 只路由该机(参考图仅在该机,旧行为);未给 → 参考图已分发全 pool,
     # 选装了 IPAdapter 节点的最闲 worker 分发,让带参考图的批量出图也能跨机真并行。
     # 次世代族(flux2/qwen_image/z_image)需 UNET+CLIP+VAE 三件齐,且不走 IPAdapter。

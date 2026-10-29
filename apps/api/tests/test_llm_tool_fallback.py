@@ -30,9 +30,7 @@ async def test_chat_falls_back_to_plain_text_when_tools_rejected(monkeypatch):
         return {"role": "assistant", "content": "你好!"}
 
     monkeypatch.setattr(llm, "_call_with_retry", fake_retry)
-    # 清空 NSFW / fallback 配置,走主模型路径
     settings = llm.get_settings()
-    monkeypatch.setattr(settings, "llm_nsfw_model", "")
     monkeypatch.setattr(settings, "llm_fallback_model", "")
 
     result = await llm.chat([{"role": "user", "content": "你好"}], tools=[{"type": "function", "function": {"name": "t", "parameters": {}}}])
@@ -48,7 +46,6 @@ async def test_chat_tool_fallback_not_triggered_by_unrelated_400(monkeypatch):
 
     monkeypatch.setattr(llm, "_call_with_retry", fake_retry)
     settings = llm.get_settings()
-    monkeypatch.setattr(settings, "llm_nsfw_model", "")
     monkeypatch.setattr(settings, "llm_fallback_model", "")
 
     with pytest.raises(llm.LLMError):

@@ -1,3 +1,4 @@
+/** Re-export barrel — adapted from alibaba/lumenx (MIT), see ./NOTICE. */
 export {
     characterViewUrlsFromNode,
     characterDerivedViewsLocked,

@@ -219,8 +219,12 @@ def _post_wan(c, uid: str, **extra):
     )
 
 
-def test_wan_i2v_loras_stripped_in_sfw_context(client, monkeypatch):
-    """SFW 请求带 loras 一律静默剔除(不加 LoRA 节点),Job 不打 R18 标。"""
+def test_wan_i2v_pinned_lora_honored_not_stripped_by_rating(client, monkeypatch):
+    """新契约:用户钉选原样生效,后端不再按内容分级静默剔除钉选 LoRA。
+
+    钉选的 R18 卡进入提交图(high 侧);Job.nsfw 仍只按显式意图(req.nsfw)打标,
+    与钉选内容无关(元数据快照保留)。
+    """
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "wan-sfw-lora")
@@ -231,10 +235,14 @@ def test_wan_i2v_loras_stripped_in_sfw_context(client, monkeypatch):
     assert r.status_code == 200
     names = [n["inputs"]["lora_name"] for n in fake.graphs[0].values()
              if n["class_type"] == "LoraLoaderModelOnly"]
-    assert "NSFW-22-H-e8.safetensors" not in names  # 被剔除,仅剩默认加速 LoRA ×2
-    assert len(names) == 2
+    assert "NSFW-22-H-e8.safetensors" in names  # 钉选原样挂载,不再被静默剔除
+    # 提交响应也带回该钉选(lora_mode=pin)
+    body = r.json()
+    assert body["lora_mode"] == "pin"
+    assert "NSFW-22-H-e8.safetensors" in [x["name"] for x in body["loras"]]
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        # req.nsfw 未显式置真 → Job 不打 R18 标(打标只看显式意图,与钉选无关)
         assert job is not None and job.nsfw is False
 
 
@@ -306,17 +314,26 @@ def test_ltx_t2v_requires_auth(client):
     assert r.status_code == 401
 
 
-def test_ltx_t2v_blocked_without_nsfw_header(client):
-    """LTX 视频仅限 /nsfw 专区:主站(无 X-NSFW 头)一律 403。"""
+def test_ltx_t2v_not_content_gated_without_nsfw_header(client):
+    """后端不按 X-NSFW/账号内容态拦 LTX:普通态无头与成人态带头同为质量守卫 422。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx-gate", content_mode="ordinary")
-    r = c.post(
+        adult_uid = _seed_user(s, "ltx-gate-adult", content_mode="adult")
+    ordinary = c.post(
         "/api/generate/ltx-t2v",
         headers={"Authorization": f"Bearer {create_token(uid)}"},
         json={"positive": "a"},
     )
-    assert r.status_code == 403
+    adult = c.post(
+        "/api/generate/ltx-t2v",
+        headers={"Authorization": f"Bearer {create_token(adult_uid)}", **_NSFW},
+        json={"positive": "a"},
+    )
+    assert ordinary.status_code != 403
+    assert ordinary.status_code == adult.status_code == 422
+    # 422 来自「无首帧会塌成色块」的技术质量守卫,与内容分级无关。
+    assert "首帧" in ordinary.json()["detail"]
 
 
 def test_ltx_t2v_rejects_out_of_range_params(client):
@@ -401,7 +418,8 @@ def test_ltx_i2v_requires_auth(client):
     assert r.status_code == 401
 
 
-def test_ltx_i2v_blocked_without_nsfw_header(client):
+def test_ltx_i2v_not_content_gated_without_nsfw_header(client):
+    """普通态无 X-NSFW 也不再 403;失败只来自 worker/参数等技术原因。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx-i2v-gate", content_mode="ordinary")
@@ -410,7 +428,9 @@ def test_ltx_i2v_blocked_without_nsfw_header(client):
         headers={"Authorization": f"Bearer {create_token(uid)}"},
         json={"positive": "a", "image": "in.png", "worker": "http://fake-worker"},
     )
-    assert r.status_code == 403
+    assert r.status_code != 403
+    detail = str(r.json().get("detail", ""))
+    assert "成人模式" not in detail and "R18" not in detail
 
 
 def test_ltx_i2v_rejects_missing_image(client):
@@ -472,7 +492,8 @@ def test_ltx_lipsync_requires_auth(client):
     assert r.status_code == 401
 
 
-def test_ltx_lipsync_blocked_without_nsfw_header(client):
+def test_ltx_lipsync_not_content_gated_without_nsfw_header(client):
+    """普通态无 X-NSFW 也不再 403;失败只来自 worker/参数等技术原因。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx-lip-gate", content_mode="ordinary")
@@ -486,7 +507,9 @@ def test_ltx_lipsync_blocked_without_nsfw_header(client):
             "worker": "http://fake-worker",
         },
     )
-    assert r.status_code == 403
+    assert r.status_code != 403
+    detail = str(r.json().get("detail", ""))
+    assert "成人模式" not in detail and "R18" not in detail
 
 
 def test_ltx_lipsync_ok_submits_and_creates_nsfw_job(client, monkeypatch):

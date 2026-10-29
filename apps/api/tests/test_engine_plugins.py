@@ -76,14 +76,18 @@ def user() -> User:
 async def test_populate_registry_fills_entries(live_pool, user):
     """EnginePlugin bootstrap 填充后 list_engines 返回全部引擎条目。
 
-    SFW 上下文 24 条(10 条 NSFW 引擎被过滤;ltx25-multishot 2026-09-19 退役);R18 上下文 35 条全量(+h3-fl2v/h3-r2v 及 NSFW 孪生)。
+    新契约:后端不按账号内容态过滤引擎——普通账号与成人态返回同一份全量清单
+    (34 条;ltx25-multishot 2026-09-19 退役);nsfw 只作条目元数据透出,
+    可见性/灰化交由前端可插拔策略锁。
     """
     populate_registry()
-    # SFW 上下文:NSFW 引擎(10 条)被过滤
+    # 普通账号(未切成人态、无 X-NSFW):仍返回全量,后端不剔除 NSFW 引擎
     engines_sfw = await list_engines(live_pool, user)
-    assert len(engines_sfw) == 24, f"SFW 引擎条目数应为 24,实得 {len(engines_sfw)}"
+    assert len(engines_sfw) == 34, f"引擎条目应全量 34,实得 {len(engines_sfw)}"
+    # NSFW 引擎作为元数据透出(nsfw=True),不被隐藏
+    assert any(e.get("nsfw") for e in engines_sfw)
 
-    # R18 上下文:全量 34 条
+    # 成人态 + X-NSFW(仅审计):清单与普通账号完全一致(后端不按账号态过滤)
     user.content_mode = "adult"
     token = nsfw_intent_var.set(True)
     try:
@@ -91,6 +95,7 @@ async def test_populate_registry_fills_entries(live_pool, user):
     finally:
         nsfw_intent_var.reset(token)
     assert len(engines_r18) == 34, f"R18 引擎条目数应为 34,实得 {len(engines_r18)}"
+    assert {e["id"] for e in engines_r18} == {e["id"] for e in engines_sfw}
 
     # 含 submit 绑定(每条引擎都有)
     for e in engines_r18:
@@ -151,19 +156,25 @@ async def test_disabled_engines_set_and_get(live_pool, user):
 
 
 async def test_disabled_engines_skip_probe(live_pool, user, monkeypatch):
-    """停用引擎直接标不可用,不触发探测(不新增探测调用)。"""
-    calls = 0
-    real = er._probe_pool
+    """停用引擎直接标不可用,不触发探测(与分级无关的停用语义)。
 
-    async def _counting(pool, models, nodes):
-        nonlocal calls
-        calls += 1
-        return await real(pool, models, nodes)
+    新契约下引擎清单不再按账号内容态过滤,故普通账号也会探测到 NSFW 引擎;
+    本用例断言:停用引擎不出现在探测列表,未停用引擎(含 NSFW)照常探测。
+    """
+    probed: list[str] = []
+    real_timed = er._probe_timed
 
-    monkeypatch.setattr(er, "_probe_pool", _counting)
+    async def _capture(spec_id, probe, pool):
+        probed.append(spec_id)
+        return await real_timed(spec_id, probe, pool)
+
+    monkeypatch.setattr(er, "_probe_timed", _capture)
     populate_registry(disabled={"txt2img", "img2img"})
-    await list_engines(live_pool, user)
-    assert calls == 2, f"停用引擎不应触发探测,实得 {calls} 次"  # ltx25 退役 + nunchaku 内核下架(不调 _probe_pool)
+    await list_engines(live_pool, user)  # user 为 ordinary 账号
+    # 停用引擎不触发探测
+    assert "txt2img" not in probed and "img2img" not in probed
+    # 未停用引擎照常探测:普通账号也探测 NSFW 引擎(清单不再按分级过滤)
+    assert "h3-t2v" in probed and "wan-nsfw-i2v" in probed
 
 
 # ---------------------------------------------------------------------------

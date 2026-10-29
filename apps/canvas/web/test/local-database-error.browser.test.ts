@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BunPlugin } from "bun";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { chromium, type Browser } from "playwright";
 
 let browser: Browser;
@@ -11,6 +13,12 @@ beforeAll(async () => {
     // Match the isolated browser harnesses, including Bun 1.3.9 alias resolution.
     const plugins: BunPlugin[] = [{ name: "test-source-alias", setup(builder) {
         builder.onResolve({ filter: /^@\// }, (args) => ({ path: Bun.resolveSync("../src/" + args.path.slice(2), import.meta.dir) }));
+        // 与 tsconfig paths/@content-lock 和 vite alias 一致：锁文件缺失时回落到中性策略。
+        builder.onResolve({ filter: /^@content-lock$/ }, () => ({
+            path: ["../src/content-lock.ts", "../src/content-policy.ts"]
+                .map((candidate) => resolve(import.meta.dir, candidate))
+                .find((candidate) => existsSync(candidate)),
+        }));
     } }];
     const build = await Bun.build({ entrypoints: [import.meta.dir + "/fixtures/local-database-error-harness.tsx"], plugins, target: "browser", define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' } });
     if (!build.success) throw new Error(build.logs.join("\n"));

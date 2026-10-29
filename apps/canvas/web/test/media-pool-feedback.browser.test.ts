@@ -64,9 +64,9 @@ test("empty library and content-mode hidden states explain their distinct next s
     await empty.screenshot({ path: "test-results/freezone-r9/media-empty-light.png", fullPage: true, animations: "disabled" });
     await empty.close();
     const hidden = await openHarness("?hidden=1");
-    expect(await hidden.getByText("当前为普通").count()).toBe(1);
+    expect(await hidden.getByText("当前为普通", { exact: true }).count()).toBe(1);
     expect(await hidden.getByRole("button", { name: "清空筛选" }).count()).toBe(0);
-    expect(await hidden.locator(".toiv-empty-desc").textContent()).toContain("顶栏");
+    expect(await hidden.locator(".toiv-empty-desc").textContent()).toContain("成人素材已隐藏");
     await hidden.close();
 });
 

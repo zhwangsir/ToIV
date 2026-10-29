@@ -3,8 +3,8 @@
 覆盖:
   · 结构:首批引擎(txt2img/img2img)+ h3-t2v/h3-i2v 条目,
     每项含 id/label/kind/available/nsfw/params;params 元素 type 在允许集合内
-  · NSFW 过滤:SFW 上下文无 nsfw 引擎(LTX-2.3 10Eros / h3-nsfw 全部隐藏);
-    R18 上下文(nsfw_intent_var 置位)nsfw 引擎出现
+  · 零过滤契约:引擎清单/参数选项不按账号 content_mode(或 X-NSFW 审计头)剔除,
+    普通态与成人态拿到同一份清单;nsfw 只作条目/选项元数据交前端策略锁
   · 可用性:fake pool 可达 → 图像引擎 available=True;全不可达 → False + 原因;
     h3/longcat/wan 走独立实例探测(各自 stub 替身),与 pool 死活无关
 """
@@ -111,6 +111,17 @@ def dead_pool() -> WorkerPool:
 
 def _by_id(engines: list[dict]) -> dict[str, dict]:
     return {e["id"]: e for e in engines}
+
+
+async def _ids_as_adult(pool: WorkerPool, user: User) -> dict[str, dict]:
+    """成人态快照(content_mode=adult + X-NSFW 审计头置位);返回后复位普通态。"""
+    user.content_mode = "adult"
+    token = nsfw_intent_var.set(True)
+    try:
+        return _by_id(await list_engines(pool, user))
+    finally:
+        user.content_mode = "ordinary"
+        nsfw_intent_var.reset(token)
 
 
 @pytest.fixture(autouse=True)
@@ -256,19 +267,29 @@ async def test_qwen_image_edit_unavailable_without_unet(live_pool, user, qwen_ed
     assert "qwen_image_edit_2509" in e["unavailable_reason"]
 
 
-async def test_sfw_context_filters_nsfw_engines_and_options(live_pool, user):
-    """SFW 上下文(默认):无 nsfw 引擎,ltx-nsfw 三条(10Eros)整条目隐藏;SFW 视频主力为 h3。"""
+async def test_engine_list_identical_across_content_modes(live_pool, user):
+    """零过滤契约:普通态与成人态拿到同一份引擎清单;nsfw 条目保留并带元数据。"""
     token = nsfw_intent_var.set(False)
     try:
         engines = await list_engines(live_pool, user)
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    assert all(not e["nsfw"] for e in engines)
     ids = _by_id(engines)
+    # LTX-2.3 10Eros 三条 R18 引擎不再隐藏,靠 nsfw 元数据交前端策略锁
     for eid in ("ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync"):
-        assert eid not in ids
+        assert eid in ids, f"{eid} 应原样透出"
+        assert ids[eid]["nsfw"] is True, f"{eid} 应带 nsfw 元数据"
+    # SFW 主力视频引擎仍在,且不带 nsfw 标
     assert "h3-t2v" in ids and "h3-i2v" in ids
+    assert ids["h3-t2v"]["nsfw"] is False
+    assert ids["h3-t2v"].get("ordinary_default") is True
+    # 每条引擎的形状契约(与分级无关)仍成立
+    for e in engines:
+        assert isinstance(e["nsfw"], bool)
+        assert e["params"] and all("options_source" not in p for p in e["params"])
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert sorted(adult_ids) == sorted(ids), "成人态与普通态引擎集合必须一致"
 
 
 async def test_r18_context_exposes_nsfw_engines_and_options(live_pool, user):
@@ -521,42 +542,66 @@ async def test_non_image_ckpts_excluded_from_selector(user):
         assert j not in values, f"{j} 应被剔除"
 
 
-async def test_sfw_context_strips_nsfw_ckpt_options(live_pool, user):
-    """SFW 上下文:txt2img 底模选项剔除 NSFW ckpt,风格预设剔除指向 R18 底模的项。"""
+async def test_ordinary_context_keeps_nsfw_ckpt_options(live_pool, user):
+    """普通态:txt2img 底模选项含 NSFW ckpt(带 nsfw 标),R18 图像引擎条目也在清单里。"""
     token = nsfw_intent_var.set(False)
     try:
         ids = _by_id(await list_engines(live_pool, user))
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    assert "nsfw-txt2img" not in ids
-    assert "nsfw-img2img" not in ids
-    values = [o["value"] for o in _param(ids["txt2img"], "ckpt_name")["options"]]
-    assert _NSFW_CKPT not in values
-    assert _SFW_CKPT in values
-    preset_labels = [o["label"] for o in _param(ids["txt2img"], "style_preset")["options"]]
-    assert not any("NSFW" in label for label in preset_labels)
+    # R18 图像引擎不再按内容态隐藏,条目自带 nsfw 元数据
+    for eid in ("nsfw-txt2img", "nsfw-img2img"):
+        assert ids[eid]["nsfw"] is True, f"{eid} 应带 nsfw 元数据"
+        assert ids[eid]["kind"] == "image"
+    ckpt = _param(ids["txt2img"], "ckpt_name")
+    by_value = {o["value"]: o for o in ckpt["options"]}
+    assert _SFW_CKPT in by_value and not by_value[_SFW_CKPT].get("nsfw")
+    # 分级只作元数据:NSFW 底模仍在选项里
+    assert by_value[_NSFW_CKPT].get("nsfw") is True
+    assert ckpt["default"] == "" and ckpt["options"][0]["value"] == ""
+    # R18 引擎的「只注 R18 底模」是选项面语义(声明源 image_ckpt_nsfw),不是账号闸
+    nsfw_values = [o["value"] for o in _param(ids["nsfw-txt2img"], "ckpt_name")["options"]]
+    assert nsfw_values == [_NSFW_CKPT]
+    # 风格预设里的 R18 项也只打标不剔除
+    preset_opts = {o["value"]: o for o in _param(ids["txt2img"], "style_preset")["options"]}
+    assert preset_opts["nsfw_realistic"].get("nsfw") is True
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert [o["value"] for o in _param(adult_ids["txt2img"], "ckpt_name")["options"]] == [
+        o["value"] for o in ckpt["options"]
+    ]
 
 
-async def test_sfw_context_keeps_sfw_intent_presets(live_pool, user):
-    """sfw_intent 预设回归(2026-08-08):底模命中 is_nsfw hints(wai/hassaku/pony)
-    但预设定位主站通用风格,SFW 上下文不得连带隐藏;真 NSFW 预设仍剔除。"""
+async def test_ordinary_context_keeps_full_style_presets(live_pool, user):
+    """风格预设全量下发:sfw_intent 预设不打标,nsfw_* 预设保留并带 nsfw 元数据。
+
+    回归(2026-08-08 hints 误伤):底模命中 is_nsfw hints(wai/hassaku/pony)但预设
+    定位主站通用风格时,不得被打成 18+;双用途 chibi/portrait 同样不打标。
+    """
     token = nsfw_intent_var.set(False)
     try:
         ids = _by_id(await list_engines(live_pool, user))
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    values = [o["value"] for o in _param(ids["txt2img"], "style_preset")["options"]]
-    # SFW 意图预设(底模 waiIllustrious/hassakuXL/ponyDiffusion/noobai)主站可见
+    opts = _param(ids["txt2img"], "style_preset")["options"]
+    assert opts[0]["value"] == "", "首位应是「不使用」空值项"
+    by_value = {o["value"]: o for o in opts}
+    # SFW 意图预设(底模 waiIllustrious/hassakuXL/ponyDiffusion/noobai)不打 nsfw 标
     for pid in ("anime", "anime_soft", "fantasy", "campus", "history_war",
                 "anime_high_quality"):
-        assert pid in values, f"SFW 意图预设 {pid} 被 hints 误伤隐藏"
-    # 真 NSFW 意图预设仍隐藏;双用途 chibi/portrait 主站可见
-    for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony"):
-        assert pid not in values, f"{pid} 不应在主站可见"
+        assert pid in by_value, f"SFW 意图预设 {pid} 缺失"
+        assert not by_value[pid].get("nsfw"), f"{pid} 不应被 hints 误伤打标"
+    # 双用途 chibi/portrait 不因底模家族被打成 18+
     for pid in ("chibi", "portrait"):
-        assert pid in values, f"双用途预设 {pid} 不应因底模家族被打成 18+"
+        assert pid in by_value and not by_value[pid].get("nsfw")
+    # 真 NSFW 意图预设:仍在清单里,只带元数据(旧契约会整项剔除)
+    for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony"):
+        assert by_value[pid].get("nsfw") is True, f"{pid} 应带 nsfw 元数据"
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert [o["value"] for o in _param(adult_ids["txt2img"], "style_preset")["options"]] == [
+        o["value"] for o in opts
+    ], "成人态与普通态预设清单必须一致"
 
 
 async def test_r18_context_keeps_all_style_presets(live_pool, user):
@@ -615,7 +660,11 @@ async def test_dynamic_options_fallback_when_pool_dead(dead_pool, user):
 
 
 async def test_endpoint_shape_via_app(live_pool, user):
-    """路由级冒烟:GET /api/models/engines 经依赖覆盖返回 200 + engines 数组。"""
+    """路由级冒烟:GET /api/models/engines 经依赖覆盖返回 200 + engines 数组。
+
+    零过滤契约:普通态(无 X-NSFW 头)也返回 R18 引擎,只带 nsfw 元数据;
+    成人态拿到同一份 id 集合(X-NSFW 头仅审计,不作判据)。
+    """
     from fastapi.testclient import TestClient
 
     from app.deps import get_current_user, get_pool
@@ -630,9 +679,13 @@ async def test_endpoint_shape_via_app(live_pool, user):
     assert res.status_code == 200
     data = res.json()
     assert data["count"] == len(data["engines"])
-    assert "ltx-nsfw-t2v" not in _by_id(data["engines"])  # 无 X-NSFW 头 → SFW
+    ids = _by_id(data["engines"])
+    assert ids["ltx-nsfw-t2v"]["nsfw"] is True, "普通态应透出 R18 引擎 + nsfw 元数据"
+    assert ids["txt2img"]["nsfw"] is False
+    for e in data["engines"]:
+        assert {"id", "label", "kind", "available", "nsfw", "params"} <= set(e)
 
-    # 账号成人态 → nsfw 引擎出现(X-NSFW 头仅审计,不作判据)
+    # 账号成人态 → 同一份清单(条数与 id 集合全等)
     user.content_mode = "adult"
     app.dependency_overrides[get_pool] = lambda: live_pool
     app.dependency_overrides[get_current_user] = lambda: user
@@ -642,7 +695,10 @@ async def test_endpoint_shape_via_app(live_pool, user):
         user.content_mode = "ordinary"
         app.dependency_overrides.clear()
     assert res2.status_code == 200
-    assert "ltx-nsfw-t2v" in _by_id(res2.json()["engines"])
+    data2 = res2.json()
+    assert data2["count"] == len(data2["engines"]) == data["count"]
+    assert sorted(_by_id(data2["engines"])) == sorted(ids)
+    assert _by_id(data2["engines"])["ltx-nsfw-t2v"]["nsfw"] is True
 
 
 # --------------------------------------------------------------------------- #
@@ -669,35 +725,31 @@ async def test_h3_loras_param_schema(live_pool, user, h3_lora_stub):
 
 
 async def test_h3_loras_options_injected_and_nsfw_tagged(live_pool, user, h3_lora_stub):
-    """LoRA 选项来自 H3 实例枚举;已知 R18 LoRA 打 nsfw 标。
-
-    SFW 上下文剔除 R18 项;R18 上下文全量保留(与 ckpt/unet 选项同一过滤链路)。
-    """
+    """LoRA 选项来自 H3 实例枚举;已知 R18 LoRA 打 nsfw 标,但不再按内容态剔除。"""
     h3_lora_stub.loras = [_SFW_H3_LORA, _NSFW_H3_LORA]
 
     token = nsfw_intent_var.set(False)
     try:
         ids = _by_id(await list_engines(live_pool, user))
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    sfw_values = [o["value"] for o in _param(ids["h3-t2v"], "loras")["options"]]
-    assert _SFW_H3_LORA in sfw_values
-    assert _NSFW_H3_LORA not in sfw_values
-
-    user.content_mode = "adult"
-
-    token = nsfw_intent_var.set(True)
-
-    try:
-        ids = _by_id(await list_engines(live_pool, user))
-    finally:
-        user.content_mode = "ordinary"
-        nsfw_intent_var.reset(token)
-    opts = _param(ids["h3-t2v"], "loras")["options"]
-    by_value = {o["value"]: o for o in opts}
+    p = _param(ids["h3-t2v"], "loras")
+    by_value = {o["value"]: o for o in p["options"]}
+    # 普通态两项都在:R18 LoRA 只带 nsfw 元数据(前端策略锁据此灰化/隐藏)
+    assert set(by_value) == {_SFW_H3_LORA, _NSFW_H3_LORA}
     assert by_value[_NSFW_H3_LORA].get("nsfw") is True
     assert not by_value[_SFW_H3_LORA].get("nsfw")
+    # loras 参数形状契约(与分级无关):type/default/强度范围/不泄漏 options_source
+    assert p["type"] == "loras"
+    assert p["default"] is None
+    assert (p["min"], p["max"]) == (0.5, 1.0)
+    assert "options_source" not in p
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert [o["value"] for o in _param(adult_ids["h3-t2v"], "loras")["options"]] == [
+        o["value"] for o in p["options"]
+    ], "成人态与普通态 LoRA 选项必须一致"
+    assert _param(adult_ids["h3-nsfw-t2v"], "loras")["type"] == "loras"
 
 
 async def test_h3_loras_options_fallback_when_instance_down(live_pool, user, h3_lora_stub):
@@ -757,19 +809,29 @@ async def test_probes_run_parallel_and_cached(live_pool, user, monkeypatch):
 
 # --------------------------------------------------------------------------- #
 # R18 H3 引擎(h3-nsfw-t2v / h3-nsfw-i2v,2026-08-12 NSFW 双引擎)
-# 与 SFW h3-t2v/h3-i2v 同一提交链路与 probe;仅 R18 上下文可见。
+# 与 SFW h3-t2v/h3-i2v 同一提交链路与 probe;两种内容态都透出(只带 nsfw 元数据)。
 # --------------------------------------------------------------------------- #
 
-async def test_h3_nsfw_engines_hidden_in_sfw_context(live_pool, user):
-    """SFW 上下文:h3-nsfw 双引擎不可见(与 ltx-nsfw 同一过滤链路)。"""
+async def test_h3_nsfw_engines_visible_in_ordinary_context(live_pool, user):
+    """普通态:h3-nsfw 双引擎照样透出(nsfw 只作元数据),可用性仍只看实例探测。"""
     token = nsfw_intent_var.set(False)
     try:
         ids = _by_id(await list_engines(live_pool, user))
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    assert "h3-nsfw-t2v" not in ids
-    assert "h3-nsfw-i2v" not in ids
+    for eid in ("h3-nsfw-t2v", "h3-nsfw-i2v"):
+        assert eid in ids, f"缺引擎 {eid}"
+        assert ids[eid]["nsfw"] is True, f"{eid} 应带 nsfw 元数据"
+        assert ids[eid]["kind"] == "video"
+        # 可用性与 SFW h3 同步(共用 _probe_h3),与账号内容态无关
+        assert ids[eid]["available"] is True
+        assert ids[eid]["available"] is ids["h3-t2v"]["available"]
+    # 形状契约不随内容态变化:i2v 需参考图参数,t2v 不需要
+    assert _param(ids["h3-nsfw-i2v"], "images")["type"] == "images"
+    assert all(p["key"] != "images" for p in ids["h3-nsfw-t2v"]["params"])
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert sorted(adult_ids) == sorted(ids), "成人态与普通态引擎集合必须一致"
 
 
 async def test_h3_nsfw_engines_exposed_in_r18_context(live_pool, user, h3_lora_stub):
@@ -971,10 +1033,24 @@ def wan_pool() -> WorkerPool:
     return WorkerPool([_FakeClient(models, nodes)])
 
 
-async def test_wan_nsfw_i2v_hidden_in_sfw_context(wan_pool, user):
-    """SFW 上下文:wan-nsfw-i2v 不可见(与 ltx-nsfw/h3-nsfw 同一过滤链路)。"""
+async def test_wan_nsfw_i2v_visible_in_ordinary_context(wan_pool, user):
+    """普通态:wan-nsfw-i2v 照样透出且可用(配方 LoRA 齐全),分级只作元数据。"""
+    from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
+
     ids = _by_id(await list_engines(wan_pool, user))
-    assert "wan-nsfw-i2v" not in ids
+    e = ids["wan-nsfw-i2v"]
+    assert e["nsfw"] is True and e["kind"] == "video"
+    # 可用性只看 capabilities 主链模型/节点 + 6 配方 LoRA,与账号内容态无关
+    assert e["available"] is True
+    assert "unavailable_reason" not in e
+    assert _param(e, "images")["type"] == "images"  # i2v 必传参考图
+    loras = _param(e, "loras")
+    assert loras["type"] == "loras"
+    assert {o["value"] for o in loras["options"]} == set(WAN_I2V_NSFW_LORAS)  # 不多不漏
+    assert all(o.get("nsfw") for o in loras["options"])
+
+    adult_ids = await _ids_as_adult(wan_pool, user)
+    assert sorted(adult_ids) == sorted(ids), "成人态与普通态引擎集合必须一致"
 
 
 async def test_wan_nsfw_i2v_exposed_and_available_in_r18(wan_pool, user):
@@ -1246,15 +1322,30 @@ async def test_h3_fl2v_and_r2v_engines_registered(live_pool, user):
     assert "不是 Director" in r2v["description"]
 
 
-async def test_h3_nsfw_fl2v_r2v_hidden_in_sfw(live_pool, user):
+async def test_h3_nsfw_fl2v_r2v_visible_in_ordinary_context(live_pool, user):
+    """普通态:h3-nsfw-fl2v / h3-nsfw-r2v 照样透出(nsfw 元数据 + 与 SFW 同链路 limits)。"""
+    from app.limits import H3_MAX_LORAS, H3_PROMPT_MAX_CHARS
+
     token = nsfw_intent_var.set(False)
     try:
         ids = _by_id(await list_engines(live_pool, user))
     finally:
-        user.content_mode = "ordinary"
         nsfw_intent_var.reset(token)
-    assert "h3-nsfw-fl2v" not in ids
-    assert "h3-nsfw-r2v" not in ids
+    for eid in ("h3-nsfw-fl2v", "h3-nsfw-r2v"):
+        assert eid in ids, f"缺引擎 {eid}"
+        assert ids[eid]["nsfw"] is True, f"{eid} 应带 nsfw 元数据"
+        assert ids[eid]["kind"] == "video"
+        assert ids[eid]["available"] is True
+        assert ids[eid]["limits"]["prompt_max_chars"] == H3_PROMPT_MAX_CHARS
+        assert ids[eid]["limits"]["lora_max_items"] == H3_MAX_LORAS
+    # 提交路由与 SFW 同链路(形状契约不随内容态变化)
+    assert ids["h3-nsfw-fl2v"]["submit"]["route"] == "/api/h3/fl2v"
+    assert ids["h3-nsfw-r2v"]["submit"]["route"] == "/api/h3/r2v"
+    assert _param(ids["h3-nsfw-fl2v"], "images")["max"] == 2
+    assert _param(ids["h3-nsfw-r2v"], "images")["max"] == 9
+
+    adult_ids = await _ids_as_adult(live_pool, user)
+    assert sorted(adult_ids) == sorted(ids), "成人态与普通态引擎集合必须一致"
 
 
 async def test_h3_nsfw_fl2v_r2v_exposed_in_r18(live_pool, user):
