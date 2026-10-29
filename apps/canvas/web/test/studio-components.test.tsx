@@ -2,6 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StudioShell } from "../src/studio/shell/StudioShell";
 import { FaceSwitcher } from "../src/studio/ui/FaceSwitcher";
+import { SlidingTabs } from "../src/studio/ui/SlidingTabs";
+import { StatusDot, STATUS_LABEL } from "../src/studio/ui/StatusDot";
+import { useStudioToast } from "../src/studio/ui/toast-store";
 import { studioFaceEnabled } from "../src/studio/flags";
 
 describe("StudioShell", () => {
@@ -43,5 +46,42 @@ describe("flags", () => {
         expect(studioFaceEnabled("pipeline")).toBe(true);
         expect(studioFaceEnabled("canvas")).toBe(true);
         expect(studioFaceEnabled("edit")).toBe(true);
+    });
+});
+
+describe("SlidingTabs", () => {
+    const items = [
+        { key: "s1", label: "项目配置", done: true },
+        { key: "s2", label: "剧本创作", done: true },
+        { key: "s3", label: "素材准备" },
+    ];
+    const html = renderToStaticMarkup(<SlidingTabs items={items} value="s3" onChange={() => {}} />);
+    test("renders tablist with selected state", () => {
+        expect(html).toContain('role="tablist"');
+        expect(html).toMatch(/aria-selected="true"[^>]*><span class="tick">✓<\/span>素材准备|aria-selected="true"[^>]*>素材准备/s);
+    });
+    test("marks done stages with tick", () => {
+        expect(html).toContain('class="tick"');
+    });
+    test("renders slider element", () => {
+        expect(html).toContain("stv-tabs-slider");
+    });
+});
+
+describe("StatusDot", () => {
+    test("labels cover all statuses", () => {
+        expect(Object.keys(STATUS_LABEL).sort()).toEqual(["done", "run", "wait"]);
+    });
+    test("renders semantic class", () => {
+        expect(renderToStaticMarkup(<StatusDot status="run" />)).toContain("stv-status-run");
+    });
+});
+
+describe("toast store", () => {
+    test("push keeps at most three and exposes text", () => {
+        useStudioToast.setState({ toasts: [] });
+        const { push } = useStudioToast.getState();
+        ["a", "b", "c", "d"].forEach((text) => push(text));
+        expect(useStudioToast.getState().toasts.map((t) => t.text)).toEqual(["b", "c", "d"]);
     });
 });
