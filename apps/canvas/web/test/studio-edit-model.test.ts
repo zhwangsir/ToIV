@@ -4,7 +4,7 @@ mock.module("@/services/toiv/client", () => ({
     fetchDramaProject: async () => ({
         id: "p1", title: "草船借箭",
         shots: [
-            { id: "sh1", idx: 0, status: "done", duration_sec: 4.5, dialogue: "或许我真不适合修仙", audio_media_status: "done", candidates: [{ id: "c1", is_picked: true }] },
+            { id: "sh1", idx: 0, status: "done", duration_sec: 4.5, dialogue: "或许我真不适合修仙", audio_media_status: "current", candidates: [{ id: "c1", is_picked: true }] },
             { id: "sh2", idx: 1, status: "done", duration_sec: 3, dialogue: "", candidates: [{ id: "c2", is_picked: true }] },
         ],
     }),

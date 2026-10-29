@@ -35,7 +35,7 @@ export async function loadEditModel(projectId: string): Promise<EditModel> {
         const duration = shot.duration_sec ?? 0;
         const status = statusOf(shot.status);
         clips.push({ id: `v-${shot.id}`, label: `SHOT${String(index + 1).padStart(2, "0")} · ${duration}s`, track: "v1", startSec: cursor, durationSec: duration, kind: "video", status });
-        if (shot.dialogue && shot.audio_media_status === "done") {
+        if (shot.dialogue && shot.audio_media_status === "current") {
             clips.push({ id: `a-${shot.id}`, label: `对白 · 镜${String(index + 1).padStart(2, "0")}`, track: "a1", startSec: cursor, durationSec: duration, kind: "dialogue", status: "done" });
         }
         strip.push({ id: shot.id, title: `镜${String(index + 1).padStart(2, "0")}`, durationSec: duration, status, stillSeed: shot.candidates?.find((candidate) => candidate.is_picked)?.seed ?? 0 });
