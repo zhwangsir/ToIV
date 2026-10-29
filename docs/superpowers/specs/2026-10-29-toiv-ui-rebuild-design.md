@@ -73,11 +73,22 @@
 ### 4.4 共享件
 ⌘K 命令面板、任务抽屉（三源）、toast 区（右下单列 ≤3、4s）、companion、ErrorBoundary 与 generation-failure 通知（语义不变、身份换装）。
 
+### 4.5 表达层缺口补位（2026-10-29 能力矩阵审计结论）
+
+| 缺口 | 优先级 | 落点 | 新增组件 |
+|---|---|---|---|
+| Agent 规划/审批 UI（矩阵 #1） | P1 | 画布面 Agent 面板增"规划态/工具调用/审批"三态：提议边(虚线)→审批条→执行回执；任务抽屉链 agent run 详情 | ApprovalBar ToolCallRow |
+| 配方分享闭环（#2） | P1 | 流水线面"配方"tab：复用/从镜头存/导出 JSON/安装/分享链接；插件中心去 feature-gate | RecipeCard ImportDialog |
+| 多视图 UI（#7） | P0 | §4.1 四联组+视图锁；多状态/360° 仅留占位入口（P2） | （ViewGroup 已列） |
+| 成片交付入口（#9） | P0 | 剪辑湾顶栏"导出"菜单：Render MP4 / SRT 侧车 / packed transcript / EDL / QA 报告 | ExportMenu |
+| 双轨一等公民（#12） | P0 | header 面切换即双轨入口；面间互跳保留上下文（项目/选中镜头/时间码） | FaceSwitcher |
+| 创作伴侣（#14） | P1 | CompanionBubble + 设置项（人设文案/主动提示频率/关闭记忆）；nudges 来源 = art-critique、任务完成、门控变化；频率 ≤1/面/会话 | （CompanionBubble 已列） |
+
 ## 5. 组件库
 
 - 底座：**弃 antd**。新组件自建于已装依赖：Radix / react-aria-components + shadcn 模式 + class-variance-authority + tailwind-merge + motion；图标单一来源 lucide-react。
 - 约定：CVA variants + `data-state` 语义 + focus-visible + reduced-motion；组件不写内容判断；不写 RGB/px 硬编码。
-- 清单（40）：Button IconButton SlidingTabs Segmented Menu Dialog Sheet Drawer Toast Tooltip Popover Select Combobox Input Textarea Slider Switch Checkbox Radio Tag Badge StatusDot Progress Skeleton EmptyState ErrorState Card MediaTile ViewGroup TakeStrip ShotStrip TrackLane NodeCard PlanCard AgentBubble CompanionBubble CommandPalette KeyValue SectionHeader FieldGroup。
+- 清单（46）：Button IconButton SlidingTabs Segmented Menu Dialog Sheet Drawer Toast Tooltip Popover Select Combobox Input Textarea Slider Switch Checkbox Radio Tag Badge StatusDot Progress Skeleton EmptyState ErrorState Card MediaTile ViewGroup TakeStrip ShotStrip TrackLane NodeCard PlanCard ApprovalBar ToolCallRow RecipeCard ImportDialog ExportMenu FaceSwitcher AgentBubble CompanionBubble CommandPalette KeyValue SectionHeader FieldGroup。
 - 门控三组件：GateBadge AdultVeil HiddenNotice（只读 `@content-lock`）。
 
 ## 6. 架构与迁移
@@ -102,3 +113,13 @@
 ## 9. 不做清单
 
 `/desktop*` 默认交付、opentalking 数字人、web 引擎台、旧 skills 入口、dev labs 进生产、`/home` 独立首页、移动端编辑、KPI/插件/eagle/workflow 测试台（P2 延后）、全局玻璃/霓虹/粒子。
+
+## 10. Roadmap 附录（本次不做，单列立项）
+
+| 项 | 矩阵 # | 现状 | 立项触发条件 |
+|---|---|---|---|
+| 3D 导演台（走位/运动/时间线/录制） | #3 | 后端 threed_ops 产物建档 + director-viewport(react-three) 在；无舞台 UI | 三面重建落地且短剧主链稳定后 |
+| 导演世界（360°/3D 布景/机位/取景） | #8 | 运镜仅渲染元数据；panorama-node 仅全景 | 与 3D 导演台同立项 |
+| 分支叙事（互动剧集） | #4 | chapters 在；无分支产品化 | 有真实多分支剧本需求时 |
+| 团队协作（共享/角色/成本看板） | #10 | tenant+role(admin/user)+credits 挂 Tenant 在；无协作 UI | 出现第二个真实协作租户时 |
+| 对外 source-available | #15 | 自托管链路完整但仓库私有 | 运营拍板，非工程问题 |
