@@ -15,6 +15,7 @@ const HomePage = lazy(loadHomePage);
 const CanvasPage = lazy(loadCanvasPage);
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
 const StudioCreateRoute = lazy(() => import("@/studio/routes/studio-create-route"));
+const StudioEditRoute = lazy(() => import("@/studio/routes/studio-edit-route"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
@@ -151,6 +152,7 @@ export const router = createWorkspaceRouter([
             { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
             { path: "/desktop/*", element: <Navigate to="/create" replace /> },
             { path: "/create", element: deferred(<StudioCreateRoute />) },
+            { path: "/edit", element: deferred(<StudioEditRoute />) },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
             { path: "/tasks", element: deferred(<ToivTasksPage />) },
             { path: "/library", element: deferred(<MediaLibraryPage />) },

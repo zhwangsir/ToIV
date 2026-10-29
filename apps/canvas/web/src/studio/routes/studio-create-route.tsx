@@ -1,6 +1,7 @@
 import { lazy, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { studioFaceEnabled } from "../flags";
+import { faceHref } from "./studio-edit-route";
 import { StudioShell } from "../shell/StudioShell";
 import { PipelineFace, type PipelineAction } from "../faces/pipeline/PipelineFace";
 import { loadPipelineModel, type PipelineModel } from "../faces/pipeline/model";
@@ -16,6 +17,7 @@ export default function StudioCreateRoute() {
 
 function StudioPipelineRoute() {
     const [params] = useSearchParams();
+    const navigate = useNavigate();
     const projectId = params.get("project") ?? "";
     const [model, setModel] = useState<PipelineModel | null>(null);
     const [buddy, setBuddy] = useState(true);
@@ -41,7 +43,7 @@ function StudioPipelineRoute() {
     };
     return (
         <StudioShell face="pipeline" projectLabel={`${model.projectName} / ${model.stages[model.stageIndex].label}`}
-            runningCount={model.runningCount} onOpenTasks={() => push("任务中心在 Plan 2 接入抽屉")} onFaceChange={() => push("画布/剪辑湾面在 Plan 2-3 接入", true)}
+            runningCount={model.runningCount} onOpenTasks={() => push("任务中心在 Plan 4 接入抽屉")} onFaceChange={(face) => navigate(faceHref(face, projectId))}
             buddyText={buddy ? model.companionHint : undefined} onDismissBuddy={() => setBuddy(false)}>
             <PipelineFace model={model} onAction={onAction} />
         </StudioShell>

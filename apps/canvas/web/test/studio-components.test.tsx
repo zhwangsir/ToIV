@@ -17,6 +17,8 @@ import { ShotStrip } from "../src/studio/ui/ShotStrip";
 import { Timeline } from "../src/studio/ui/Timeline";
 import { ExportMenu } from "../src/studio/ui/ExportMenu";
 import { studioExportMenuModel } from "../src/services/toiv/multitrack-export";
+import { EditFace } from "../src/studio/faces/edit/EditFace";
+import type { EditModel } from "../src/studio/faces/edit/model";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -219,5 +221,29 @@ describe("ExportMenu", () => {
         const html = renderToStaticMarkup(<ExportMenu projectId="p1" ready onResult={() => {}} />);
         expect(html).toContain("导出");
         for (const item of items) expect(html).toContain(item.label);
+    });
+});
+
+describe("EditFace", () => {
+    const model: EditModel = {
+        projectId: "p1", projectName: "草船借箭", totalSec: 7.5, hasBgm: false,
+        shots: [{ id: "sh1", title: "镜01", durationSec: 4.5, status: "done", stillSeed: 1 }],
+        clips: [
+            { id: "v1", label: "SHOT01 · 4.5s", track: "v1", startSec: 0, durationSec: 4.5, kind: "video", status: "done" },
+            { id: "a1", label: "对白 · 镜01", track: "a1", startSec: 0, durationSec: 4.5, kind: "dialogue", status: "done" },
+        ],
+    };
+    const html = renderToStaticMarkup(<EditFace model={model} onResult={() => {}} />);
+    test("renders play control and timeline", () => {
+        expect(html).toContain('aria-label="播放"');
+        expect(html).toContain('data-track="v1"');
+        expect(html).toContain("Sequence");
+    });
+    test("renders shot strip and export menu", () => {
+        expect(html).toContain('aria-label="镜头条"');
+        expect(html).toContain("导出");
+    });
+    test("hints missing bgm track", () => {
+        expect(html).toContain("BGM 未绑定");
     });
 });

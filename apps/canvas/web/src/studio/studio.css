@@ -146,3 +146,6 @@
 .exportmenu-pop button:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); }
 .exportmenu-pop button:disabled { color: var(--faint-fg); }
 .exportmenu-pop small { display: block; font: var(--text-xs) var(--font-mono); color: var(--faint-fg); }
+.stv-rail .rail-note { font-size: var(--text-sm); color: var(--faint-fg); padding: 0 10px; }
+.stv-rail .shotstrip { flex-direction: column; }
+.stv-rail .shotstrip .shot { flex: 0 0 auto; width: 100%; }
