@@ -18,6 +18,7 @@ export type PipelineAction = {
 export function PipelineFace({ model, onAction }: { model: PipelineModel; onAction: (action: PipelineAction) => void }) {
     const [sceneId, setSceneId] = useState(model.scenes[0]?.id ?? "");
     const [viewId, setViewId] = useState(model.scenes[0]?.views[0]?.id ?? "");
+    const [stageIndex, setStageIndex] = useState(model.stageIndex);
     const [activeTake, setActiveTake] = useState<Record<string, string | undefined>>({});
     const scene = model.scenes.find((group) => group.id === sceneId) ?? model.scenes[0];
     const shot = model.shots[0];
@@ -40,8 +41,12 @@ export function PipelineFace({ model, onAction }: { model: PipelineModel; onActi
             </aside>
             <main className="stv-main">
                 <SlidingTabs items={model.stages.map((stage) => ({ key: stage.key, label: stage.label, done: stage.done }))}
-                    value={model.stages[model.stageIndex]?.key ?? model.stages[0].key}
-                    onChange={(key) => onAction({ type: "stage-change", stageIndex: model.stages.findIndex((stage) => stage.key === key) })} />
+                    value={model.stages[stageIndex]?.key ?? model.stages[0].key}
+                    onChange={(key) => {
+                        const index = model.stages.findIndex((stage) => stage.key === key);
+                        setStageIndex(index);
+                        onAction({ type: "stage-change", stageIndex: index });
+                    }} />
                 <div className="stv-bar">
                     <h2>场景</h2><span className="meta">{model.scenes.length} 场景 · 每场景 4 视图</span>
                 </div>
