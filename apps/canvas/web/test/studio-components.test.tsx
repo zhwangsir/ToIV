@@ -21,6 +21,7 @@ import { EditFace } from "../src/studio/faces/edit/EditFace";
 import type { EditModel } from "../src/studio/faces/edit/model";
 import { ProjectCard } from "../src/studio/ui/ProjectCard";
 import { ProjectGrid } from "../src/studio/ui/ProjectGrid";
+import { CanvasHomeFace } from "../src/studio/faces/canvas/CanvasHomeFace";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -270,5 +271,17 @@ describe("ProjectGrid", () => {
         const html = renderToStaticMarkup(<ProjectGrid cards={cards} onOpen={() => {}} onCreate={() => {}} />);
         expect(html).toContain("甲");
         expect(html).toContain("乙");
+    });
+});
+
+describe("CanvasHomeFace", () => {
+    const model = { cards: [{ id: "p1", title: "草船借箭", status: "active", stillSeed: 0, shotCount: 6 }], empty: false };
+    const html = renderToStaticMarkup(<CanvasHomeFace model={model} onOpen={() => {}} onCreate={() => {}} />);
+    test("renders search and create controls", () => {
+        expect(html).toContain('aria-label="搜索项目"');
+        expect(html).toContain("新建项目");
+    });
+    test("renders project cards", () => {
+        expect(html).toContain("草船借箭");
     });
 });

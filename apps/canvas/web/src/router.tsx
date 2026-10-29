@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation, useParams, useSearchParams } from "react
 
 import { createWorkspaceRouter } from "@/lib/app-routing";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
-import { loadAgentsPage, loadCanvasPage, loadCanvasProjectPage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
+import { loadAgentsPage, loadCanvasProjectPage, loadHomePage, loadProjectDetailPage } from "@/lib/workspace-route-modules";
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
@@ -12,7 +12,7 @@ const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
 const HomePage = lazy(loadHomePage);
 /** COSMOS_SEED：Desktop 页源码保留（pages/desktop、components/desktop）；W6 默认路由不可达，见 docs/COSMOS_APP_SHELL_SEED.md */
-const CanvasPage = lazy(loadCanvasPage);
+const StudioCanvasRoute = lazy(() => import("@/studio/routes/studio-canvas-route"));
 const CanvasProjectPage = lazy(loadCanvasProjectPage);
 const StudioCreateRoute = lazy(() => import("@/studio/routes/studio-create-route"));
 const StudioEditRoute = lazy(() => import("@/studio/routes/studio-edit-route"));
@@ -190,13 +190,13 @@ export const router = createWorkspaceRouter([
             { path: "/toiv/ws", element: <ToivWsToCreateRedirect /> },
             {
                 path: "/projects",
-                element: deferred(<CanvasPage />),
+                element: deferred(<StudioCanvasRoute />),
             },
             // LibTV 使用单数 `/project` 作为项目库入口；直接渲染本地项目库，
             // 保留原始 URL，避免像素复刻时出现一次重定向造成的布局/加载闪烁。
             {
                 path: "/project",
-                element: deferred(<CanvasPage />),
+                element: deferred(<StudioCanvasRoute />),
             },
             {
                 path: "/projects/:projectId",
@@ -216,7 +216,7 @@ export const router = createWorkspaceRouter([
                 path: "/projects/:projectId/workflow/:unitId/:stage",
                 element: <LocalAwareProjectRoute />,
             },
-            { path: "/canvas", element: deferred(<CanvasPage />) },
+            { path: "/canvas", element: deferred(<StudioCanvasRoute />) },
             { path: "/canvas/:id", element: <CanvasProjectPage /> },
         ],
     },
