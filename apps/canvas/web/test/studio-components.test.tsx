@@ -11,6 +11,8 @@ import { Field } from "../src/studio/ui/Field";
 import { TakeStrip } from "../src/studio/ui/TakeStrip";
 import { MediaTile } from "../src/studio/ui/MediaTile";
 import { ViewGroup } from "../src/studio/ui/ViewGroup";
+import { PipelineFace } from "../src/studio/faces/pipeline/PipelineFace";
+import type { PipelineModel } from "../src/studio/faces/pipeline/model";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -148,5 +150,28 @@ describe("ViewGroup", () => {
     test("renders slug and name", () => {
         expect(html).toContain("INT / 日");
         expect(html).toContain("中军主帅营帐");
+    });
+});
+
+describe("PipelineFace", () => {
+    const model: PipelineModel = {
+        projectId: "p1", projectName: "草船借箭", runningCount: 1, companionHint: "hint",
+        stages: [{ key: "s0", label: "项目配置", done: true }, { key: "s1", label: "剧本创作", done: true }, { key: "s2", label: "素材准备", done: false }],
+        stageIndex: 2,
+        scenes: [{ id: "s1", name: "中军主帅营帐", slug: "INT / 日", views: [{ id: "v1", label: "主视", status: "done", badge: "SEED 1", locked: true }] }],
+        shots: [{ id: "sh1", title: "镜01", prompt: "p", camera: "STATIC", durationSec: 4.5, status: "done", takes: [{ id: "c1", label: "T1", seed: 1 }], activeTakeId: "c1" }],
+    };
+    const html = renderToStaticMarkup(<PipelineFace model={model} onAction={() => {}} />);
+    test("renders three-column body", () => {
+        expect(html).toContain('class="stv-body"');
+        expect(html).toContain('aria-label="场次目录"');
+        expect(html).toContain('aria-label="场景检查器"');
+    });
+    test("renders stage tabs and scene group", () => {
+        expect(html).toContain('role="tablist"');
+        expect(html).toContain("中军主帅营帐");
+    });
+    test("renders take strip with active", () => {
+        expect(html).toContain("ACTIVE");
     });
 });
