@@ -13,6 +13,10 @@ import { MediaTile } from "../src/studio/ui/MediaTile";
 import { ViewGroup } from "../src/studio/ui/ViewGroup";
 import { PipelineFace } from "../src/studio/faces/pipeline/PipelineFace";
 import type { PipelineModel } from "../src/studio/faces/pipeline/model";
+import { ShotStrip } from "../src/studio/ui/ShotStrip";
+import { Timeline } from "../src/studio/ui/Timeline";
+import { ExportMenu } from "../src/studio/ui/ExportMenu";
+import { studioExportMenuModel } from "../src/services/toiv/multitrack-export";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -173,5 +177,47 @@ describe("PipelineFace", () => {
     });
     test("renders take strip with active", () => {
         expect(html).toContain("ACTIVE");
+    });
+});
+
+describe("ShotStrip", () => {
+    const shots = [
+        { id: "sh1", title: "镜01", durationSec: 4.5, status: "done" as const, stillSeed: 1 },
+        { id: "sh2", title: "镜02", durationSec: 3, status: "run" as const, stillSeed: 2 },
+    ];
+    const html = renderToStaticMarkup(<ShotStrip shots={shots} activeId="sh1" onPick={() => {}} />);
+    test("marks active shot and shows duration", () => {
+        expect(html).toMatch(/aria-pressed="true"[^>]*>.*>01</s);
+        expect(html).toContain("4.5s");
+    });
+});
+
+describe("Timeline", () => {
+    const clips = [
+        { id: "v1", label: "SHOT01", track: "v1" as const, startSec: 0, durationSec: 4.5, kind: "video" as const, status: "done" as const },
+        { id: "v2", label: "SHOT02", track: "v1" as const, startSec: 4.5, durationSec: 3, kind: "video" as const, status: "done" as const },
+    ];
+    const html = renderToStaticMarkup(<Timeline clips={clips} totalSec={7.5} playheadSec={3} activeClipId="v1" onClipPick={() => {}} />);
+    test("positions clips by second ratio", () => {
+        expect(html).toContain("left:0%;width:60%");
+        expect(html).toContain("left:60%;width:40%");
+    });
+    test("positions playhead by second ratio", () => {
+        expect(html).toContain("left:40%");
+    });
+    test("renders three track lanes", () => {
+        expect(html).toContain('data-track="v1"');
+        expect(html).toContain('data-track="a1"');
+        expect(html).toContain('data-track="a2"');
+    });
+});
+
+describe("ExportMenu", () => {
+    test("lists the four export actions from the service model", () => {
+        const items = studioExportMenuModel({ ready: true });
+        expect(items.map((item) => item.key)).toEqual(["jianying", "edl", "fcpxml", "multitrack"]);
+        const html = renderToStaticMarkup(<ExportMenu projectId="p1" ready onResult={() => {}} />);
+        expect(html).toContain("导出");
+        for (const item of items) expect(html).toContain(item.label);
     });
 });
