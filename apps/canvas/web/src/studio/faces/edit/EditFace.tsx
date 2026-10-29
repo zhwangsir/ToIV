@@ -28,7 +28,7 @@ export function EditFace({ model, onResult }: { model: EditModel; onResult: (tex
             </aside>
             <main className="stv-main">
                 <div className="bar">
-                    <h2>Sequence</h2><span className="meta">{model.totalSec.toFixed(1)}s · 24FPS</span>
+                    <h2>成片剪辑</h2><span className="meta">{model.totalSec.toFixed(1)}s · 24FPS</span>
                     <span className="right">
                         <Button variant="ghost" onClick={() => setPlaying((value) => !value)} aria-label={playing ? "暂停" : "播放"}>{playing ? "暂停" : "播放"}</Button>
                         <ExportMenu projectId={model.projectId} ready={model.clips.some((clip) => clip.status === "done")} onResult={onResult} />

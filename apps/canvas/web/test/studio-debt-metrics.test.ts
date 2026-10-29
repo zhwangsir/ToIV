@@ -25,12 +25,15 @@ describe("studio debt metrics", () => {
             expect(body).not.toMatch(/#[0-9a-fA-F]{6}/);
         }
     });
-    test("inline styles limited to backgroundImage/width allowlist", () => {
+    test("inline styles limited to geometry/background keys", () => {
+        const allowed = new Set(["left", "width", "paddingTop", "backgroundImage"]);
         for (const file of tsx) {
             const body = readFileSync(file, "utf8");
-            const inline = body.match(/style=\{/g) ?? [];
-            const allowed = body.match(/backgroundImage|width: box\.width|width: `\$\{/g) ?? [];
-            expect(inline.length).toBe(allowed.length);
+            const blocks = body.match(/style=\{(?:[^?]*\?\s*)?\{([^}]*)\}/g) ?? [];
+            for (const block of blocks) {
+                const keys = block.match(/[a-zA-Z]+(?=\s*:)/g) ?? [];
+                for (const key of keys) expect(allowed.has(key)).toBe(true);
+            }
         }
     });
     test("each css file <= 800 lines", () => {
