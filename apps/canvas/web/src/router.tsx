@@ -7,6 +7,7 @@ import { loadAgentsPage, loadHomePage, loadProjectDetailPage } from "@/lib/works
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
+import { StudioLibraryRoute, StudioSettingsRoute, StudioTasksRoute } from "@/studio/routes/studio-legacy-host-route";
 
 const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
@@ -16,6 +17,7 @@ const StudioCanvasRoute = lazy(() => import("@/studio/routes/studio-canvas-route
 const StudioCreateRoute = lazy(() => import("@/studio/routes/studio-create-route"));
 const StudioEditRoute = lazy(() => import("@/studio/routes/studio-edit-route"));
 const StudioCanvasProjectRoute = lazy(() => import("@/studio/routes/studio-canvas-project-route"));
+
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
@@ -146,6 +148,9 @@ export const router = createWorkspaceRouter([
     { path: "/projects", element: deferred(<StudioCanvasRoute />) },
     { path: "/project", element: deferred(<StudioCanvasRoute />) },
     { path: "/canvas/:id", element: deferred(<StudioCanvasProjectRoute />) },
+    { path: "/library", element: deferred(<StudioLibraryRoute />) },
+    { path: "/tasks", element: deferred(<StudioTasksRoute />) },
+    { path: "/settings", element: deferred(<StudioSettingsRoute />) },
     {
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
@@ -159,8 +164,6 @@ export const router = createWorkspaceRouter([
             { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
             { path: "/desktop/*", element: <Navigate to="/create" replace /> },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
-            { path: "/tasks", element: deferred(<ToivTasksPage />) },
-            { path: "/library", element: deferred(<MediaLibraryPage />) },
             { path: "/library/works/:id", element: deferred(<ToivLibraryDetailPage />) },
             { path: "/assets", element: <AssetsLegacyRedirect /> },
             { path: "/toiv/library", element: <Navigate to="/library?source=works" replace /> },
@@ -176,7 +179,6 @@ export const router = createWorkspaceRouter([
                 path: "/plugins/eagle",
                 element: <RequireFeature feature="pluginCenterEnabled">{deferred(<EagleLibraryPage />)}</RequireFeature>,
             },
-            { path: "/settings", element: deferred(<SettingsPage />) },
             { /* W7：外部 Agent 客户端面保留；入口仅设置侧链，非侧栏/⌘K 独立 Agent 对话面 */ path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
             { path: "/toiv/market", element: deferred(<ToivMarketPage />) },

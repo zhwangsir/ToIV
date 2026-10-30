@@ -162,3 +162,5 @@
 .stv-search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
 .stv-canvas-host { position: relative; flex: 1; min-height: 0; }
 .stv-canvas-host .canvas-topbar > div:first-child { display: none; }
+.stv-legacy-host { position: relative; flex: 1; min-height: 0; overflow: auto; }
+.stv-legacy-host .app-page-header-main { display: none; }
