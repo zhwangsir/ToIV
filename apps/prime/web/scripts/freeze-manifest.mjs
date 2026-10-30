@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const targets = ["src", "index.html"];
+const OWNED = (path) => path.startsWith("src/toiv/") || path === "src/styles/toiv-skin.css";
 const files = [];
 
 function walk(path) {
@@ -24,7 +25,7 @@ files.sort();
 const manifest = {
     provenance: "62f8d95d7ee6a5af9543351040e6183e9dcbbe65",
     allowlist: ["index.html", "src/main.tsx"],
-    files: files.map((path) => ({
+    files: files.filter((path) => !OWNED(path)).map((path) => ({
         path,
         sha256: createHash("sha256").update(readFileSync(join(root, path))).digest("hex"),
     })),

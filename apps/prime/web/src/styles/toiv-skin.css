@@ -1,0 +1,47 @@
+:root {
+    --pf-lime: oklch(0.68 0.11 205);
+    --pf-lime-soft: oklch(0.68 0.11 205 / 0.14);
+    --accent: var(--pf-lime);
+}
+
+.toiv-workbar { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.toiv-workbar-faces { display: flex; gap: 6px; }
+.toiv-task-capsule { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; border: 1px solid var(--pf-line); border-radius: 999px; padding: 6px 14px; background: var(--pf-card); color: var(--pf-ink); font-size: 13px; }
+.toiv-task-capsule .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pf-muted); }
+.toiv-task-capsule .dot.run { background: var(--pf-lime); }
+
+.toiv-home { display: flex; flex-direction: column; gap: 16px; }
+.toiv-home-bar { display: flex; align-items: center; gap: 12px; }
+.toiv-home-bar h2 { font-size: 20px; }
+.toiv-home-bar .meta { color: var(--pf-muted); font-size: 13px; }
+.toiv-home-bar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.toiv-home-bar input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 8px 12px; background: var(--pf-card); color: var(--pf-ink); }
+.toiv-degraded { color: #b45309; font-size: 13px; }
+.toiv-empty { border: 1px dashed var(--pf-line); border-radius: var(--pf-radius); padding: 40px; text-align: center; color: var(--pf-muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.toiv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.toiv-card { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--pf-shadow); }
+.toiv-card header { display: flex; align-items: center; gap: 8px; }
+.toiv-card .src { margin-left: auto; font-size: 11px; border-radius: 999px; padding: 2px 8px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-card .meta { color: var(--pf-muted); font-size: 12px; }
+
+.toiv-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: var(--pf-card); border-left: 1px solid var(--pf-line); box-shadow: var(--pf-shadow); padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto; transform: translateX(102%); transition: transform 240ms cubic-bezier(0.22, 0.8, 0.24, 1); z-index: 60; }
+.toiv-drawer.open { transform: translateX(0); }
+.toiv-drawer header { display: flex; align-items: center; gap: 10px; }
+.toiv-drawer .meta { color: var(--pf-muted); font-size: 12px; }
+.toiv-drawer-x { margin-left: auto; width: 28px; height: 28px; border-radius: 8px; color: var(--pf-muted); }
+.toiv-task { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.toiv-task .row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.toiv-task .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toiv-task .cancel { color: var(--pf-muted); font-size: 12px; }
+.toiv-task .st { width: 8px; height: 8px; border-radius: 50%; background: var(--pf-muted); }
+.toiv-task .st-run { background: var(--pf-lime); }
+.toiv-task .st-fail { background: #c43c2e; }
+.toiv-task .st-done { background: #2a6f7a; }
+.toiv-task .bar { height: 4px; border-radius: 2px; background: var(--pf-line); overflow: hidden; }
+.toiv-task .bar i { display: block; height: 100%; background: var(--pf-lime); }
+
+.toiv-login { max-width: 360px; margin: 60px auto; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius); padding: 24px; background: var(--pf-card); }
+.toiv-login label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--pf-muted); }
+.toiv-login input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 9px 12px; background: var(--pf-bg); color: var(--pf-ink); }
+.toiv-login-error { color: #c43c2e; font-size: 13px; }
+.toiv-wip { padding: 80px 0; text-align: center; }
