@@ -73,3 +73,17 @@ describe("prime canvas graph", () => {
         expect(graph.nodes[1].data.frozen).toBe(false);
     });
 });
+
+describe("prime scene freeze", () => {
+    test("posts master anchor id", async () => {
+        const calls: { path: string; body?: string }[] = [];
+        globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+            calls.push({ path: String(input), body: init?.body as string | undefined });
+            return new Response("{}", { status: 200 });
+        }) as typeof fetch;
+        const { freezePrimeSceneAnchor } = await import("../src/toiv/adapters/scenes");
+        await freezePrimeSceneAnchor("s1");
+        expect(calls[0].path).toContain("/api/drama/scenes/s1/freeze-anchor");
+        expect(JSON.parse(calls[0].body ?? "{}")).toEqual({ anchor_id: "master" });
+    });
+});

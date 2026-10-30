@@ -1,6 +1,4 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import ToivShell from "./shell/ToivShell";
-import ComingSoon from "../components/ui/ComingSoon";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { RequireSession, ToivLoginPage } from "../toiv/auth/session";
 import PrimeStoryboard from "./pages/PrimeStoryboard";
@@ -9,6 +7,7 @@ import PrimeCanvas from "./pages/PrimeCanvas";
 import PrimeAssets from "./pages/PrimeAssets";
 import PrimeHistory from "./pages/PrimeHistory";
 import PrimeCreate from "./pages/PrimeCreate";
+import PrimeStyle from "./pages/PrimeStyle";
 import LegacyHandoff from "./addons/LegacyHandoff";
 
 export const PRIME_ROUTES = [
@@ -16,13 +15,6 @@ export const PRIME_ROUTES = [
     "/drama", "/drama/assets", "/history", "/settings", "/tools", "/tools/:id", "/auth",
 ];
 
-function Wip({ label }: { label: string }) {
-    return (
-        <ToivShell>
-            <div className="toiv-wip"><ComingSoon label={label} /></div>
-        </ToivShell>
-    );
-}
 
 export default function ToivBootstrap() {
     return (
@@ -32,7 +24,7 @@ export default function ToivBootstrap() {
                 <Route path="/studio" element={<ProjectHome />} />
                 <Route path="/auth" element={<ToivLoginPage />} />
                 <Route path="/studio/new" element={<RequireSession><PrimeCreate /></RequireSession>} />
-                <Route path="/studio/:id/style" element={<RequireSession><Wip label="W2 · 场景锚点接线中" /></RequireSession>} />
+                <Route path="/studio/:id/style" element={<RequireSession><PrimeStyle /></RequireSession>} />
                 <Route path="/studio/:id/editor" element={<RequireSession><PrimeEditor /></RequireSession>} />
                 <Route path="/studio/:id" element={<RequireSession><PrimeStoryboard /></RequireSession>} />
                 <Route path="/drama" element={<RequireSession><ProjectHome face="canvas" /></RequireSession>} />

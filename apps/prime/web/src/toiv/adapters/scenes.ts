@@ -69,3 +69,14 @@ export function primeSceneNodes(scenes: PrimeSceneNode[]): PrimeCanvasGraph {
         })),
     };
 }
+
+/** POST /api/drama/scenes/{sid}/freeze-anchor：冻结=内容寻址不可变快照。 */
+export async function freezePrimeSceneAnchor(sceneId: string): Promise<void> {
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("toiv_token") : null;
+    const res = await fetch(`/api/drama/scenes/${encodeURIComponent(sceneId)}/freeze-anchor`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" },
+        body: JSON.stringify({ anchor_id: "master" }),
+    });
+    if (!res.ok) throw new Error(`freeze ${res.status}`);
+}
