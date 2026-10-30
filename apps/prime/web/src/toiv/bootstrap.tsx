@@ -8,6 +8,8 @@ import PrimeEditor from "./pages/PrimeEditor";
 import PrimeCanvas from "./pages/PrimeCanvas";
 import PrimeAssets from "./pages/PrimeAssets";
 import PrimeHistory from "./pages/PrimeHistory";
+import PrimeCreate from "./pages/PrimeCreate";
+import LegacyHandoff from "./addons/LegacyHandoff";
 
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
@@ -29,7 +31,7 @@ export default function ToivBootstrap() {
                 <Route path="/" element={<ProjectHome />} />
                 <Route path="/studio" element={<ProjectHome />} />
                 <Route path="/auth" element={<ToivLoginPage />} />
-                <Route path="/studio/new" element={<RequireSession><Wip label="W2 · 新建向导接线中" /></RequireSession>} />
+                <Route path="/studio/new" element={<RequireSession><PrimeCreate /></RequireSession>} />
                 <Route path="/studio/:id/style" element={<RequireSession><Wip label="W2 · 场景锚点接线中" /></RequireSession>} />
                 <Route path="/studio/:id/editor" element={<RequireSession><PrimeEditor /></RequireSession>} />
                 <Route path="/studio/:id" element={<RequireSession><PrimeStoryboard /></RequireSession>} />
@@ -38,9 +40,9 @@ export default function ToivBootstrap() {
                 <Route path="/drama/assets" element={<RequireSession><ProjectHome face="canvas" openHref={(card) => (card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/assets`)} /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/assets" element={<RequireSession><PrimeAssets /></RequireSession>} />
                 <Route path="/history" element={<RequireSession><PrimeHistory /></RequireSession>} />
-                <Route path="/settings" element={<RequireSession><Wip label="W4 · 设置接线中" /></RequireSession>} />
-                <Route path="/tools" element={<RequireSession><Wip label="W4 · 工具中心接线中" /></RequireSession>} />
-                <Route path="/tools/:id" element={<RequireSession><Wip label="W4 · 工具详情接线中" /></RequireSession>} />
+                <Route path="/settings" element={<RequireSession><LegacyHandoff title="设置" href="/settings" note="模型/渠道设置面将在后续波次原生化。" /></RequireSession>} />
+                <Route path="/tools" element={<RequireSession><LegacyHandoff title="工具中心" href="/toiv/market" note="工具市场面将在后续波次原生化。" /></RequireSession>} />
+                <Route path="/tools/:id" element={<RequireSession><LegacyHandoff title="工具中心" href="/toiv/market" note="工具详情面将在后续波次原生化。" /></RequireSession>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
