@@ -91,3 +91,11 @@
 .toiv-dialog .err { color: oklch(0.55 0.16 25); font-size: 13px; }
 .toiv-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
 .toiv-seg { display: flex; gap: 6px; }
+
+.toiv-tl-wrap { display: flex; flex-direction: column; gap: 14px; }
+.toiv-tl { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 16px; box-shadow: var(--pf-shadow); }
+.toiv-lane { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
+.toiv-lane .lane-label { font-size: 12px; color: var(--pf-muted); }
+.toiv-lane .lane-track { position: relative; height: 44px; background: var(--pf-bg); border-radius: var(--pf-radius-sm); border: 1px solid var(--pf-line); }
+.toiv-clip { position: absolute; top: 4px; bottom: 4px; border: 1px solid var(--pf-line); border-radius: 8px; background: var(--pf-card); color: var(--pf-ink); font-size: 12px; overflow: hidden; white-space: nowrap; padding: 0 8px; text-align: left; }
+.toiv-clip[aria-pressed="true"] { background: var(--pf-lime); color: var(--pf-card); border-color: var(--pf-lime); }
