@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 export type SlidingTabItem = { key: string; label: string; done?: boolean };
 
-export function SlidingTabs({ items, value, onChange }: { items: SlidingTabItem[]; value: string; onChange: (key: string) => void }) {
+export function SlidingTabs({ items, value, onChange, label = "制片流水线" }: { items: SlidingTabItem[]; value: string; onChange: (key: string) => void; label?: string }) {
     const refs = useRef<(HTMLButtonElement | null)[]>([]);
     const [box, setBox] = useState({ left: 0, width: 0 });
     const active = Math.max(0, items.findIndex((item) => item.key === value));
@@ -11,7 +11,7 @@ export function SlidingTabs({ items, value, onChange }: { items: SlidingTabItem[
         if (el) setBox({ left: el.offsetLeft, width: el.offsetWidth });
     }, [active]);
     return (
-        <nav className="stv-tabs" role="tablist" aria-label="制片流水线">
+        <nav className="stv-tabs" role="tablist" aria-label={label}>
             <span className="stv-tabs-slider" style={{ left: box.left, width: box.width }} aria-hidden="true" />
             {items.map((item, index) => (
                 <button key={item.key} type="button" role="tab" aria-selected={item.key === value}

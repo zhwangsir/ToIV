@@ -3,6 +3,7 @@ import { StudioShell } from "@/studio/shell/StudioShell";
 import { PipelineFace, type PipelineAction } from "@/studio/faces/pipeline/PipelineFace";
 import { useStudioToast } from "@/studio/ui/toast-store";
 import type { PipelineModel } from "@/studio/faces/pipeline/model";
+import type { RecipeCardModel } from "@/studio/faces/pipeline/recipes-model";
 import "@/studio/studio.css";
 
 declare global {
@@ -39,10 +40,15 @@ const model: PipelineModel = {
     }],
 };
 
+const recipes: RecipeCardModel[] = [
+    { id: "r1", name: "夜戏标准", description: "低光双灯", meta: "comfyui · ref2va · video", isDefault: true, updatedOn: "2026-10-29", sourceShotId: "sh9" },
+    { id: "r2", name: "日戏外景", description: "", meta: "comfyui · t2i · image", isDefault: false, updatedOn: "2026-10-30", sourceShotId: "sh8" },
+];
+
 createRoot(document.getElementById("root")!).render(
     <StudioShell face="pipeline" projectLabel="草船借箭 / 素材准备" runningCount={model.runningCount}
         onFaceChange={() => {}} buddyText={model.companionHint} onDismissBuddy={() => {}}>
-        <PipelineFace model={model} onAction={(action) => {
+        <PipelineFace model={model} recipes={recipes} onAction={(action) => {
             window.__studioActions.push(action);
             useStudioToast.getState().push(`action:${action.type}`);
         }} />

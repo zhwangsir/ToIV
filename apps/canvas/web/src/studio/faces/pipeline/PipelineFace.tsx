@@ -4,25 +4,47 @@ import { ViewGroup } from "@/studio/ui/ViewGroup";
 import { TakeStrip } from "@/studio/ui/TakeStrip";
 import { Field } from "@/studio/ui/Field";
 import { Button } from "@/studio/ui/Button";
+import { RecipeCard } from "@/studio/ui/RecipeCard";
+import { ImportDialog } from "@/studio/ui/ImportDialog";
+import type { ToivRecipeExport } from "@/services/toiv/client";
+import type { RecipeCardModel } from "./recipes-model";
 import type { PipelineModel } from "./model";
 
+export type RecipeActionType = "recipe-apply" | "recipe-export" | "recipe-save" | "recipe-install";
+
 export type PipelineAction = {
-    type: "view-select" | "view-preview" | "view-replace" | "view-download" | "take-pick" | "take-new" | "stage-change" | "scene-detect";
+    type: "view-select" | "view-preview" | "view-replace" | "view-download" | "take-pick" | "take-new" | "stage-change" | "scene-detect" | RecipeActionType;
     sceneId?: string;
     viewId?: string;
     shotId?: string;
     takeId?: string;
     stageIndex?: number;
+    recipeId?: string;
+    recipeName?: string;
+    payload?: ToivRecipeExport;
 };
 
-export function PipelineFace({ model, onAction }: { model: PipelineModel; onAction: (action: PipelineAction) => void }) {
+const PANELS = [{ key: "shot", label: "镜头" }, { key: "recipe", label: "配方" }];
+
+export function PipelineFace({ model, recipes, onAction }: {
+    model: PipelineModel;
+    recipes: RecipeCardModel[];
+    onAction: (action: PipelineAction) => void;
+}) {
     const [sceneId, setSceneId] = useState(model.scenes[0]?.id ?? "");
     const [viewId, setViewId] = useState(model.scenes[0]?.views[0]?.id ?? "");
     const [stageIndex, setStageIndex] = useState(model.stageIndex);
     const [activeTake, setActiveTake] = useState<Record<string, string | undefined>>({});
+    const [panel, setPanel] = useState("shot");
+    const [importOpen, setImportOpen] = useState(false);
+    const [recipeName, setRecipeName] = useState("");
     const scene = model.scenes.find((group) => group.id === sceneId) ?? model.scenes[0];
     const shot = model.shots[0];
     const currentTake = shot ? activeTake[shot.id] ?? shot.activeTakeId : undefined;
+    const saveRecipe = () => {
+        if (!shot) return;
+        onAction({ type: "recipe-save", shotId: shot.id, recipeName: recipeName.trim() || `${shot.title} 配方` });
+    };
     return (
         <div className="stv-body">
             <aside className="stv-rail" aria-label="场次目录">
@@ -70,7 +92,8 @@ export function PipelineFace({ model, onAction }: { model: PipelineModel; onActi
                     <span className="no">{String(model.stageIndex + 1).padStart(2, "0")}</span>
                     <div><b>{scene?.name ?? "—"}</b><small>{scene?.slug ?? ""} · 4 VIEWS</small></div>
                 </header>
-                {shot ? (
+                <SlidingTabs items={PANELS} value={panel} onChange={setPanel} label="检查器面板" />
+                {panel === "shot" && shot ? (
                     <>
                         <Field label="镜头提示词" htmlFor="shot-prompt"><textarea id="shot-prompt" rows={4} defaultValue={shot.prompt} /></Field>
                         <Field label="候选 Takes" htmlFor="shot-takes">
@@ -82,7 +105,32 @@ export function PipelineFace({ model, onAction }: { model: PipelineModel; onActi
                         <Button variant="primary" onClick={() => onAction({ type: "take-new", shotId: shot.id })}>生成新 Take</Button>
                     </>
                 ) : null}
+                {panel === "recipe" ? (
+                    <div className="stv-recipes">
+                        <Field label="配方名" htmlFor="recipe-name">
+                            <input id="recipe-name" value={recipeName} placeholder={shot ? `${shot.title} 配方` : "配方名"}
+                                onChange={(event) => setRecipeName(event.target.value)} />
+                        </Field>
+                        <div className="stv-recipebar">
+                            <Button variant="primary" disabled={!shot} onClick={saveRecipe}>从本镜存配方</Button>
+                            <Button variant="quiet" onClick={() => setImportOpen(true)}>安装配方 JSON</Button>
+                        </div>
+                        {recipes.length === 0 ? (
+                            <div className="stv-empty"><p>还没有配方。存一个满意的镜头，或安装别处导出的 JSON。</p></div>
+                        ) : null}
+                        {recipes.map((recipe) => (
+                            <RecipeCard key={recipe.id} recipe={recipe} shotId={shot?.id}
+                                onAction={(type, recipeId) => onAction({
+                                    type: type === "apply" ? "recipe-apply" : "recipe-export",
+                                    recipeId,
+                                    shotId: shot?.id,
+                                })} />
+                        ))}
+                    </div>
+                ) : null}
             </aside>
+            <ImportDialog open={importOpen} onClose={() => setImportOpen(false)}
+                onInstall={(payload) => { setImportOpen(false); onAction({ type: "recipe-install", payload }); }} />
         </div>
     );
 }

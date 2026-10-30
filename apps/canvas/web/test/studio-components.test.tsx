@@ -22,6 +22,8 @@ import { ProjectCard } from "../src/studio/ui/ProjectCard";
 import { ProjectGrid } from "../src/studio/ui/ProjectGrid";
 import { CanvasHomeFace } from "../src/studio/faces/canvas/CanvasHomeFace";
 import { TaskDrawer } from "../src/studio/ui/TaskDrawer";
+import { RecipeCard } from "../src/studio/ui/RecipeCard";
+import { ImportDialog } from "../src/studio/ui/ImportDialog";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -162,7 +164,7 @@ describe("PipelineFace", () => {
         scenes: [{ id: "s1", name: "中军主帅营帐", slug: "INT / 日", views: [{ id: "v1", label: "主视", status: "done", badge: "SEED 1", locked: true }] }],
         shots: [{ id: "sh1", title: "镜01", prompt: "p", camera: "STATIC", durationSec: 4.5, status: "done", takes: [{ id: "c1", label: "T1", seed: 1 }], activeTakeId: "c1" }],
     };
-    const html = renderToStaticMarkup(<PipelineFace model={model} onAction={() => {}} />);
+    const html = renderToStaticMarkup(<PipelineFace model={model} recipes={[]} onAction={() => {}} />);
     test("renders three-column body", () => {
         expect(html).toContain('class="stv-body"');
         expect(html).toContain('aria-label="场次目录"');
@@ -172,11 +174,16 @@ describe("PipelineFace", () => {
         expect(html).toContain('role="tablist"');
         expect(html).toContain("中军主帅营帐");
     });
+    test("inspector offers the recipe panel alongside the shot panel", () => {
+        expect(html).toContain('aria-label="检查器面板"');
+        expect(html).toContain("配方");
+        expect(html).not.toContain("stv-recipe");
+    });
     test("renders take strip with active", () => {
         expect(html).toContain("ACTIVE");
     });
     test("empty scenes render detect action", () => {
-        const empty = renderToStaticMarkup(<PipelineFace model={{ ...model, scenes: [] }} onAction={() => {}} />);
+        const empty = renderToStaticMarkup(<PipelineFace model={{ ...model, scenes: [] }} recipes={[]} onAction={() => {}} />);
         expect(empty).toContain("从剧本识别场景");
     });
 });
@@ -300,5 +307,38 @@ describe("TaskDrawer", () => {
     });
     test("empty state", () => {
         expect(renderToStaticMarkup(<TaskDrawer open tasks={[]} onClose={() => {}} onCancel={() => {}} />)).toContain("队列空闲");
+    });
+});
+
+describe("RecipeCard", () => {
+    const recipe = { id: "r1", name: "夜戏标准", description: "低光双灯", meta: "comfyui · ref2va · video", isDefault: true, updatedOn: "2026-10-29", sourceShotId: "sh9" };
+    test("shows identity, engine meta and default tag", () => {
+        const html = renderToStaticMarkup(<RecipeCard recipe={recipe} shotId="sh2" onAction={() => {}} />);
+        expect(html).toContain("夜戏标准");
+        expect(html).toContain("comfyui · ref2va · video");
+        expect(html).toContain("默认");
+        expect(html).toContain("低光双灯");
+        expect(html).toContain("导出");
+        expect(html).toContain("复用到本镜");
+    });
+    test("apply needs a target shot", () => {
+        expect(renderToStaticMarkup(<RecipeCard recipe={recipe} shotId="sh2" onAction={() => {}} />)).not.toContain("disabled");
+        expect(renderToStaticMarkup(<RecipeCard recipe={recipe} onAction={() => {}} />)).toContain("disabled");
+    });
+});
+
+describe("ImportDialog", () => {
+    test("renders nothing while closed", () => {
+        expect(renderToStaticMarkup(<ImportDialog open={false} onClose={() => {}} onInstall={() => {}} />)).toBe("");
+    });
+    test("open dialog is modal and starts with install disabled", () => {
+        const html = renderToStaticMarkup(<ImportDialog open onClose={() => {}} onInstall={() => {}} />);
+        expect(html).toContain('role="dialog"');
+        expect(html).toContain('aria-modal="true"');
+        expect(html).toContain('aria-label="安装配方"');
+        expect(html).toContain('aria-label="配方 JSON"');
+        expect(html).toContain("toiv_generation_recipe_v1");
+        expect(html).toContain("disabled");
+        expect(html).toContain("取消");
     });
 });

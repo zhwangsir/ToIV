@@ -178,3 +178,25 @@
 .stv-task .row .cancel { color: var(--faint-fg); font-size: var(--text-sm); }
 .stv-task .row .cancel:hover { color: var(--destructive); }
 .stv-task .sub { font: var(--text-xs) var(--font-mono); color: var(--faint-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stv-recipes { display: flex; flex-direction: column; gap: var(--space-3); }
+.stv-recipebar { display: flex; gap: 6px; }
+.stv-recipe { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.stv-recipe header { display: flex; align-items: baseline; gap: 8px; }
+.stv-recipe header b { font-size: var(--text-md); font-weight: 600; }
+.stv-recipe .tag { font: var(--text-xs) var(--font-mono); color: var(--primary); background: var(--primary-soft); border-radius: var(--radius-pill); padding: 2px 8px; }
+.stv-recipe .meta { margin-left: auto; font: var(--text-xs) var(--font-mono); color: var(--faint-fg); }
+.stv-recipe .desc { color: var(--muted-fg); font-size: var(--text-sm); }
+.stv-recipe footer { display: flex; align-items: center; gap: 8px; }
+.stv-recipe .sub { font: var(--text-xs) var(--font-mono); color: var(--faint-fg); }
+.stv-recipe .acts { margin-left: auto; display: flex; gap: 6px; }
+
+.stv-scrim { position: fixed; inset: 0; z-index: 60; background: var(--overlay); display: grid; place-items: center; padding: var(--space-4); }
+.stv-dialog { width: min(560px, 100%); max-height: 86vh; overflow: auto; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-3); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.stv-dialog header { display: flex; align-items: center; gap: 10px; }
+.stv-dialog header b { font-size: var(--text-lg); font-weight: 600; }
+.stv-dialog header .meta { font: var(--text-xs) var(--font-mono); color: var(--faint-fg); }
+.stv-dialog-hint { color: var(--muted-fg); font-size: var(--text-sm); }
+.stv-dialog textarea { width: 100%; font: var(--text-sm) var(--font-mono); }
+.stv-dialog-error { color: var(--destructive); font-size: var(--text-sm); }
+.stv-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }

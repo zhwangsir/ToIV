@@ -71,3 +71,45 @@ test("replace action raises toast", async () => {
     await page.waitForSelector(".stv-toast:has-text('action:view-replace')");
     expect(await page.locator(".stv-toast", { hasText: "action:view-replace" }).count()).toBeGreaterThan(0);
 });
+
+test("inspector panel switch reveals recipe cards", async () => {
+    await page.getByRole("tab", { name: "配方" }).click();
+    await page.waitForSelector(".stv-recipe");
+    expect(await page.locator(".stv-recipe").count()).toBe(2);
+    expect(await page.locator(".stv-recipe .tag", { hasText: "默认" }).count()).toBe(1);
+});
+
+test("recipe export records the recipe id", async () => {
+    await page.locator(".stv-recipe").first().getByRole("button", { name: "导出" }).click();
+    const actions = await page.evaluate(() => window.__studioActions);
+    expect(actions.some((action) => action.type === "recipe-export" && action.recipeId === "r1")).toBe(true);
+});
+
+test("recipe apply carries the current shot", async () => {
+    await page.locator(".stv-recipe").first().getByRole("button", { name: "复用到本镜" }).click();
+    const actions = await page.evaluate(() => window.__studioActions);
+    expect(actions.some((action) => action.type === "recipe-apply" && action.recipeId === "r1" && action.shotId === "sh1")).toBe(true);
+});
+
+test("install dialog rejects a foreign schema before enabling install", async () => {
+    await page.getByRole("button", { name: "安装配方 JSON" }).click();
+    const dialog = page.getByRole("dialog", { name: "安装配方" });
+    await dialog.waitFor();
+    const area = dialog.getByLabel("配方 JSON");
+    await area.fill('{"schema":"someone_elses_v9"}');
+    await page.waitForSelector(".stv-dialog-error");
+    expect(await dialog.locator(".stv-dialog-error").textContent()).toContain("toiv_generation_recipe_v1");
+    expect(await dialog.getByRole("button", { name: "安装", exact: true }).isDisabled()).toBe(true);
+    await area.fill(JSON.stringify({ schema: "toiv_generation_recipe_v1", name: "外部配方" }));
+    expect(await dialog.getByRole("button", { name: "安装", exact: true }).isDisabled()).toBe(false);
+    await dialog.getByRole("button", { name: "安装", exact: true }).click();
+    const actions = await page.evaluate(() => window.__studioActions);
+    expect(actions.some((action) => action.type === "recipe-install" && action.payload?.name === "外部配方")).toBe(true);
+    expect(await page.getByRole("dialog", { name: "安装配方" }).count()).toBe(0);
+});
+
+test("save from shot carries a default recipe name", async () => {
+    await page.getByRole("button", { name: "从本镜存配方" }).click();
+    const actions = await page.evaluate(() => window.__studioActions);
+    expect(actions.some((action) => action.type === "recipe-save" && action.shotId === "sh1" && action.recipeName === "镜01 配方")).toBe(true);
+});
