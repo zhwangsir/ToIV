@@ -68,3 +68,26 @@
 .toiv-take { border: 1px solid var(--pf-line); border-radius: 999px; padding: 5px 12px; background: var(--pf-card); color: var(--pf-ink); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
 .toiv-take[aria-pressed="true"] { background: var(--pf-lime); color: var(--pf-card); border-color: var(--pf-lime); }
 .toiv-take .seed { opacity: 0.7; font-size: 11px; }
+
+.toiv-recipes { display: flex; flex-direction: column; gap: 12px; }
+.toiv-recipe-name { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--pf-muted); }
+.toiv-recipe-name input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 8px 12px; background: var(--pf-card); color: var(--pf-ink); }
+.toiv-recipebar { display: flex; gap: 8px; }
+.toiv-recipe { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.toiv-recipe header { display: flex; align-items: baseline; gap: 8px; }
+.toiv-recipe .tag { font-size: 11px; border-radius: 999px; padding: 2px 8px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-recipe .meta { margin-left: auto; font-size: 11px; color: var(--pf-muted); }
+.toiv-recipe .desc { color: var(--pf-muted); font-size: 13px; }
+.toiv-recipe footer { display: flex; align-items: center; gap: 8px; }
+.toiv-recipe .sub { font-size: 11px; color: var(--pf-muted); }
+.toiv-recipe .acts { margin-left: auto; display: flex; gap: 6px; }
+.toiv-scrim { position: fixed; inset: 0; z-index: 80; background: oklch(0.2 0.02 258 / 0.5); display: grid; place-items: center; padding: 20px; }
+.toiv-dialog { width: min(560px, 100%); max-height: 86vh; overflow: auto; background: var(--pf-card); border: 1px solid var(--pf-line); border-radius: var(--pf-radius); box-shadow: var(--pf-shadow); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.toiv-dialog header { display: flex; align-items: center; gap: 10px; }
+.toiv-dialog .meta { font-size: 11px; color: var(--pf-muted); }
+.toiv-dialog-x { margin-left: auto; width: 28px; height: 28px; border-radius: 8px; color: var(--pf-muted); }
+.toiv-dialog .hint { color: var(--pf-muted); font-size: 13px; }
+.toiv-dialog textarea { width: 100%; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px; background: var(--pf-bg); color: var(--pf-ink); font-size: 12px; }
+.toiv-dialog .err { color: oklch(0.55 0.16 25); font-size: 13px; }
+.toiv-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
+.toiv-seg { display: flex; gap: 6px; }

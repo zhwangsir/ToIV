@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import { loadPrimeStoryboard, savePrimeShotPrompt, type PrimeStoryboardModel } from "../adapters/storyboard";
+import { RecipePanelPrime } from "../addons/RecipePanelPrime";
 import { ToivWorkbar, type PrimeFace } from "../addons/ToivWorkbar";
 import ToivShell from "../shell/ToivShell";
 
@@ -14,6 +15,7 @@ export default function PrimeStoryboard() {
     const [failed, setFailed] = useState(false);
     const [picked, setPicked] = useState<Record<string, string | undefined>>({});
     const [notice, setNotice] = useState("");
+    const [tab, setTab] = useState<"shots" | "recipes">("shots");
     useEffect(() => {
         let alive = true;
         setModel(null);
@@ -39,9 +41,14 @@ export default function PrimeStoryboard() {
                     <h2>{model?.title ?? "载入中"}</h2>
                     <span className="meta">{model?.shots.length ?? 0} 镜 · {model?.runningCount ?? 0} 渲染中</span>
                 </header>
+                <div className="toiv-seg" role="group" aria-label="分镜面板">
+                    <Button variant={tab === "shots" ? "lime" : "ghost"} aria-pressed={tab === "shots"} onClick={() => setTab("shots")}>分镜</Button>
+                    <Button variant={tab === "recipes" ? "lime" : "ghost"} aria-pressed={tab === "recipes"} onClick={() => setTab("recipes")}>配方</Button>
+                </div>
                 {failed ? <div className="toiv-empty"><p>分镜载入失败 · 回项目库重试</p><Button variant="lime" onClick={() => navigate("/studio")}>回项目库</Button></div> : null}
                 {notice ? <p className="toiv-saved" role="status">{notice}</p> : null}
-                {(model?.shots ?? []).map((shot) => (
+                {tab === "recipes" ? <RecipePanelPrime shotId={model?.shots[0]?.id} onNotice={(text) => setNotice(text)} /> : null}
+                {tab === "shots" ? (model?.shots ?? []).map((shot) => (
                     <article className={`toiv-shot st-${shot.status}`} key={shot.id}>
                         <header>
                             <b>{shot.title}</b><span className="meta">{shot.camera} · {shot.durationSec}s</span>
@@ -64,7 +71,7 @@ export default function PrimeStoryboard() {
                             {shot.takes.length === 0 ? <span className="meta">暂无候选</span> : null}
                         </div>
                     </article>
-                ))}
+                )) : null}
             </section>
         </ToivShell>
     );
