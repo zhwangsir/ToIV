@@ -70,7 +70,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="landing" data-landing-shell="dramaclaw-dark">
+    <div className="landing dark" data-landing-shell="dramaclaw-dark">
       <section className="landing-brand">
         <div className="landing-logo">
           <span className="landing-logo-dot" />

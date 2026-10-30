@@ -1,0 +1,7 @@
+/* 落地/登录作用域皮肤：studio token 映射到 web 旧变量名（仅 .landing 作用域内，零结构改动） */
+.landing {
+    --bg-canvas: var(--background);
+    --accent: var(--primary);
+    background: var(--background);
+    color: var(--foreground);
+}
