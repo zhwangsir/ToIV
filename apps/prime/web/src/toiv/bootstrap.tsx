@@ -7,6 +7,7 @@ import PrimeStoryboard from "./pages/PrimeStoryboard";
 import PrimeEditor from "./pages/PrimeEditor";
 import PrimeCanvas from "./pages/PrimeCanvas";
 import PrimeAssets from "./pages/PrimeAssets";
+import PrimeHistory from "./pages/PrimeHistory";
 
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
@@ -36,7 +37,7 @@ export default function ToivBootstrap() {
                 <Route path="/drama/projects/:projectId/canvas" element={<RequireSession><PrimeCanvas /></RequireSession>} />
                 <Route path="/drama/assets" element={<RequireSession><ProjectHome face="canvas" openHref={(card) => (card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/assets`)} /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/assets" element={<RequireSession><PrimeAssets /></RequireSession>} />
-                <Route path="/history" element={<RequireSession><Wip label="W4 · 作品库接线中" /></RequireSession>} />
+                <Route path="/history" element={<RequireSession><PrimeHistory /></RequireSession>} />
                 <Route path="/settings" element={<RequireSession><Wip label="W4 · 设置接线中" /></RequireSession>} />
                 <Route path="/tools" element={<RequireSession><Wip label="W4 · 工具中心接线中" /></RequireSession>} />
                 <Route path="/tools/:id" element={<RequireSession><Wip label="W4 · 工具详情接线中" /></RequireSession>} />
