@@ -256,7 +256,7 @@ describe("EditFace", () => {
 });
 
 describe("ProjectCard", () => {
-    const card = { id: "p1", title: "草船借箭", status: "active", stillSeed: 1, shotCount: 6 };
+    const card = { id: "p1", title: "草船借箭", status: "active", stillSeed: 1, shotCount: 6, source: "studio" as const };
     const html = renderToStaticMarkup(<ProjectCard card={card} onOpen={() => {}} />);
     test("exposes open semantics with title", () => {
         expect(html).toContain('aria-label="打开项目 草船借箭"');
@@ -271,7 +271,7 @@ describe("ProjectGrid", () => {
         expect(html).toContain("新建项目");
     });
     test("renders one card per project", () => {
-        const cards = [{ id: "p1", title: "甲", status: "active", stillSeed: 0, shotCount: 1 }, { id: "p2", title: "乙", status: "draft", stillSeed: 2, shotCount: 0 }];
+        const cards = [{ id: "p1", title: "甲", status: "active", stillSeed: 0, shotCount: 1, source: "studio" as const }, { id: "p2", title: "乙", status: "draft", stillSeed: 2, shotCount: 0, source: "canvas" as const }];
         const html = renderToStaticMarkup(<ProjectGrid cards={cards} onOpen={() => {}} onCreate={() => {}} />);
         expect(html).toContain("甲");
         expect(html).toContain("乙");
@@ -279,7 +279,7 @@ describe("ProjectGrid", () => {
 });
 
 describe("CanvasHomeFace", () => {
-    const model = { cards: [{ id: "p1", title: "草船借箭", status: "active", stillSeed: 0, shotCount: 6 }], empty: false };
+    const model = { cards: [{ id: "p1", title: "草船借箭", status: "active", stillSeed: 0, shotCount: 6, source: "studio" as const }], empty: false };
     const html = renderToStaticMarkup(<CanvasHomeFace model={model} onOpen={() => {}} onCreate={() => {}} />);
     test("renders search and create controls", () => {
         expect(html).toContain('aria-label="搜索项目"');

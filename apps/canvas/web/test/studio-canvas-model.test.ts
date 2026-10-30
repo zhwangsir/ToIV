@@ -9,16 +9,23 @@ mock.module("@/services/toiv/client", () => ({
 
 const { loadCanvasHomeModel } = await import("@/studio/faces/canvas/model");
 
+
 describe("loadCanvasHomeModel", () => {
     test("maps projects to cards with deterministic still seed", async () => {
         const model = await loadCanvasHomeModel();
         expect(model.cards.map((card) => card.title)).toEqual(["草船借箭", "空项目"]);
+        expect(model.cards.map((card) => card.source)).toEqual(["studio", "studio"]);
         for (const card of model.cards) {
             expect(card.stillSeed).toBeGreaterThanOrEqual(0);
             expect(card.stillSeed).toBeLessThan(4);
             expect(card.shotCount).toBe(0);
         }
         expect(model.empty).toBe(false);
+    });
+    test("merges canvas projects as second source", async () => {
+        const merged = await loadCanvasHomeModel([{ id: "c1", title: "画布甲" }]);
+        expect(merged.cards.map((card) => card.source)).toEqual(["studio", "studio", "canvas"]);
+        expect(merged.cards[2].title).toBe("画布甲");
     });
     test("same id yields same seed", async () => {
         const first = await loadCanvasHomeModel();
