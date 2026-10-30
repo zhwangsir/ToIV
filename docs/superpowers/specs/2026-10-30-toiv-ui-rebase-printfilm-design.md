@@ -17,6 +17,7 @@
 
 - 新包 `apps/prime/web/`：printfilm `frontend/` 原样落入 `src/`（保持上游路径以便跟上游 diff）；`package.json`/`vite.config.ts` 为我方增量（base=`/studio/`、dev proxy、别名 `@/`→`src/`、`@content-lock`）。
 - **vendor 冻结**：测试 `test/prime-vendor-frozen.test.ts` 对 `src/` 内 vendor 文件清单做 sha256 清单校验（与 provenance 一致）；任何对 vendor 文件的修改必须走「上游同步」流程并更新清单，禁止随手改。
+  - **bootstrap 白名单（唯一例外，改动仅限入口换接）**：`index.html`、`src/main.tsx` 允许把入口指向 `src/toiv/bootstrap.tsx`；路由树在 bootstrap 内自建（直接 import vendor 页面组件），vendor `App.tsx` 弃用不改——冻结面保持 100%。
 - ToIV 增量只落：`src/toiv/**`（adapters/shell/addons/皮肤层）、路由表包装文件、`src/styles/toiv-skin.css`（CSS 变量覆盖层）。
 - 部署契约不变：Go canvas backend 以 `base=/studio/` 服务 dist；`deploy/deploy.sh` 增 `--prime` 开关切换 dist 来源（默认旧 dist，灰度→全量→退役）。
 
@@ -76,3 +77,12 @@
 - iframe 桥体验割裂→仅 W5 前过渡，同源可注入降级样式；W6 全撤。
 - 许可风险→仅 MIT 基座；NOTICE+版权头保留；候选排除清单见 §0。
 - 部署风险→`--prime` 单开关；每波生产取证后才推进下一波。
+
+## 9. 基座契约证据（2026-10-30 核，provenance `62f8d95d`）
+
+- **鉴权注入零改 vendor**：`src/api/client.ts` 的 transport 为 `getToken: () => localStorage.getItem('token')`；我方 auth 模块在 `miniapp_token` 交换后写 `localStorage.token`（登出 `removeItem`），API base 经 `VITE_API_BASE` 指 `/api`（dev proxy；生产同源由 Go backend 转发）。错误策略沿用 vendor `throwApiError`，其 `apiErrorMessage` 已兼容字符串/数组 detail（ToIV 422/503 语义可直接展示）。
+- **路由单点**：vendor 路由树在 `src/App.tsx`（`<Routes>` 全表见 §2 映射来源）；按 §1 bootstrap 白名单弃用之，路由表自建于 `src/toiv/bootstrap.tsx`。
+- **测试设施**：`npm test` = `node --experimental-strip-types --test tests/*.test.mjs`（已有 `tests/http.test.mjs`）→ 门禁与适配器测试同 runner 落地；lint=oxlint；build=`tsc -b && vite build`。
+- **UI kit 可复用**：`components/ui/` = Button/Modal/DialogHost/PillTabs/PillFilter/Stepper/StatCard/Pagination/FilterSelect/Icons/ComingSoon/CreateChoiceModal/HelpCenter → addons 一律复用，不新造轮子。
+- **画布即接点**：依赖含 `@xyflow/react@12`；`pages/drama/CanvasPage.tsx`、`EpisodeStoryboardPage` 为 W3 节点化接点。
+- **样式面**：`styles/printfilm.css` 7304 行 + `pages/drama/drama.css` 7117 行，含 486 处 CSS 变量 → 品牌替换走变量覆盖层可行（§5）。
