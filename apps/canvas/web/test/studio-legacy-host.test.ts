@@ -7,8 +7,8 @@ const css = readFileSync(resolve(import.meta.dir, "../src/studio/studio.css"), "
 
 describe("legacy host strangler", () => {
     test("shared pages are top-level studio routes", () => {
-        for (const path of ["/library", "/tasks", "/settings"]) {
-            expect(router).toContain(`{ path: "${path}", element: deferred(<Studio`);
+        for (const path of ["/library", "/tasks", "/settings", "/home", "/toiv/drama", "/toiv/market", "/agents", "/toiv/kpi"]) {
+            if (path === "/home") { expect(router).toContain('{ path: "/home", element: <Navigate to="/create" replace /> }'); } else { expect(router).toContain(`{ path: "${path}", element: deferred(<Studio`); }
         }
     });
     test("demote rule hides duplicated title cluster but keeps actions", () => {

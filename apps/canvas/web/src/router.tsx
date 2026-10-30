@@ -7,7 +7,7 @@ import { loadAgentsPage, loadHomePage, loadProjectDetailPage } from "@/lib/works
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
-import { StudioLibraryRoute, StudioSettingsRoute, StudioTasksRoute } from "@/studio/routes/studio-legacy-host-route";
+import { StudioAgentsRoute, StudioDramaRoute, StudioKpiRoute, StudioLibraryRoute, StudioMarketRoute, StudioSettingsRoute, StudioTasksRoute } from "@/studio/routes/studio-legacy-host-route";
 
 const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
@@ -151,13 +151,17 @@ export const router = createWorkspaceRouter([
     { path: "/library", element: deferred(<StudioLibraryRoute />) },
     { path: "/tasks", element: deferred(<StudioTasksRoute />) },
     { path: "/settings", element: deferred(<StudioSettingsRoute />) },
+    { path: "/home", element: <Navigate to="/create" replace /> },
+    { path: "/toiv/drama", element: deferred(<StudioDramaRoute />) },
+    { path: "/toiv/market", element: deferred(<StudioMarketRoute />) },
+    { path: "/agents", element: deferred(<StudioAgentsRoute />) },
+    { path: "/toiv/kpi", element: deferred(<StudioKpiRoute />) },
     {
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
         children: [
             // W1 F1：登录后 /studio/ 默认落地密台创作（Home 降级 /home，非默认）
             { path: "/", element: <Navigate to="/create" replace /> },
-            { path: "/home", element: deferred(<HomePage />) },
             // W6 F12：/desktop* 默认不可达 → /create（源码保留作 Cosmos 种子，禁接回默认交付）
             { path: "/desktop", element: <Navigate to="/create" replace /> },
             { path: "/desktop/store", element: <Navigate to="/create" replace /> },
@@ -179,17 +183,13 @@ export const router = createWorkspaceRouter([
                 path: "/plugins/eagle",
                 element: <RequireFeature feature="pluginCenterEnabled">{deferred(<EagleLibraryPage />)}</RequireFeature>,
             },
-            { /* W7：外部 Agent 客户端面保留；入口仅设置侧链，非侧栏/⌘K 独立 Agent 对话面 */ path: "/agents", element: deferred(<AgentsPage />) },
             { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
-            { path: "/toiv/market", element: deferred(<ToivMarketPage />) },
             { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
             { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },
             { path: "/toiv/audio", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/image-tools", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/video-tools", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/dub-tools", element: <Navigate to="/toiv/market" replace /> },
-            { path: "/toiv/drama", element: deferred(<ToivDramaPage />) },
-            { path: "/toiv/kpi", element: deferred(<ToivKpiPage />) },
             { path: "/toiv/drama/:id", element: <ToivDramaDetailToCreateRedirect /> },
             // 永久重定向：旧六段工作区保留 project/section，进入单一创作台。
             { path: "/toiv/ws/:id/:section", element: <ToivWsToCreateRedirect /> },
