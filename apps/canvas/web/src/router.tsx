@@ -7,7 +7,7 @@ import { loadAgentsPage, loadHomePage, loadProjectDetailPage } from "@/lib/works
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import RouteErrorPage from "@/pages/route-error";
 import { isLocalWorkspaceMode } from "@/services/workspace-mode";
-import { StudioAgentsRoute, StudioDramaRoute, StudioKpiRoute, StudioLibraryRoute, StudioMarketRoute, StudioSettingsRoute, StudioTasksRoute } from "@/studio/routes/studio-legacy-host-route";
+import { StudioAgentsRoute, StudioDramaRoute, StudioKpiRoute, StudioLibraryRoute, StudioMarketRoute, StudioPluginsEagleRoute, StudioPluginsRoute, StudioSettingsRoute, StudioTasksRoute } from "@/studio/routes/studio-legacy-host-route";
 
 const AgentsPage = lazy(loadAgentsPage);
 const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page"));
@@ -19,8 +19,6 @@ const StudioEditRoute = lazy(() => import("@/studio/routes/studio-edit-route"));
 const StudioCanvasProjectRoute = lazy(() => import("@/studio/routes/studio-canvas-project-route"));
 
 const NotFound = lazy(() => import("@/pages/not-found"));
-const PluginsPage = lazy(() => import("@/pages/plugins"));
-const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const ToivTasksPage = lazy(() => import("@/pages/toiv/tasks-page"));
 const ToivMarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const ToivLibraryDetailPage = lazy(() => import("@/pages/toiv/library-detail"));
@@ -29,7 +27,6 @@ const ToivKpiPage = lazy(() => import("@/pages/toiv/kpi-page"));
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const UserLayout = lazy(() => import("@/layouts/user-layout"));
-const RequireFeature = lazy(() => import("@/components/workspace/require-feature").then((module) => ({ default: module.RequireFeature })));
 const RedlineRouteGuard = lazy(() => import("@/components/workspace/require-r18").then((module) => ({ default: module.RedlineRouteGuard })));
 
 function deferred(element: ReactNode) {
@@ -156,6 +153,8 @@ export const router = createWorkspaceRouter([
     { path: "/toiv/market", element: deferred(<StudioMarketRoute />) },
     { path: "/agents", element: deferred(<StudioAgentsRoute />) },
     { path: "/toiv/kpi", element: deferred(<StudioKpiRoute />) },
+    { path: "/plugins", element: deferred(<StudioPluginsRoute />) },
+    { path: "/plugins/eagle", element: deferred(<StudioPluginsEagleRoute />) },
     {
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
@@ -175,14 +174,6 @@ export const router = createWorkspaceRouter([
             { path: "/skills", element: <Navigate to="/create" replace /> },
             { path: "/skill", element: <Navigate to="/create" replace /> },
             { path: "/skills/reference", element: <Navigate to="/create" replace /> },
-            {
-                path: "/plugins",
-                element: <RequireFeature feature="pluginCenterEnabled">{deferred(<PluginsPage />)}</RequireFeature>,
-            },
-            {
-                path: "/plugins/eagle",
-                element: <RequireFeature feature="pluginCenterEnabled">{deferred(<EagleLibraryPage />)}</RequireFeature>,
-            },
             { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
             { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
             { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },

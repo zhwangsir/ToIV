@@ -23,7 +23,7 @@ const model: EditModel = {
 
 createRoot(document.getElementById("root")!).render(
     <StudioShell face="edit" projectLabel="草船借箭 / 成片剪辑" runningCount={0}
-        onOpenTasks={() => {}} onFaceChange={() => {}}>
+        onFaceChange={() => {}}>
         <EditFace model={model} onResult={(text, warn) => useStudioToast.getState().push(text, warn)} />
     </StudioShell>,
 );

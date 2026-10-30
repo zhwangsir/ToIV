@@ -25,7 +25,7 @@ beforeAll(async () => {
         entrypoints: [import.meta.dir + "/fixtures/studio-canvas-harness.tsx"],
         plugins,
         target: "browser",
-        define: { "import.meta.env": JSON.stringify({ DEV: false, PROD: true, MODE: "production", BASE_URL: "/", VITE_STUDIO_FACE_FALLBACK: "" }) },
+        define: { "import.meta.env": JSON.stringify({ DEV: false, PROD: true, MODE: "production", BASE_URL: "/" }) },
     });
     if (!build.success) throw new Error(build.logs.join("\n"));
     const script = await build.outputs[0].text();

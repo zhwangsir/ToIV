@@ -13,6 +13,10 @@ const DramaPage = lazy(() => import("@/pages/toiv/drama-page"));
 const MarketPage = lazy(() => import("@/pages/toiv/market-page"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const KpiPage = lazy(() => import("@/pages/toiv/kpi-page"));
+const PluginsPage = lazy(() => import("@/pages/plugins"));
+const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
+const CreationWorkbenchPage = lazy(() => import("@/pages/create/creation-workbench"));
+const RequireFeature = lazy(() => import("@/components/workspace/require-feature").then((m) => ({ default: m.RequireFeature })));
 
 function LegacyHost({ face, label, children }: { face: StudioFace; label: string; children: React.ReactNode }) {
     const navigate = useNavigate();
@@ -27,6 +31,11 @@ function LegacyHost({ face, label, children }: { face: StudioFace; label: string
 
 export function StudioLibraryRoute() {
     return <LegacyHost face="pipeline" label="素材库"><MediaLibraryPage /></LegacyHost>;
+}
+
+/** /create 无 project：新建向导尚未在新壳落地，先以 legacy host 承接 composer，避免创作入口断链。 */
+export function StudioCreateHomeRoute() {
+    return <LegacyHost face="pipeline" label="创作"><CreationWorkbenchPage /></LegacyHost>;
 }
 
 export function StudioTasksRoute() {
@@ -51,4 +60,20 @@ export function StudioKpiRoute() {
 
 export function StudioSettingsRoute() {
     return <LegacyHost face="pipeline" label="设置"><SettingsPage /></LegacyHost>;
+}
+
+export function StudioPluginsRoute() {
+    return (
+        <RequireFeature feature="pluginCenterEnabled">
+            <LegacyHost face="pipeline" label="插件中心"><PluginsPage /></LegacyHost>
+        </RequireFeature>
+    );
+}
+
+export function StudioPluginsEagleRoute() {
+    return (
+        <RequireFeature feature="pluginCenterEnabled">
+            <LegacyHost face="pipeline" label="Eagle 库"><EagleLibraryPage /></LegacyHost>
+        </RequireFeature>
+    );
 }

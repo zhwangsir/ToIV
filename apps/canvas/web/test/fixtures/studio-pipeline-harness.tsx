@@ -41,7 +41,7 @@ const model: PipelineModel = {
 
 createRoot(document.getElementById("root")!).render(
     <StudioShell face="pipeline" projectLabel="草船借箭 / 素材准备" runningCount={model.runningCount}
-        onOpenTasks={() => {}} onFaceChange={() => {}} buddyText={model.companionHint} onDismissBuddy={() => {}}>
+        onFaceChange={() => {}} buddyText={model.companionHint} onDismissBuddy={() => {}}>
         <PipelineFace model={model} onAction={(action) => {
             window.__studioActions.push(action);
             useStudioToast.getState().push(`action:${action.type}`);

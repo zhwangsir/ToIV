@@ -13,13 +13,13 @@ window.__openIds = [];
 const model: CanvasHomeModel = {
     empty: false,
     cards: [
-        { id: "p1", title: "草船借箭", status: "active", stillSeed: 0, shotCount: 6 },
-        { id: "p2", title: "小蝌蚪找妈妈", status: "draft", stillSeed: 2, shotCount: 0 },
+        { id: "p1", title: "草船借箭", status: "active", stillSeed: 0, shotCount: 6, source: "studio" },
+        { id: "p2", title: "小蝌蚪找妈妈", status: "draft", stillSeed: 2, shotCount: 0, source: "canvas" },
     ],
 };
 
 createRoot(document.getElementById("root")!).render(
-    <StudioShell face="canvas" projectLabel="项目库" runningCount={0} onOpenTasks={() => {}} onFaceChange={() => {}}>
+    <StudioShell face="canvas" projectLabel="项目库" runningCount={0} onFaceChange={() => {}}>
         <CanvasHomeFace model={model}
             onOpen={(id) => window.__openIds.push(id)}
             onCreate={() => useStudioToast.getState().push("新建项目入口在 Plan 3b 接创建向导", true)} />

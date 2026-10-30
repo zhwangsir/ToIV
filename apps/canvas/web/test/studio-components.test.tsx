@@ -5,7 +5,6 @@ import { FaceSwitcher } from "../src/studio/ui/FaceSwitcher";
 import { SlidingTabs } from "../src/studio/ui/SlidingTabs";
 import { StatusDot, STATUS_LABEL } from "../src/studio/ui/StatusDot";
 import { useStudioToast } from "../src/studio/ui/toast-store";
-import { studioFaceEnabled } from "../src/studio/flags";
 import { Button } from "../src/studio/ui/Button";
 import { Field } from "../src/studio/ui/Field";
 import { TakeStrip } from "../src/studio/ui/TakeStrip";
@@ -27,7 +26,7 @@ import { TaskDrawer } from "../src/studio/ui/TaskDrawer";
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
         <StudioShell face="pipeline" projectLabel="草船借箭 / 素材准备" runningCount={2}
-            onOpenTasks={() => {}} onFaceChange={() => {}} buddyText="测试台词" onDismissBuddy={() => {}}>
+            onFaceChange={() => {}} buddyText="测试台词" onDismissBuddy={() => {}}>
             <p>content</p>
         </StudioShell>,
     );
@@ -55,14 +54,6 @@ describe("FaceSwitcher", () => {
         expect(html).toContain("画布");
         expect(html).toContain("剪辑湾");
         expect(html).toMatch(/aria-pressed="true"[^>]*>画布/);
-    });
-});
-
-describe("flags", () => {
-    test("defaults to new implementation", () => {
-        expect(studioFaceEnabled("pipeline")).toBe(true);
-        expect(studioFaceEnabled("canvas")).toBe(true);
-        expect(studioFaceEnabled("edit")).toBe(true);
     });
 });
 
