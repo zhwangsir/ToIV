@@ -139,11 +139,8 @@ function devRoutes() {
 
 export const router = createWorkspaceRouter([
     ...(import.meta.env.DEV ? devRoutes() : []),
-    {
-        // studio 新壳三面：不套旧 WorkspaceLayout chrome（strangler 外层）
-        path: "/create",
-        element: deferred(<StudioCreateRoute />),
-    },
+    // studio 新壳三面：不套旧 WorkspaceLayout chrome（strangler 外层）
+    { path: "/create", element: deferred(<StudioCreateRoute />) },
     { path: "/edit", element: deferred(<StudioEditRoute />) },
     { path: "/canvas", element: deferred(<StudioCanvasRoute />) },
     { path: "/projects", element: deferred(<StudioCanvasRoute />) },
