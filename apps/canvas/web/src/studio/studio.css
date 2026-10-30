@@ -48,6 +48,7 @@
 .stv-rail-item[aria-current="true"] .no { color: var(--primary); }
 .stv-rail-item .st { margin-left: auto; font-size: var(--text-xs); font-family: var(--font-mono); }
 .stv-main { overflow: auto; display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
+.stv-shell > .stv-main { padding: 0 20px 18px; }
 .stv-bar { display: flex; align-items: center; gap: var(--space-3); }
 .stv-bar h2 { font-size: var(--text-lg); font-weight: 600; }
 .stv-bar .meta { font: var(--text-sm) var(--font-mono); color: var(--faint-fg); }

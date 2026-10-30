@@ -25,6 +25,9 @@ describe("legacy host strangler", () => {
         expect(css).toContain(".stv-legacy-host .app-page-header-main { display: none; }");
         expect(css).not.toContain(".stv-legacy-host .app-page-header {");
     });
+    test("bare main column under the shell keeps horizontal padding", () => {
+        expect(css).toContain(".stv-shell > .stv-main { padding: 0 20px 18px; }");
+    });
 });
 
 describe("face fallback removal", () => {
