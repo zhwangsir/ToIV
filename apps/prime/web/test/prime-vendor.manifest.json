@@ -1,0 +1,849 @@
+{
+  "provenance": "62f8d95d7ee6a5af9543351040e6183e9dcbbe65",
+  "allowlist": [
+    "index.html",
+    "src/main.tsx"
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "2ce570ba1418ab1a506f668e582e83fcd125ddc8c39b3de06dcea9f84e99cd6d"
+    },
+    {
+      "path": "src/App.css",
+      "sha256": "bd69a58f4d90d433259e03bfa27fc869393e6b8a98c2606e4b60692e182d241a"
+    },
+    {
+      "path": "src/App.tsx",
+      "sha256": "f8b755e1054e5207f8698163d0aadc1f124d5a4d525c4778a9a9eb80ed7526e1"
+    },
+    {
+      "path": "src/api.ts",
+      "sha256": "5c3b9246d92b0da35a4ea77280586766ff36f844f13d87d9d6623516db25cd62"
+    },
+    {
+      "path": "src/api/agentSkills.ts",
+      "sha256": "d96973a33c7eb83f9d2342ca41cd0082c760a89a7716ca06d136d705adbb5ade"
+    },
+    {
+      "path": "src/api/apiKeys.ts",
+      "sha256": "35551a3617731b60035870f87130a1b3323c2c74ee6f78f7c5855807921bcbc7"
+    },
+    {
+      "path": "src/api/client.ts",
+      "sha256": "35db1df6de480f89759317330832b1a63d3b2826501caeedb9efb7414097775e"
+    },
+    {
+      "path": "src/api/drama.ts",
+      "sha256": "1bfa76bd2042f39647c30f742f67ef56ab4ebec599c799dd73cc6c4f571d0bd8"
+    },
+    {
+      "path": "src/api/http.ts",
+      "sha256": "13ce286e7e6a085ac70bd8c0103c23fd8e03166ccd8821054dde0588c2f047a7"
+    },
+    {
+      "path": "src/api/tasks.ts",
+      "sha256": "8bda8a309db29f2976763e4406c93f05acffea838cb4f6020442cdf963a202f4"
+    },
+    {
+      "path": "src/api/tools.ts",
+      "sha256": "697062fcc699fd3e81b76ec10f570d151fa7b40442e6fec566c4c90ea4a39ed0"
+    },
+    {
+      "path": "src/assets/hero.png",
+      "sha256": "881ffbcaafc212e49addad08846a5b82761355fa20624253af3477ba33262c5c"
+    },
+    {
+      "path": "src/components/BrandMark.tsx",
+      "sha256": "fbaaa385508f4c00874125bafb9ff58299f66901d86dfc31c685beb1e1906ec1"
+    },
+    {
+      "path": "src/components/UserAvatar.tsx",
+      "sha256": "581ffcf6c2fcaa5ae2b8222f685c624bcf19a57c1fae23fbbfb25674ed957070"
+    },
+    {
+      "path": "src/components/billing/BillingAlertHost.tsx",
+      "sha256": "e1d48785fd986961c064cb77ed4f3aff1a43d0fdc1e80f467f198bdeb2989c1b"
+    },
+    {
+      "path": "src/components/billing/BillingErrorNotice.tsx",
+      "sha256": "972ca815d2de84b6d33b10ea2c4c9f56bc6e0d4bd2f927556bfb8d3e70476e58"
+    },
+    {
+      "path": "src/components/billing/BillingTopupLink.tsx",
+      "sha256": "6d914d4ecd294de635da990d67ec105d046f2431f9bdb27659e66492bb401709"
+    },
+    {
+      "path": "src/components/billing/MonthlyUsageCard.tsx",
+      "sha256": "07f17399dd2cfb87a7becc82f03d4fe50b0c89db459050aae9b900d3c5790bad"
+    },
+    {
+      "path": "src/components/billing/PaymentBrandIcon.tsx",
+      "sha256": "211fd3e4ac906343cbaf7b8d10dcdfae09579b60b804cfe80463f839db73e21f"
+    },
+    {
+      "path": "src/components/billing/PaymentModal.tsx",
+      "sha256": "fa678e734a8fc246e2aa5d08ad41f0bee4f4f46998b96250928a750d001f15e6"
+    },
+    {
+      "path": "src/components/billing/PricingWalletCard.tsx",
+      "sha256": "b221480e4d167627f61212583b68443c0b5bf702cf9884eea3dbe5caa2531388"
+    },
+    {
+      "path": "src/components/billing/TopupHistoryModal.tsx",
+      "sha256": "947b4a514081ef3b23c591f96f10fd70c9193def90fae384ec96164617ba3829"
+    },
+    {
+      "path": "src/components/billing/UsageChargeRecords.tsx",
+      "sha256": "a35506e26063fb1a02e7f8d578662896361597c8a2f9ec2468fb28869c3b777a"
+    },
+    {
+      "path": "src/components/drama/AgentSkillPicker.tsx",
+      "sha256": "46a821d0757aa48b6b1dedab7c2bdf6292a30165cb960ef65a63ed72b15d8954"
+    },
+    {
+      "path": "src/components/drama/CharacterVoicePreviewButton.tsx",
+      "sha256": "346981a1a8b52c267e3e2cdb0b505a74fb7a4ed65d28759be25f96e1db30bb95"
+    },
+    {
+      "path": "src/components/drama/DramaFragmentClipSpec.tsx",
+      "sha256": "241454fc9f88e1c05decb4620a87234773eba0004e435f5e8086c6e4c4bbe8fa"
+    },
+    {
+      "path": "src/components/drama/DramaFragmentSegmentedVideoPlayer.tsx",
+      "sha256": "f14725d5a48e984468f12a2badd6ae0016934d6a789927d42c5d464a29ff5c31"
+    },
+    {
+      "path": "src/components/drama/DramaGenQueuePanel.tsx",
+      "sha256": "c98a3f7ec497bbd3716cf4be64ed48d46a30b3ecbb30c9f54aedc9adb13c17fb"
+    },
+    {
+      "path": "src/components/drama/DramaGenTaskDetail.tsx",
+      "sha256": "7e2edb5460a6fdb403f6dad2efc54388e155ada31d71a1ee983dd946d34ed8aa"
+    },
+    {
+      "path": "src/components/drama/DramaImageStyleCardGrid.tsx",
+      "sha256": "0fc7bfa1565a8f4e2307b31482c868d4ac628e91e078d9a454038f852e7b783d"
+    },
+    {
+      "path": "src/components/drama/DramaImageStylePreviewImg.tsx",
+      "sha256": "9fb956ed0f9daab0257787b1971ccfbed29a69bf89b1e99339f7e4f6a184ebdd"
+    },
+    {
+      "path": "src/components/drama/DramaMediaModelPicker.tsx",
+      "sha256": "7758095d6685e0cc38dafe99865be2de2072bf3509a3acbde244859003d92402"
+    },
+    {
+      "path": "src/components/drama/DramaSubtitleBoard.tsx",
+      "sha256": "8e0ffa56ccc3501b606e3e56696902b0227e42511900aac3ed86296589f37c6f"
+    },
+    {
+      "path": "src/components/drama/FragmentPlanSkillModal.tsx",
+      "sha256": "6d227c84827f1cda429191ece950e72de985b665296c0ad746aaae5c8158e82e"
+    },
+    {
+      "path": "src/components/drama/SeedanceRulesModal.tsx",
+      "sha256": "9e099035be5adc89b91d0d67d2c503bff0d6e338ed81b874d0ef3d09b6d11d37"
+    },
+    {
+      "path": "src/components/layout/AppShell.tsx",
+      "sha256": "37665b6b0b465376c87b01e19037b441a21fa1be2160d05b0687906ae6dffb94"
+    },
+    {
+      "path": "src/components/layout/LanguageSwitch.tsx",
+      "sha256": "8f886fa1c59a67adbd8abf182c4ed8653a9e46a2792aea8d58946809c33ab327"
+    },
+    {
+      "path": "src/components/layout/SiteNav.tsx",
+      "sha256": "252ebc92b1df8c4b453b92984b1df587fc93ddd1c39190caebfee0686fa6f1aa"
+    },
+    {
+      "path": "src/components/layout/WeChatGroupFab.tsx",
+      "sha256": "9e4d3019e0d2f767cd1dba40a5a9bc08b63aa679d135477315e2f6643a8e8394"
+    },
+    {
+      "path": "src/components/ui/Button.tsx",
+      "sha256": "e9297a0184fb29a8c524f1e4cfce7f027c4ff4eb457faa75c6148e074cf44580"
+    },
+    {
+      "path": "src/components/ui/ComingSoon.tsx",
+      "sha256": "4fe5bafc5111832b4910ac7be00ede050533543d932e8c1751969edaf18cd35c"
+    },
+    {
+      "path": "src/components/ui/CreateChoiceModal.tsx",
+      "sha256": "e66ecdf7150a500d6197c6018b9c35c2e768ebd0b99e65565d0467351af87b99"
+    },
+    {
+      "path": "src/components/ui/DialogHost.tsx",
+      "sha256": "ff7acc900d63b9c583921dae75d80a93a9ce2010d834ff2dc9e64eae0ed08bd0"
+    },
+    {
+      "path": "src/components/ui/FilterSelect.tsx",
+      "sha256": "a629a67fccce47f4aa64d89d25e0daf266bbf0167163fcab0ceeb9924819c0e6"
+    },
+    {
+      "path": "src/components/ui/HelpCenter.tsx",
+      "sha256": "0b90e8f9dcc15a0fb228cae8cea4b9e4c67c6f9a4116a5555b91b07b8509bd56"
+    },
+    {
+      "path": "src/components/ui/Icons.tsx",
+      "sha256": "27ee3f2387bc9aecb0dac6931de0592ab34ee182ecd4e460b4cc7e69d42c34bd"
+    },
+    {
+      "path": "src/components/ui/Modal.tsx",
+      "sha256": "cb05392d045f055f1a4c736a9ce7ce488f31bf8614e1630526f13046a852871b"
+    },
+    {
+      "path": "src/components/ui/Pagination.tsx",
+      "sha256": "99339626fe930287e850cd892253e66842ecb110dc681b63b66cd2ee59e55b88"
+    },
+    {
+      "path": "src/components/ui/PillFilter.tsx",
+      "sha256": "17892397d2433efa28c3150812a1eda724893861bf221d39e1a0da56f5e6bcf1"
+    },
+    {
+      "path": "src/components/ui/PillTabs.tsx",
+      "sha256": "d4ed8e82f8db6bced9e5acb4c35c86af13f74eb9b87862f009b373cb7505cb34"
+    },
+    {
+      "path": "src/components/ui/StatCard.tsx",
+      "sha256": "370225173461a86da6ca75740c804e642e7c588d2abc0b4769bcd334ea5cc0fa"
+    },
+    {
+      "path": "src/components/ui/Stepper.tsx",
+      "sha256": "f4b059de243c0fce7ef1c8c25f90949f5929296545488f12fa4503890d9e446d"
+    },
+    {
+      "path": "src/hooks/useAgentSkillSelection.ts",
+      "sha256": "4ea75b83b427af32dbb7a27f7642ae4b79631b95ae349835aabb2c485ef1647b"
+    },
+    {
+      "path": "src/hooks/useDramaImageGenQueue.ts",
+      "sha256": "a394851d70849323c0cfcc1d465391cf5192206651761ec163d7ea4cfc605c15"
+    },
+    {
+      "path": "src/hooks/useFabDragPosition.ts",
+      "sha256": "7b207132efd5115f09a3db3b31c51dd5f8e541fcf137ba48996af3492f65acd3"
+    },
+    {
+      "path": "src/hooks/useMediaModelsCatalog.ts",
+      "sha256": "731e2ae52e33fdaccfc425076e2eb5dc7986c64e84e91c96c4653c23f76b5551"
+    },
+    {
+      "path": "src/i18n/context.tsx",
+      "sha256": "38852c6f6e87f0b60392f278a760d85e954a5fb0812d1208939f2c0dd491792a"
+    },
+    {
+      "path": "src/i18n/detect.ts",
+      "sha256": "db1453dda10cc2426920b891e15d68a535e76f367f13dc1973160b0d05fa0d85"
+    },
+    {
+      "path": "src/i18n/index.ts",
+      "sha256": "eb83d39b387381c19470aa089c16805903ade8e60c44b4e826eae484705ad925"
+    },
+    {
+      "path": "src/i18n/locales/en.ts",
+      "sha256": "e43d529eb6b4ff3f9ceeb796c9cd4541ca5d8d6eb50a765682eae2f1630259b9"
+    },
+    {
+      "path": "src/i18n/locales/en/pages.ts",
+      "sha256": "c321fd7dfe4182a6472bba8cd16f67d6517af5fa7c835a88b996a05f79b063ec"
+    },
+    {
+      "path": "src/i18n/locales/en/shell.ts",
+      "sha256": "cb8807653ee4454553c9da4ab1cdf02b4c68ebc66ee8205dcdd2b033054c42a3"
+    },
+    {
+      "path": "src/i18n/locales/zh.ts",
+      "sha256": "e74647c9ef4908674cb1663ecce8749a2d80dd16b687ff09a030a9989572e68e"
+    },
+    {
+      "path": "src/i18n/locales/zh/pages.ts",
+      "sha256": "0d772daf278f077d48538883ce9e48bd7fec5195c028ca40979cfa6e72fa3659"
+    },
+    {
+      "path": "src/i18n/locales/zh/shell.ts",
+      "sha256": "206db96ea0f7481d18741423461539957340ab2e693ecc4676c70d3bd2173b6e"
+    },
+    {
+      "path": "src/i18n/lookup.ts",
+      "sha256": "58c23d4c097a30e8cf93bde3a369c6320fe289fd67b163e477fe0673b0a0b602"
+    },
+    {
+      "path": "src/i18n/messages.ts",
+      "sha256": "979a3894dd53df59858b2c494447984080f7eca298f96a41ade3947f3a24cf3c"
+    },
+    {
+      "path": "src/index.css",
+      "sha256": "8c24d60484d7102bc87d8864f290bae48190f07d77abcb6f06509a3ba0acd009"
+    },
+    {
+      "path": "src/lib/agentSkillSelection.ts",
+      "sha256": "bd7bd2fc9cd5a10a516f941a02d5d02993d469de5f1cb2ae9d53228cd4a4065b"
+    },
+    {
+      "path": "src/lib/apiError.ts",
+      "sha256": "e9951e62f506019a3b5f9e1e52e4611f91e6d0db776335dc88fdbbe4dba40a14"
+    },
+    {
+      "path": "src/lib/billingError.ts",
+      "sha256": "b3bbbacf9ba7a9582e68aa06eaefe8762ba48e03fb12e355cb16337b74d6c5e6"
+    },
+    {
+      "path": "src/lib/canvasNodeMedia.ts",
+      "sha256": "b35bcd540ed1d59c144e8c68710e14558c15a6161e2783c2be57b9894a595384"
+    },
+    {
+      "path": "src/lib/categories.ts",
+      "sha256": "0335a91f52026407c72d39532e08b9ccabd25b196dfaff4c3f2641eb6495d477"
+    },
+    {
+      "path": "src/lib/characterVoiceGenerate.ts",
+      "sha256": "735ab2561f05e07237c9ecde2078eb3676d8655d415829e8b756d3a647a43f87"
+    },
+    {
+      "path": "src/lib/clientDownload.ts",
+      "sha256": "4b2dd9a12b0354e90e83c37abdc9e331e0ccd9eb141fbbf70bc59be1f0391d0a"
+    },
+    {
+      "path": "src/lib/cn.ts",
+      "sha256": "dd8d22021bcf774fe92858d9ba81019932eaa701593d5387bc1feffe3638bfa3"
+    },
+    {
+      "path": "src/lib/composeEpisodeVideoClient.ts",
+      "sha256": "756c10b09a5535c91d2f5c5b9b05b3b215d4eddb3e8d5c29242d916fd0c2b8d3"
+    },
+    {
+      "path": "src/lib/dialog.ts",
+      "sha256": "9a4949e36d889eeebef87482258fe63dbd705e1f4ca5a225b226fee29037ac13"
+    },
+    {
+      "path": "src/lib/dramaAssetImage.ts",
+      "sha256": "6ac9b925ad79a2bdb1fe91771828640f78ed50a9e314128c72d6f08149b4c400"
+    },
+    {
+      "path": "src/lib/dramaAssetImageVersions.ts",
+      "sha256": "b632857d196c44ce916274503c783a29fcfb3fb4fdc2692950c17baff3fc557f"
+    },
+    {
+      "path": "src/lib/dramaCameraLexicon.ts",
+      "sha256": "d23407d586b9558b7ae00f0e5ec69d149f565e3250a3a8bcd9030b1e5baa7b62"
+    },
+    {
+      "path": "src/lib/dramaCharacterIntro.ts",
+      "sha256": "489dc880dc396da253cf4f307e7aaab343c3282692292c7535b7c6b159e7f6e3"
+    },
+    {
+      "path": "src/lib/dramaEditRhythm.ts",
+      "sha256": "b6cdaf507e72ced87580bc06a24fee38cf32598e773f329819ba1a1f0daf5a03"
+    },
+    {
+      "path": "src/lib/dramaEpisodePromptEditor.ts",
+      "sha256": "e1521d6655f5e9183845d0f4fda428aa44a5b9bab499a3bbc4c9e7565a81fb24"
+    },
+    {
+      "path": "src/lib/dramaEpisodeScriptValidate.ts",
+      "sha256": "0f064a2bc2df475e83e08cb67fc6536d4e8f359afcc6f003b3ce34e5d4a77508"
+    },
+    {
+      "path": "src/lib/dramaEpisodeVideoTimeline.ts",
+      "sha256": "4fd400bb225891c94528762930d6321fb13fe4964a39d7eec37fdd34e213ecf0"
+    },
+    {
+      "path": "src/lib/dramaGenError.ts",
+      "sha256": "76ada2a8cbb4b15b058c9302edb3a72f1694fcd8d6e5760c12415f17f0b35652"
+    },
+    {
+      "path": "src/lib/dramaGenQueue.ts",
+      "sha256": "42fa398699f09317f75b85860a359e28025f2f5d20a1213e8532b9cdd98ae843"
+    },
+    {
+      "path": "src/lib/dramaGenerationOptions.ts",
+      "sha256": "8eded4379385f6adad7586f765a403859aaa5a891d120cf701f57cdb9661cdd0"
+    },
+    {
+      "path": "src/lib/dramaImageGenQueue.ts",
+      "sha256": "9abe9814a12d5141d4aa5ceef15c4bdf5d653a484c77bce398070ce0b9f93a8a"
+    },
+    {
+      "path": "src/lib/dramaImageStylePreviews.ts",
+      "sha256": "1c40978838c528b3762c66848f28b727c5b9947c1d1242740cccbcad5371803d"
+    },
+    {
+      "path": "src/lib/dramaImageStyles.ts",
+      "sha256": "8ddc4b5f691ce187f5dd66352dea91447de1b1e7f97930c77c19c36089a69be0"
+    },
+    {
+      "path": "src/lib/dramaLibraryAssets.ts",
+      "sha256": "c65807fdfc3cc58fb8c2fdc4d91004bb945730a9e5d977e1dcb7fec1f5b64070"
+    },
+    {
+      "path": "src/lib/dramaMediaModelMeta.ts",
+      "sha256": "7d4f28659a4b02e7ee3e9d8f256618d01ddb6f3e90a44b7fa5318e70f15d2386"
+    },
+    {
+      "path": "src/lib/dramaProjectGlobalSettings.ts",
+      "sha256": "0319b42bda793cde6ac5dbcccba1aecf5f3b3920d7130b7459791e2ab53b3d64"
+    },
+    {
+      "path": "src/lib/dramaProjectOutputSettings.ts",
+      "sha256": "f3fdafebf32f187232b21525365eff08bd0df7c20d1cb96c15035da1e2cf1625"
+    },
+    {
+      "path": "src/lib/dramaProjectSteps.ts",
+      "sha256": "a50d6a9f0822df8afb21d6d14bcb35b5bee01471faef602ee85179b505e31a4e"
+    },
+    {
+      "path": "src/lib/dramaStoryboardNav.ts",
+      "sha256": "df2a2d31567e3f318b235147d3c01b6e8c2984402af63e3b68392a09a0d8b8b3"
+    },
+    {
+      "path": "src/lib/dramaStructurePrompt.ts",
+      "sha256": "098533216e8a6febecc5c5bbe7b02ae19312c78338a66bf503671189f92d1c10"
+    },
+    {
+      "path": "src/lib/dramaSubtitleBoard.ts",
+      "sha256": "93d8f852c1f52d41cc43268dbe344a842188cb4e11cd8981471189db2d116548"
+    },
+    {
+      "path": "src/lib/dramaUsage.ts",
+      "sha256": "62a9b617eb33f410d754d347c99a646c53bfba0937ee7ec90f9b6503bded96af"
+    },
+    {
+      "path": "src/lib/dramaVideoDimensions.ts",
+      "sha256": "3f02f8bdcf1a58a4128a0836ef8c87a1f2fca12cbb2523bd1f3a66f175cfe398"
+    },
+    {
+      "path": "src/lib/dramaVideoGenQueue.ts",
+      "sha256": "673cdbcc40e4d2e262b64b97db6d6f39ccae943576f098cece2501d27507563d"
+    },
+    {
+      "path": "src/lib/dramaVideoGenerationOptions.ts",
+      "sha256": "cd02f2bb6dd5abb88bcf84df99f4d292fbab5245bee588fdcb2efceb230e2cba"
+    },
+    {
+      "path": "src/lib/dramaVisualPrompt.ts",
+      "sha256": "0c570851266e70306a799fd17092fd36e3313499bc282df3765f55d247091df4"
+    },
+    {
+      "path": "src/lib/dramaVoiceBinding.ts",
+      "sha256": "eaa7473bafea7bd63516f1e5803fc65d8e74706596baab0412707d987fc67639"
+    },
+    {
+      "path": "src/lib/dramaWorkflow.ts",
+      "sha256": "963ea1789720f937ebcc0431d14fe65eb45550f15a7dd314a2783d646cd6943a"
+    },
+    {
+      "path": "src/lib/helpContent.ts",
+      "sha256": "5ad254d0e7e38d4be9d20c8a35b7b32ac4132e1301331a0bb083d28d45e7ef2c"
+    },
+    {
+      "path": "src/lib/homeLanding.ts",
+      "sha256": "9dd364f2cd32f3d294d42e5820dda873e7ad84941441d0055803c4a4d0c02720"
+    },
+    {
+      "path": "src/lib/legalContent.ts",
+      "sha256": "17e33118e3d6fca7107ca56c591cd796b8e822f91db5f7ce3cd54d894a09105c"
+    },
+    {
+      "path": "src/lib/methodLanding.ts",
+      "sha256": "263427c23f0b0863a2d4f1f73b176304ba1b1bbe6e56ffb9236df86781c1a343"
+    },
+    {
+      "path": "src/lib/pagination.ts",
+      "sha256": "fe57fde8d8bf11e99e7a7b5f06a0843a309b87a8ef99f074fe7bf09bf9c5e874"
+    },
+    {
+      "path": "src/lib/segmentDuration.ts",
+      "sha256": "f9d04fd463b01c02389ea674106591ede9d00a18526f9f671a198c3926396ede"
+    },
+    {
+      "path": "src/lib/siteLinks.ts",
+      "sha256": "a266ed03aa576c409482a02da6c6955565a6d9ee3e82b2a10ccc90d18b23202d"
+    },
+    {
+      "path": "src/lib/status.ts",
+      "sha256": "5ce94bd98294b67bc31eca79cbb0e745a28ab2a7c0caa2774f8211b6996dc636"
+    },
+    {
+      "path": "src/lib/toolsCatalog.ts",
+      "sha256": "07429b267af630de2696c35854051a8f37cf7f95de475905afa9f232ecee709c"
+    },
+    {
+      "path": "src/lib/userEvents.ts",
+      "sha256": "69936912c018e9cc91720eae0cb4c61e4b7f5c92a194561f76e0ffa362f6e09e"
+    },
+    {
+      "path": "src/lib/validateAuthForm.ts",
+      "sha256": "f86897eda1c627a56654fd5733a65f2ce1202fa68103d939eea15a0df691cf90"
+    },
+    {
+      "path": "src/main.tsx",
+      "sha256": "ad8969586d79c66f746d6bbbc7ef25a6f7c7690a1367db0414979ae6d56f2fb3"
+    },
+    {
+      "path": "src/pages/AuthPage.tsx",
+      "sha256": "ce2831c2a969850300b069dcc2c34bfaf9d3e82ffb9b7aef941bc4f4b2967c15"
+    },
+    {
+      "path": "src/pages/ContactPage.tsx",
+      "sha256": "e355851a5be2fc82b384a6a82d650400b6cf554712e49b622e30533d6d8a4dcb"
+    },
+    {
+      "path": "src/pages/HelpPage.tsx",
+      "sha256": "16e1062d034bc559eb04c9edeb77887e78472456cc8bc919cfb35698a014414b"
+    },
+    {
+      "path": "src/pages/HistoryPage.tsx",
+      "sha256": "1d36efcdaadefd0dfddce228e995554626686761f3670a16cab2570e4383facf"
+    },
+    {
+      "path": "src/pages/HomePage.tsx",
+      "sha256": "131e8798622c274f28d9840def883811385bb8f086535390fdc396b8090adc76"
+    },
+    {
+      "path": "src/pages/LegalDocPage.tsx",
+      "sha256": "70ba2e7f7a28ca3c318428bc19e09a20f5ef8c2b39ea3c380fc92dfd4e25c195"
+    },
+    {
+      "path": "src/pages/MethodPage.tsx",
+      "sha256": "0f1b084624d305c1a551ed97e1c844798f8bca06ef190907451d01e50c9a28a6"
+    },
+    {
+      "path": "src/pages/PricingPage.tsx",
+      "sha256": "3b37e80fcb1beebce3ec2e5a69ff727ff9f803fdd41de0ee190bfc3a980fb83b"
+    },
+    {
+      "path": "src/pages/SettingsPage.tsx",
+      "sha256": "06ffbeb9c53db200e94f57f0e5d74e4a2ed93358d0cc9f22046b0d31659446a9"
+    },
+    {
+      "path": "src/pages/SettingsToolRunsPanel.tsx",
+      "sha256": "eb26a46ee9fb62c893a6208efdcbf599f6319e9cd69c46bdfab3b4cea207b2c1"
+    },
+    {
+      "path": "src/pages/StudioPage.tsx",
+      "sha256": "fa1fb7a3c2d3097b95a2c68119465afc49f2425b11e3b64332e40c6cbe9302d0"
+    },
+    {
+      "path": "src/pages/TemplatesPage.tsx",
+      "sha256": "6e5656ccde29c90053145e437e8701d0190eb6470b601767befd4aee9fbe45ca"
+    },
+    {
+      "path": "src/pages/ToolDetailPage.tsx",
+      "sha256": "828a5f2ee0bb8b7b1fde6e14677356a5b467ae2aa28d08fdde49288402baa334"
+    },
+    {
+      "path": "src/pages/ToolsPage.tsx",
+      "sha256": "9c916fb0f136420b4c0a5c44393f020b36c1158778f1574736eb25e324cbc3ab"
+    },
+    {
+      "path": "src/pages/drama/AssetLibraryPage.tsx",
+      "sha256": "d77f979cde01aa9c0f4f4a0ab305977a796042e0d104af116bf9fc528a482f19"
+    },
+    {
+      "path": "src/pages/drama/AssetsStep.tsx",
+      "sha256": "8ad1c69c2565d8e27296fe4aeb5182ff8fb0b9c904b3fd7550e197c12b36c03d"
+    },
+    {
+      "path": "src/pages/drama/CanvasPage.tsx",
+      "sha256": "b6a1df210f7c97efd9e82f18577b79731bc22b42a28bf5fde72d0be3abbfb044"
+    },
+    {
+      "path": "src/pages/drama/CharacterVoiceBindModal.tsx",
+      "sha256": "f120ef98b3be749ea9613ced7291e05b8db01fe3c9499f4942bd8706cb5d5b5d"
+    },
+    {
+      "path": "src/pages/drama/DramaAssetDetailModal.tsx",
+      "sha256": "ad4439d846619d333f17c5e96dc8abc8bddb02d7e211782d25fd1775c488a0f0"
+    },
+    {
+      "path": "src/pages/drama/DramaEpisodeCountPopover.tsx",
+      "sha256": "f6a91367e67a080555ac9eeb23761032af37eb04c6304fcf6c2afeae0f29901c"
+    },
+    {
+      "path": "src/pages/drama/DramaEpisodeDir.tsx",
+      "sha256": "7946606099448173fd8411c165273806a242be6a4fc17f132aabb7a3e602e08c"
+    },
+    {
+      "path": "src/pages/drama/DramaHomePage.tsx",
+      "sha256": "58f6967a25fa5b750d5a1bcac91822833d0c381e510ce06cf96a32f2be666f59"
+    },
+    {
+      "path": "src/pages/drama/DramaImageLightbox.tsx",
+      "sha256": "15ef79986a0a499773dcb84b7efaa12f12b6e062c7ba1ae96f7d8919129d9dba"
+    },
+    {
+      "path": "src/pages/drama/DramaImageStyleModal.tsx",
+      "sha256": "f2fe9d14e3e000bcc7737b4a307825e5934cabed114f5629bb1d7ac503df8625"
+    },
+    {
+      "path": "src/pages/drama/DramaListPage.tsx",
+      "sha256": "0c6b14e9cc796aeb12b7401370f1bc99f58825e0494f0ff7f613c97e1b84fc91"
+    },
+    {
+      "path": "src/pages/drama/DramaProjectCardMenu.tsx",
+      "sha256": "65edbb3d7113d1c43d840606f130b12eb30d97f559e83baabb860fb47926a537"
+    },
+    {
+      "path": "src/pages/drama/DramaProjectOutputSettings.tsx",
+      "sha256": "36534521c15b29f2b7cdce5a017e545742f96d2dc9b5903d34e09fc05b04042e"
+    },
+    {
+      "path": "src/pages/drama/DramaProjectSettingsModal.tsx",
+      "sha256": "5db10cd2e04325486ae306ddd173607a3d276017e121c5235f2d9d234abd0148"
+    },
+    {
+      "path": "src/pages/drama/DramaVoiceAssetCard.tsx",
+      "sha256": "bfa0977aad568e4667f9ed76d7c35c11ad8ff82babdc479e5441a8a76e87518b"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditAssetPanel.tsx",
+      "sha256": "0ef0a47e004d8235adac700bd71b02d8c45174f9049cdb465555a88dc9947c83"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditContentView.tsx",
+      "sha256": "156bcba0a2e3722625cd863b38ef7bb3caf936e638be3ba9cb7c23b44bba53bb"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditHeaderControls.tsx",
+      "sha256": "e676baf5b3a9c104a1115f262ce2080843fb63a24f23a36aac03aac4d41d16ab"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditMentionPopover.tsx",
+      "sha256": "bf6808ef5e7f589fe0e4cc101f6eb21a8b4eb4e29d22122d0d6aa7cc4b299919"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditPage.tsx",
+      "sha256": "b3cb5c2da1825385489b25a43aa5fe24834e41ca6b5b03a7a7a761f0fee592b9"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditPromptEditor.tsx",
+      "sha256": "e15e56ab6962476b71e1bffd1649290d4bfa544fa1b686534e6850fa78111ab9"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditReferenceStrip.tsx",
+      "sha256": "5bdeba5889fe7b68b96552c329b2fe194e0bc93cfb5d77079f01d86899d5b642"
+    },
+    {
+      "path": "src/pages/drama/EpisodeEditSidePane.tsx",
+      "sha256": "6086e7f925ead922dcbc07485bb945794ef0a23cce5b02a1095ebbeea85c803e"
+    },
+    {
+      "path": "src/pages/drama/EpisodesPage.tsx",
+      "sha256": "5f530f7d02b46c47cae8a1a0b7efb905cb8e83d9d24ca1918b55d934b0f8192b"
+    },
+    {
+      "path": "src/pages/drama/EpisodesStep.tsx",
+      "sha256": "391d99831ffa33e9a457ef1de4fa47fcf694597b998461fb0110576c434d9131"
+    },
+    {
+      "path": "src/pages/drama/GlobalAssetPickerModal.tsx",
+      "sha256": "13f59b1d54e2cb3783520481b679ab71a918cb8a9107d16a9848793f30f4c151"
+    },
+    {
+      "path": "src/pages/drama/NarratorVoiceBindModal.tsx",
+      "sha256": "eff9e208c7159cbb5891a644679a8fecbb41dbe7279117e11db197473ab815c8"
+    },
+    {
+      "path": "src/pages/drama/OutlineEpisodePanel.tsx",
+      "sha256": "766c9001a47e5959ac6d3c672341743a7dc3b1ed5857cbcf28d456792aa3e190"
+    },
+    {
+      "path": "src/pages/drama/OutlineStep.tsx",
+      "sha256": "3609da53c5958fe0a6e4e58eb98ccd9369e851aa746fe1c545072e78e217aabe"
+    },
+    {
+      "path": "src/pages/drama/ProjectWorkspacePage.tsx",
+      "sha256": "25381e5e7abf87e3b637a6a463a48a736397940bfb648eb386a5afd5dc82e630"
+    },
+    {
+      "path": "src/pages/drama/RequireAuth.tsx",
+      "sha256": "44d8668d558ed3c52caacac185ae6435df9de72d0b6506418463ea54f6378dec"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasAssetNode.tsx",
+      "sha256": "dcbb3970c79fad0f88e4afe27a4aec9b0b7b11de4a49d6ecdf2aecdc16ee6c4d"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasBottomControls.tsx",
+      "sha256": "9663a89117fc589a1a7070bd90d6331ec853ecb67006d9c194c536f08e7503bd"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasLeftToolbar.tsx",
+      "sha256": "900af085d5d07ff45fe8e8faeea8cf377bd96e52456fa75aa3b697ba9561f3f9"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasNodePreviewModal.tsx",
+      "sha256": "c6745b54d81c6d0f7d67c6bf4a7e2e18d4a22f96293a8a63c38e9bf7f12d02a7"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasNodeSelector.tsx",
+      "sha256": "e951f759b5c1a72dd4f52e7bda0a4bbc9dd6b61c7d99ae3715f2114d55cbd1bc"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasPage.tsx",
+      "sha256": "f9ab44bbb01a136e32f26b2f2217a6ab41efd6fdbe57890f0aadd81b690a9a89"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasPaneAddMenu.tsx",
+      "sha256": "5195afaef79359340f886c3a4dab796037c5fac2ce856bc797caed6336977323"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasStore.tsx",
+      "sha256": "15328beecf959f7a5c488a1e03db925477be83b5321b7e75401234dc1520be31"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasTopBar.tsx",
+      "sha256": "4d63ff4448145adb1755889f994854622d94ea3a8306f7ab94e626efb70b49e2"
+    },
+    {
+      "path": "src/pages/drama/canvas/CanvasWorkspace.tsx",
+      "sha256": "c8216e1d596f2e779eedd86124bb2550c0a062bd48e8f3e1a54b79e93d8c42b5"
+    },
+    {
+      "path": "src/pages/drama/canvas/FreeCanvasFlow.tsx",
+      "sha256": "b7f42e2493d25753274f07600f18d20fdff0a3185e2c59fcbd90337deda1e9fc"
+    },
+    {
+      "path": "src/pages/drama/canvas/assetsToCanvasNodes.ts",
+      "sha256": "b5e3a6b86c5cd08745826bf9227d27beefd58170c7240af48ebf69efc10f710c"
+    },
+    {
+      "path": "src/pages/drama/canvas/canvas.css",
+      "sha256": "6475665e422d4d1b9f6d0e0518443ba1199d085cee0b844224f7eb0b679e8fd3"
+    },
+    {
+      "path": "src/pages/drama/canvas/canvasHistory.ts",
+      "sha256": "900e95666ffd3772c2350832555a79de950f71f6a0ae4d3777d63f772533f760"
+    },
+    {
+      "path": "src/pages/drama/canvas/canvasNormalize.ts",
+      "sha256": "88bba45b6bb8404521c0cdf2d1d523668ef87e7ab65997c675bed67cba3b5ab2"
+    },
+    {
+      "path": "src/pages/drama/canvas/canvasStoreContext.ts",
+      "sha256": "863c58a46648bd130af432674c454283c688f21c47691f2e107970278333d55a"
+    },
+    {
+      "path": "src/pages/drama/canvas/canvasTypes.ts",
+      "sha256": "40a34b375a876e1bea942cc9a42cfa4eb1735f45a0f585644e1b3c2c4a114929"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/CanvasMentionPopover.tsx",
+      "sha256": "394045e28403626bf014262b6bb3f9f91cc566882c9436199afda37007bc0116"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/CanvasNodeGeneratePanel.tsx",
+      "sha256": "e9b00fd1ea860458ffb457721ec7d004424326f10088a7e83e00e60883ee2c50"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/CanvasNodeUploadBar.tsx",
+      "sha256": "1d1fa07c2c687cb4dc3e43a7692739118a0f819ffb934a8532159bfbf5a1b86d"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/CanvasPromptEditor.tsx",
+      "sha256": "ba955101054f689e3e233e37d431dfd19515adb75001d479f9230628562cc42e"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/DramaImageGenOptionsBar.tsx",
+      "sha256": "f12bee18ce67e1701212ffaa006076809c844df2f146324f73db3804a73beb07"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/DramaSkillOptionsBar.tsx",
+      "sha256": "028084bda69707adc4d9bf8b92b163e088fceb1537c3457d1eed8c3992d09bf3"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/DramaVideoGenOptionsBar.tsx",
+      "sha256": "1d6f6bc99a39a9a06fa43da53d33394207f5265cab3476a329154496421fd4eb"
+    },
+    {
+      "path": "src/pages/drama/canvas/nodes/dramaImageGenOptions.css",
+      "sha256": "f682d070cf41c72fba54ad31efa0f72785ea69978bd15f4a3a3185f3fe0811b2"
+    },
+    {
+      "path": "src/pages/drama/canvas/useCanvasAutoSave.ts",
+      "sha256": "e7ef11a951f9b91d127ba51ad36969fbec095fd8ddbe4febcdd4367d14079342"
+    },
+    {
+      "path": "src/pages/drama/drama.css",
+      "sha256": "f6671aeb083d3e9f4851f58b4c84426748ddcc4dba3a6d6f5639b69a92c391de"
+    },
+    {
+      "path": "src/pages/drama/dramaEpisodeEditUtils.ts",
+      "sha256": "e916f7e8d5bd7fe7e162e299d4dcb77ee5663e1b9da184ad59f6075af2bedaee"
+    },
+    {
+      "path": "src/pages/drama/dramaWorkspaceUtils.ts",
+      "sha256": "56083c65cdb7a913b24bb7ddc2aceea735116a8e4ac4730140243f352258f9f6"
+    },
+    {
+      "path": "src/pages/drama/episodeCanvas/EpisodeAssetNode.tsx",
+      "sha256": "62b2ca2fe1b0f1999a65978804d79f80efafcd1f26102fb8e10b855a2dc35686"
+    },
+    {
+      "path": "src/pages/drama/episodeCanvas/EpisodeFragmentNode.tsx",
+      "sha256": "a73387d0f4e4ca514a4caa1686cc170a72a9d2b2185904f797935b4f0f8f5f47"
+    },
+    {
+      "path": "src/pages/drama/episodeCanvas/EpisodeStoryboardPage.tsx",
+      "sha256": "7f04baa2df63b196af6a9a8cc2387c069ada4a409097a6e12cfded2d02fe8782"
+    },
+    {
+      "path": "src/pages/drama/episodeCanvas/buildEpisodeFlow.ts",
+      "sha256": "f0dffb07120819a8db9bea035d9d62f80ed6319e71e8f82b75c1c51d1ff70294"
+    },
+    {
+      "path": "src/pages/drama/episodeCanvas/episodeCanvas.css",
+      "sha256": "7b08057d7a4b36bf3a957e32ae83d74e7f2f60ca4b7529b5ef4b68cea6dec537"
+    },
+    {
+      "path": "src/pages/drama/outlineScriptPreview.tsx",
+      "sha256": "3c7c24e3e2818d8fe1644e22603b0fc9ef6f048ff6b6b4201d8a9fad4cddc731"
+    },
+    {
+      "path": "src/pages/method/method.css",
+      "sha256": "ccddf63f071f464f3f28ed0d4583d2f710f61c97727aafbe1b04f0a01c3f9354"
+    },
+    {
+      "path": "src/pages/settings/AccountProfileCard.tsx",
+      "sha256": "def9077a72e76d79efa20478ebd39c5fba0602611a06eef40ada5fb77f7f3775"
+    },
+    {
+      "path": "src/pages/settings/ApiKeysPanel.tsx",
+      "sha256": "15f77085031b99e6ab18e84956cf01db75ba2ab93fa7818df7eedf844899bd78"
+    },
+    {
+      "path": "src/pages/settings/ChangePasswordCard.tsx",
+      "sha256": "a452374d2181a52eac900059e346cbdb94f3f872ecf311be7fae8cee6520b4b8"
+    },
+    {
+      "path": "src/pages/studio/CreateProjectPage.tsx",
+      "sha256": "00fe1c1cbe3a1dd792492935d5ec799b13effb088386f381904e691f27748ff7"
+    },
+    {
+      "path": "src/pages/studio/EditorPage.tsx",
+      "sha256": "78a9e6eb5180764b9e1aac7c77b286012bc57c76c5be0e9d00f49a9f4ca9aece"
+    },
+    {
+      "path": "src/pages/studio/StoryboardPage.tsx",
+      "sha256": "3589ede11184cabeccb32545f9ec6e87acfbc82909a4efc454e084a044cd78e4"
+    },
+    {
+      "path": "src/pages/studio/StyleConfigPage.tsx",
+      "sha256": "89f08ae2e2097b53e6f6f2d6c8cecafd67976c266624cff9940cf8bc97647c43"
+    },
+    {
+      "path": "src/promptDisplay.ts",
+      "sha256": "eb51dfa775b3792d92b7371230eed2ecf3033f1d36854c2ea064e9869776ecef"
+    },
+    {
+      "path": "src/styles/printfilm.css",
+      "sha256": "94c23becb78f2e1bc680cf692e7e8cd268a369e5d0c59b8fbc142caca056f9c0"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "sha256": "100a907557c9c82fdef9e5857360f7c96520316f27c15b715099e5a5234d1e8d"
+    }
+  ]
+}
