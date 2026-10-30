@@ -8,7 +8,12 @@ import { ToivWorkbar, type PrimeFace } from "./ToivWorkbar";
 
 const FACE_HREF: Record<PrimeFace, string> = { pipeline: "/studio", canvas: "/drama", edit: "/history" };
 
-export default function ProjectHome() {
+function openHref(card: { source: "studio" | "canvas"; id: string }, face: PrimeFace) {
+    if (card.source === "canvas") return `/legacy/canvas/${card.id}`;
+    return face === "canvas" ? `/drama/projects/${card.id}/canvas` : `/studio/${card.id}`;
+}
+
+export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace }) {
     const navigate = useNavigate();
     const [model, setModel] = useState<PrimeProjectsModel | null>(null);
     const [query, setQuery] = useState("");
@@ -21,7 +26,7 @@ export default function ProjectHome() {
     const cards = (model?.cards ?? []).filter((card) => card.title.includes(query.trim()));
     return (
         <ToivShell>
-            <ToivWorkbar face="pipeline" runningCount={0}
+            <ToivWorkbar face={face} runningCount={0}
                 onFaceChange={(face) => navigate(FACE_HREF[face])} onOpenTasks={() => setTasksOpen(true)} />
             <section className="toiv-home">
                 <header className="toiv-home-bar">
@@ -46,7 +51,7 @@ export default function ProjectHome() {
                                 <header><b>{card.title}</b><span className={`src src-${card.source}`}>{card.source === "canvas" ? "画布" : "Studio"}</span></header>
                                 <div className="meta">{card.shotCount} 镜 · {card.status}</div>
                                 <footer>
-                                    <Button variant="ghost" size="sm" onClick={() => navigate(card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/studio/${card.id}`)}>打开</Button>
+                                    <Button variant="ghost" size="sm" onClick={() => navigate(openHref(card, face))}>打开</Button>
                                 </footer>
                             </article>
                         ))}

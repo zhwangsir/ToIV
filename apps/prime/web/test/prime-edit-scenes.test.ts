@@ -59,3 +59,17 @@ describe("prime scenes adapter", () => {
         await expect(loadPrimeScenes("p1")).rejects.toThrow("scenes 503");
     });
 });
+
+describe("prime canvas graph", () => {
+    test("scenes become sequential nodes with 280px stride", async () => {
+        globalThis.fetch = (async () => stub(scenes)) as typeof fetch;
+        const { loadPrimeScenes, primeSceneNodes } = await import("../src/toiv/adapters/scenes");
+        const more = { scenes: [scenes.scenes[0], { ...scenes.scenes[0], id: "s2", name: "雨巷", frozen_anchor: null }] };
+        globalThis.fetch = (async () => stub(more)) as typeof fetch;
+        const graph = primeSceneNodes(await loadPrimeScenes("p1"));
+        expect(graph.nodes.map((node) => node.position.x)).toEqual([0, 280]);
+        expect(graph.edges).toEqual([{ id: "s1->s2", source: "s1", target: "s2" }]);
+        expect(graph.nodes[0].data.views).toHaveLength(4);
+        expect(graph.nodes[1].data.frozen).toBe(false);
+    });
+});

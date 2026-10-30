@@ -47,3 +47,25 @@ export async function loadPrimeScenes(projectId: string): Promise<PrimeSceneNode
         };
     });
 }
+
+export type PrimeSceneNodeData = { label: string; env: string; frozen: boolean; views: PrimeSceneView[] };
+export type PrimeCanvasGraph = {
+    nodes: { id: string; position: { x: number; y: number }; data: PrimeSceneNodeData }[];
+    edges: { id: string; source: string; target: string }[];
+};
+
+/** 场景→画布节点：横排 260px 步长，顺序边串联。 */
+export function primeSceneNodes(scenes: PrimeSceneNode[]): PrimeCanvasGraph {
+    return {
+        nodes: scenes.map((scene, index) => ({
+            id: scene.id,
+            position: { x: index * 280, y: 40 },
+            data: { label: scene.name, env: scene.env, frozen: scene.frozen, views: scene.views },
+        })),
+        edges: scenes.slice(1).map((scene, index) => ({
+            id: `${scenes[index].id}->${scene.id}`,
+            source: scenes[index].id,
+            target: scene.id,
+        })),
+    };
+}
