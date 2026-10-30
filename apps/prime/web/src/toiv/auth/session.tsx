@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import AppShell from "../../components/layout/AppShell";
+import ToivShell from "../shell/ToivShell";
 import Button from "../../components/ui/Button";
 
 export const TOKEN_KEYS = ["toiv_token", "token"] as const;
@@ -49,7 +49,7 @@ export function ToivLoginPage() {
         navigate("/");
     };
     return (
-        <AppShell active="home" hideFooter>
+        <ToivShell>
             <form className="toiv-login" onSubmit={submit} aria-label="ToIV 登录">
                 <h2>登录 ToIV</h2>
                 <label>账号<input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" /></label>
@@ -57,6 +57,6 @@ export function ToivLoginPage() {
                 {error ? <p className="toiv-login-error" role="alert">{error}</p> : null}
                 <Button variant="lime" type="submit">进入工作台</Button>
             </form>
-        </AppShell>
+        </ToivShell>
     );
 }

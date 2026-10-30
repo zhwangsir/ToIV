@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { I18nProvider } from './i18n'
 import ToivBootstrap from './toiv/bootstrap'
 import './index.css'
+import './styles/printfilm.css'
+import './App.css'
 import './styles/toiv-skin.css'
 
 createRoot(document.getElementById('root')!).render(

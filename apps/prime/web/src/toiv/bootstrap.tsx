@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import AppShell from "../components/layout/AppShell";
+import ToivShell from "./shell/ToivShell";
 import ComingSoon from "../components/ui/ComingSoon";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { RequireSession, ToivLoginPage } from "../toiv/auth/session";
@@ -11,9 +11,9 @@ export const PRIME_ROUTES = [
 
 function Wip({ label }: { label: string }) {
     return (
-        <AppShell active="home" hideFooter>
+        <ToivShell>
             <div className="toiv-wip"><ComingSoon label={label} /></div>
-        </AppShell>
+        </ToivShell>
     );
 }
 

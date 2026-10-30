@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AppShell from "../../components/layout/AppShell";
+import ToivShell from "../shell/ToivShell";
 import Button from "../../components/ui/Button";
 import { loadPrimeProjects, type PrimeProjectsModel } from "../adapters/projects";
 import { TaskDrawerPrime } from "./TaskDrawerPrime";
@@ -20,7 +20,7 @@ export default function ProjectHome() {
     }, []);
     const cards = (model?.cards ?? []).filter((card) => card.title.includes(query.trim()));
     return (
-        <AppShell active="home" hideFooter>
+        <ToivShell>
             <ToivWorkbar face="pipeline" runningCount={0}
                 onFaceChange={(face) => navigate(FACE_HREF[face])} onOpenTasks={() => setTasksOpen(true)} />
             <section className="toiv-home">
@@ -54,6 +54,6 @@ export default function ProjectHome() {
                 )}
             </section>
             <TaskDrawerPrime open={tasksOpen} onClose={() => setTasksOpen(false)} />
-        </AppShell>
+        </ToivShell>
     );
 }

@@ -45,3 +45,6 @@
 .toiv-login input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 9px 12px; background: var(--pf-bg); color: var(--pf-ink); }
 .toiv-login-error { color: oklch(0.55 0.16 25); font-size: 13px; }
 .toiv-wip { padding: 80px 0; text-align: center; }
+
+.toiv-lockup { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: 0.02em; color: var(--pf-ink); text-decoration: none; }
+.toiv-lockup .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--pf-lime); color: var(--pf-card); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
