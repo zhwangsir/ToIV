@@ -96,7 +96,8 @@
 - 新系统目录：`apps/canvas/web/src/studio/`（`studio/theme/tokens.css` 单一 token 源、`studio/ui/` 组件库、`studio/shell/` 壳、`studio/faces/{pipeline,canvas,edit}/`）。
 - 路由对外 URL 不变；新增 `/edit`（剪辑湾）。router 按面分发；未迁移路由仍走旧 `UserLayout`。
 - strangler 顺序：① token+组件库 → ② 流水线面（素材/分镜）→ ③ 剪辑湾 → ④ 画布壳 → ⑤ 库/任务/设置 → ⑥ 删旧壳与 `globals.css` 等旧样式、删 antd 依赖。
-- 每步一个 commit + 四套件绿 + 真机截图；回退开关 = 构建期常量 `STUDIO_FACE_FALLBACK`（按面粒度，默认新实现），保留至旧代码删除前。
+- 每步一个 commit + 四套件绿 + 真机截图。Plan 5b 起摘除 `STUDIO_FACE_FALLBACK`：三面为唯一实现，载入失败降级为空态 + warn toast（项目库）或回项目库（流水线/剪辑湾），不再静默回落旧页。
+- `/create` 无 project 由 legacy-host 承接旧 composer（`StudioCreateHomeRoute`），直至新壳创建向导落地；旧创作页 `pages/create/creation-workbench.tsx` 的删除前置 = 新壳复刻创建向导 + composer/智能体对话能力。
 - `apps/web` 薄壳：仅换 token 与登录/落地/handoff 视觉，逻辑不动；双端 token 同步改为**单源生成**（脚本从 `studio/theme/tokens.css` 产出 web 副本，废掉人工字节同步）。
 
 ## 7. 状态与反馈规范
