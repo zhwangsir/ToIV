@@ -3,6 +3,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const studioDir = resolve(import.meta.dir, "../src/studio");
+const primeToivDir = resolve(import.meta.dir, "../../../prime/web/src/toiv");
+const primeSkin = resolve(import.meta.dir, "../../../prime/web/src/styles/toiv-skin.css");
 
 function walk(dir: string): string[] {
     return readdirSync(dir).flatMap((name) => {
@@ -11,7 +13,7 @@ function walk(dir: string): string[] {
     });
 }
 
-const files = walk(studioDir);
+const files = [...walk(studioDir), ...walk(primeToivDir), primeSkin];
 const css = files.filter((file) => file.endsWith(".css"));
 const tsx = files.filter((file) => file.endsWith(".tsx"));
 

@@ -30,6 +30,7 @@ WEB_ONLY=false
 ROLLBACK=false
 WITH_CANVAS=false
 CANVAS_ONLY=false
+PRIME=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -39,6 +40,7 @@ for arg in "$@"; do
     --rollback)    ROLLBACK=true ;;
     --with-canvas) WITH_CANVAS=true ;;
     --canvas-only) CANVAS_ONLY=true ;;
+    --prime)       PRIME=true ;;
     --all)         SKIP_WEB=${SKIP_WEB:-false}; WITH_CANVAS=true ;;
     *)             REMOTE="$arg" ;;
   esac
@@ -188,13 +190,20 @@ deploy_canvas() {
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
     --exclude=node_modules --exclude='.git' --exclude=dist \
     apps/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
+  if [ "$PRIME" = true ]; then
+    echo "▶ [prime] rsync apps/prime → ${REMOTE}:${REMOTE_DIR}/apps/prime …"
+    rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
+      --exclude=node_modules --exclude='.git' --exclude=dist \
+      apps/prime/ "${REMOTE}:${REMOTE_DIR}/apps/prime/"
+  fi
   echo "▶ [canvas] sync docs/NAS_MODEL_PICKER.json …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_DIR}/docs'"
   rsync -az -e "ssh ${SSH_OPTS[*]}" docs/NAS_MODEL_PICKER.json "${REMOTE}:${REMOTE_DIR}/docs/NAS_MODEL_PICKER.json"
   echo "▶ [canvas] 远端快照 + 构建 + 换装(canvas-api-pg + /studio dist)…"
-  ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" <<'REMOTE_EOF'
+  ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${REMOTE_DIR}" "${PRIME}" <<'REMOTE_EOF'
 set -euo pipefail
 TOIV="$1"
+PRIME="${2:-false}"
 CANVAS="$TOIV/apps/canvas"
 PROD="/home/merlin/toiv-studio"
 GOROOT_BIN="$HOME/sdk/go1.25.0/bin"
@@ -261,16 +270,25 @@ systemctl --user stop canvas-api-pg
 mv "$PROD/canvas-api-pg.new" "$PROD/canvas-api-pg"
 systemctl --user start canvas-api-pg
 
-# Web dist(生产挂载口径)
-cd "$CANVAS/web"
-if [ ! -x node_modules/.bin/vite ]; then
-  if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile
-  elif [ -d /home/merlin/beeftv/web/node_modules ]; then cp -al /home/merlin/beeftv/web/node_modules ./node_modules
-  else echo "ERROR: canvas web 无 node_modules 且无 bun(先装 bun 或硬链旧检出)" >&2; exit 1; fi
+# Web dist(生产挂载口径)；--prime 时改构建 apps/prime/web（printfilm 基座）
+if [ "$PRIME" = "true" ]; then
+  cd "$TOIV/apps/prime/web"
+  if [ ! -x node_modules/.bin/vite ]; then
+    if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile
+    else echo "ERROR: prime web 无 node_modules 且无 bun" >&2; exit 1; fi
+  fi
+  BEEFTV_PUBLIC_BASE=/studio/ VITE_API_BASE=/api ./node_modules/.bin/vite build --outDir /tmp/canvas-dist-new --emptyOutDir >/dev/null
+else
+  cd "$CANVAS/web"
+  if [ ! -x node_modules/.bin/vite ]; then
+    if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile
+    elif [ -d /home/merlin/beeftv/web/node_modules ]; then cp -al /home/merlin/beeftv/web/node_modules ./node_modules
+    else echo "ERROR: canvas web 无 node_modules 且无 bun(先装 bun 或硬链旧检出)" >&2; exit 1; fi
+  fi
+  VITE_CANVAS_BACKEND_URL=/studio/api ./node_modules/.bin/vite build --base=/studio/ --outDir /tmp/canvas-dist-new --emptyOutDir >/dev/null
 fi
-VITE_CANVAS_BACKEND_URL=/studio/api ./node_modules/.bin/vite build --base=/studio/ --outDir /tmp/canvas-dist-new --emptyOutDir >/dev/null
 rsync -a --delete /tmp/canvas-dist-new/ "$PROD/dist/"
-echo "  canvas 构建换装完成"
+echo "  canvas 构建换装完成(prime=$PRIME)"
 REMOTE_EOF
   remote_wait_health "canvas-api-pg" "http://127.0.0.1:8290/api/health/live"
 }

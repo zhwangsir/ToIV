@@ -16,7 +16,7 @@
 .toiv-home-bar .meta { color: var(--pf-muted); font-size: 13px; }
 .toiv-home-bar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .toiv-home-bar input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 8px 12px; background: var(--pf-card); color: var(--pf-ink); }
-.toiv-degraded { color: #b45309; font-size: 13px; }
+.toiv-degraded { color: oklch(0.55 0.12 70); font-size: 13px; }
 .toiv-empty { border: 1px dashed var(--pf-line); border-radius: var(--pf-radius); padding: 40px; text-align: center; color: var(--pf-muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .toiv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .toiv-card { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--pf-shadow); }
@@ -35,13 +35,13 @@
 .toiv-task .cancel { color: var(--pf-muted); font-size: 12px; }
 .toiv-task .st { width: 8px; height: 8px; border-radius: 50%; background: var(--pf-muted); }
 .toiv-task .st-run { background: var(--pf-lime); }
-.toiv-task .st-fail { background: #c43c2e; }
-.toiv-task .st-done { background: #2a6f7a; }
+.toiv-task .st-fail { background: oklch(0.55 0.16 25); }
+.toiv-task .st-done { background: oklch(0.5 0.06 200); }
 .toiv-task .bar { height: 4px; border-radius: 2px; background: var(--pf-line); overflow: hidden; }
 .toiv-task .bar i { display: block; height: 100%; background: var(--pf-lime); }
 
 .toiv-login { max-width: 360px; margin: 60px auto; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius); padding: 24px; background: var(--pf-card); }
 .toiv-login label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--pf-muted); }
 .toiv-login input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 9px 12px; background: var(--pf-bg); color: var(--pf-ink); }
-.toiv-login-error { color: #c43c2e; font-size: 13px; }
+.toiv-login-error { color: oklch(0.55 0.16 25); font-size: 13px; }
 .toiv-wip { padding: 80px 0; text-align: center; }
