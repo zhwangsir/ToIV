@@ -22,6 +22,7 @@ import type { EditModel } from "../src/studio/faces/edit/model";
 import { ProjectCard } from "../src/studio/ui/ProjectCard";
 import { ProjectGrid } from "../src/studio/ui/ProjectGrid";
 import { CanvasHomeFace } from "../src/studio/faces/canvas/CanvasHomeFace";
+import { TaskDrawer } from "../src/studio/ui/TaskDrawer";
 
 describe("StudioShell", () => {
     const html = renderToStaticMarkup(
@@ -287,5 +288,26 @@ describe("CanvasHomeFace", () => {
     });
     test("renders project cards", () => {
         expect(html).toContain("草船借箭");
+    });
+});
+
+describe("TaskDrawer", () => {
+    const tasks = [
+        { id: "j1", source: "job" as const, title: "render · j1", status: "run" as const, progress: 42, sub: "x", cancellable: true },
+        { id: "a1", source: "agent" as const, title: "会话甲", status: "wait" as const, cancellable: false },
+    ];
+    test("groups by source and exposes cancel only for cancellable", () => {
+        const html = renderToStaticMarkup(<TaskDrawer open tasks={tasks} onClose={() => {}} onCancel={() => {}} />);
+        expect(html).toContain("ToIV 作业");
+        expect(html).toContain("智能体会话");
+        expect(html).not.toContain("画布同步");
+        expect(html.match(/class="cancel"/g)).toHaveLength(1);
+    });
+    test("closed drawer is aria-hidden", () => {
+        const html = renderToStaticMarkup(<TaskDrawer open={false} tasks={tasks} onClose={() => {}} onCancel={() => {}} />);
+        expect(html).toContain('aria-hidden="true"');
+    });
+    test("empty state", () => {
+        expect(renderToStaticMarkup(<TaskDrawer open tasks={[]} onClose={() => {}} onCancel={() => {}} />)).toContain("队列空闲");
     });
 });

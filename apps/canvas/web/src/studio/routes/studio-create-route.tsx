@@ -44,7 +44,7 @@ function StudioPipelineRoute() {
     };
     return (
         <StudioShell face="pipeline" projectLabel={`${model.projectName} / ${model.stages[model.stageIndex].label}`}
-            runningCount={model.runningCount} onOpenTasks={() => push("任务中心在 Plan 4 接入抽屉")} onFaceChange={(face) => navigate(faceHref(face, projectId))}
+            runningCount={model.runningCount} onFaceChange={(face) => navigate(faceHref(face, projectId))}
             buddyText={buddy ? model.companionHint : undefined} onDismissBuddy={() => setBuddy(false)}>
             <PipelineFace model={model} onAction={onAction} />
         </StudioShell>

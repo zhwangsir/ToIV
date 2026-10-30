@@ -29,7 +29,6 @@ function StudioCanvasInner() {
     if (!model) return <CanvasPage />;
     return (
         <StudioShell face="canvas" projectLabel="项目库" runningCount={0}
-            onOpenTasks={() => push("任务中心在 Plan 4 接入抽屉")}
             onFaceChange={(face) => navigate(faceHref(face, ""))}>
             <CanvasHomeFace model={model}
                 onOpen={(id) => {

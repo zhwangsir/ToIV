@@ -35,7 +35,6 @@ function StudioEditInner() {
     if (!projectId || !model) return <CreationWorkbenchPage />;
     return (
         <StudioShell face="edit" projectLabel={`${model.projectName} / 成片剪辑`} runningCount={0}
-            onOpenTasks={() => push("任务中心在 Plan 4 接入抽屉")}
             onFaceChange={(face) => navigate(faceHref(face, projectId))}>
             <EditFace model={model} onResult={push} />
         </StudioShell>

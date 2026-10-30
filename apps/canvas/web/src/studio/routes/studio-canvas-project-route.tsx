@@ -13,7 +13,6 @@ export default function StudioCanvasProjectRoute() {
     const push = useStudioToast((state) => state.push);
     return (
         <StudioShell face="canvas" projectLabel={`画布 / ${(id ?? "").slice(0, 8)}`} runningCount={0}
-            onOpenTasks={() => push("任务中心在 Plan 4 接入抽屉")}
             onFaceChange={(face) => navigate(faceHref(face, ""))}>
             <div className="stv-canvas-host">
                 <CanvasProjectPage />
