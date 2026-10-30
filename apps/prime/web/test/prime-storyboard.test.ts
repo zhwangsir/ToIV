@@ -52,3 +52,23 @@ describe("prime storyboard adapter", () => {
         await expect(loadPrimeStoryboard("p1")).rejects.toThrow("storyboard 503");
     });
 });
+
+describe("prime storyboard save discipline", () => {
+    test("PUT carries the full shot list with only the prompt merged", async () => {
+        const calls: { method: string; body?: string }[] = [];
+        globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            calls.push({ method: init?.method ?? "GET", body: init?.body as string | undefined });
+            if ((init?.method ?? "GET") === "GET") return new Response(JSON.stringify(stubProject()), { status: 200 });
+            return new Response("{}", { status: 200 });
+        }) as typeof fetch;
+        const { savePrimeShotPrompt } = await import("../src/toiv/adapters/storyboard");
+        await savePrimeShotPrompt("p1", "sh2", "新提示词");
+        const put = calls.find((call) => call.method === "PUT");
+        expect(put).toBeDefined();
+        const body = JSON.parse(put?.body ?? "{}") as { shots: { id: string; prompt?: string }[] };
+        expect(body.shots).toHaveLength(3);
+        expect(body.shots.find((shot) => shot.id === "sh2")?.prompt).toBe("新提示词");
+        expect(body.shots.find((shot) => shot.id === "sh1")?.prompt).toBe("晨雾悬崖");
+    });
+});

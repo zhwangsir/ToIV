@@ -61,3 +61,19 @@ export async function loadPrimeStoryboard(projectId: string): Promise<PrimeStory
         runningCount: shots.filter((shot) => shot.status === "run").length,
     };
 }
+
+type RawProject = { id?: string; title?: string; shots?: RawShot[] };
+
+/** PUT /shots 为全量替换：先 GET 当前态再合并，防误删未传镜。 */
+export async function savePrimeShotPrompt(projectId: string, shotId: string, prompt: string): Promise<void> {
+    const get = await fetch(`/api/studio/projects/${encodeURIComponent(projectId)}`, { headers: authHeaders() });
+    if (!get.ok) throw new Error(`storyboard ${get.status}`);
+    const current = (await get.json()) as RawProject;
+    const shots = (current.shots ?? []).map((shot) => (shot.id === shotId ? { ...shot, prompt } : shot));
+    const put = await fetch(`/api/studio/projects/${encodeURIComponent(projectId)}/shots`, {
+        method: "PUT",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ shots }),
+    });
+    if (!put.ok) throw new Error(`save ${put.status}`);
+}

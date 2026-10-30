@@ -48,3 +48,23 @@
 
 .toiv-lockup { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: 0.02em; color: var(--pf-ink); text-decoration: none; }
 .toiv-lockup .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--pf-lime); color: var(--pf-card); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+
+.toiv-shots { display: flex; flex-direction: column; gap: 14px; }
+.toiv-shots-bar { display: flex; align-items: baseline; gap: 12px; }
+.toiv-shots-bar h2 { font-size: 20px; }
+.toiv-shots-bar .meta { color: var(--pf-muted); font-size: 13px; }
+.toiv-saved { color: oklch(0.5 0.06 200); font-size: 13px; }
+.toiv-shot { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--pf-shadow); }
+.toiv-shot header { display: flex; align-items: center; gap: 10px; }
+.toiv-shot .meta { color: var(--pf-muted); font-size: 12px; }
+.toiv-shot .flag { margin-left: auto; font-size: 11px; border-radius: 999px; padding: 2px 10px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-shot .flag-run { background: oklch(0.78 0.15 75 / 0.2); }
+.toiv-beats { display: flex; flex-wrap: wrap; gap: 6px; }
+.toiv-beats .beat { font-size: 12px; border-radius: 8px; padding: 3px 8px; background: var(--pf-bg); color: var(--pf-muted); border: 1px solid var(--pf-line); }
+.toiv-beats .beat.k-v { background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-prompt { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--pf-muted); }
+.toiv-prompt textarea { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px; background: var(--pf-bg); color: var(--pf-ink); font-size: 13px; }
+.toiv-takes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.toiv-take { border: 1px solid var(--pf-line); border-radius: 999px; padding: 5px 12px; background: var(--pf-card); color: var(--pf-ink); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+.toiv-take[aria-pressed="true"] { background: var(--pf-lime); color: var(--pf-card); border-color: var(--pf-lime); }
+.toiv-take .seed { opacity: 0.7; font-size: 11px; }

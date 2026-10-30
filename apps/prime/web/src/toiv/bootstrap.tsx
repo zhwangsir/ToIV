@@ -3,6 +3,7 @@ import ToivShell from "./shell/ToivShell";
 import ComingSoon from "../components/ui/ComingSoon";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { RequireSession, ToivLoginPage } from "../toiv/auth/session";
+import PrimeStoryboard from "./pages/PrimeStoryboard";
 
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
@@ -27,7 +28,7 @@ export default function ToivBootstrap() {
                 <Route path="/studio/new" element={<RequireSession><Wip label="W2 · 新建向导接线中" /></RequireSession>} />
                 <Route path="/studio/:id/style" element={<RequireSession><Wip label="W2 · 场景锚点接线中" /></RequireSession>} />
                 <Route path="/studio/:id/editor" element={<RequireSession><Wip label="W2 · 剪辑湾接线中" /></RequireSession>} />
-                <Route path="/studio/:id" element={<RequireSession><Wip label="W2 · 流水线接线中" /></RequireSession>} />
+                <Route path="/studio/:id" element={<RequireSession><PrimeStoryboard /></RequireSession>} />
                 <Route path="/drama" element={<RequireSession><Wip label="W3 · 画布接线中" /></RequireSession>} />
                 <Route path="/drama/assets" element={<RequireSession><Wip label="W3 · 资产库接线中" /></RequireSession>} />
                 <Route path="/history" element={<RequireSession><Wip label="W4 · 作品库接线中" /></RequireSession>} />
