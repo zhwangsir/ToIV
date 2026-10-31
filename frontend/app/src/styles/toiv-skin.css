@@ -371,10 +371,57 @@ body { background: var(--pf-bg); color: var(--pf-ink); }
 .toiv-canvas-flow .react-flow__controls-button:hover { background: var(--pf-bg); }
 .toiv-canvas-flow .react-flow__attribution { background: var(--pf-card); color: var(--pf-muted); }
 .toiv-canvas-flow .react-flow__attribution a { color: var(--pf-muted); }
+.toiv-canvas-flow .react-flow__handle { width: 8px; height: 8px; border: 1px solid var(--pf-card); background: var(--pf-muted); }
+.toiv-canvas-flow .react-flow__edge-path { stroke: var(--pf-muted); stroke-width: 1.5; }
+.toiv-canvas-flow .react-flow__edge.selected .react-flow__edge-path { stroke: var(--node-border-selected); }
 .toiv-canvas-flow .react-flow__node.selected .toiv-node {
     border-color: var(--node-border-selected);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-border-selected) 40%, transparent);
 }
+
+.toiv-canvas-modes { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; gap: 4px; padding: 4px; border: 1px solid var(--pf-line); border-radius: 999px; background: var(--pf-card); box-shadow: var(--pf-shadow); }
+.toiv-canvas-modes button { border: 0; border-radius: 999px; background: transparent; color: var(--pf-muted); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+.toiv-canvas-modes button[aria-pressed="true"] { background: var(--pf-lime); color: #111318; }
+.toiv-canvas-modes button:focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 1px; }
+.toiv-comfy-node { width: 220px; }
+.toiv-comfy-node .env { word-break: break-word; }
+
+/* ---- Right panel tabs + agent ---- */
+.toiv-right-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--pf-line); padding-bottom: 6px; }
+.toiv-right-tabs button { border: 0; background: transparent; color: var(--pf-muted); font-size: 13px; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.toiv-right-tabs button.active { color: var(--pf-ink); background: var(--pf-bg); font-weight: 600; }
+.toiv-right-tabs button:focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 2px; }
+
+.toiv-agent-pane { flex: 1 1 auto; min-height: 0; display: flex; }
+.toiv-agent { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.toiv-agent-head { display: flex; align-items: baseline; gap: 8px; }
+.toiv-agent-head h2 { margin: 0; font-size: 14px; letter-spacing: 0.02em; }
+.toiv-agent-head .meta { color: var(--pf-muted); font-size: 12px; }
+.toiv-agent-head .pf-btn { margin-left: auto; }
+.toiv-agent-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.toiv-agent-msg { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); background: var(--pf-bg); padding: 8px 10px; }
+.toiv-agent-msg b { display: block; font-size: 11px; color: var(--pf-muted); margin-bottom: 2px; }
+.toiv-agent-msg p { margin: 0; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.toiv-agent-msg.user { background: color-mix(in srgb, var(--pf-lime) 14%, var(--pf-card)); }
+.toiv-agent-error { margin: 0; padding: 8px 10px; border-radius: var(--pf-radius-sm); border: 1px solid var(--toiv-danger); color: var(--toiv-danger); font-size: 12px; }
+.toiv-agent-thinking { margin: 0; color: var(--pf-muted); font-size: 12px; }
+.toiv-agent-tool { display: flex; align-items: center; gap: 8px; border: 1px solid var(--pf-line); border-radius: 999px; background: var(--pf-bg); padding: 4px 10px; font-size: 12px; }
+.toiv-agent-tool b { font-weight: 600; }
+.toiv-agent-tool span { color: var(--pf-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toiv-agent-tool em { margin-left: auto; font-style: normal; color: var(--pf-muted); }
+.toiv-agent-tool.st-done em { color: var(--toiv-success); }
+.toiv-agent-tool.st-error em { color: var(--toiv-danger); }
+.toiv-agent-proposal { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--pf-lime); border-radius: var(--pf-radius-sm); background: var(--pf-card); padding: 10px; }
+.toiv-agent-proposal header { display: flex; align-items: center; gap: 8px; }
+.toiv-agent-proposal header .tag { font-size: 10px; border-radius: 999px; padding: 1px 7px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-agent-proposal p { margin: 0; font-size: 12px; color: var(--pf-muted); white-space: pre-wrap; }
+.toiv-agent-proposal .meta { font-size: 11px; color: var(--pf-muted); }
+.toiv-agent-proposal ul { margin: 0; padding-left: 16px; font-size: 11px; color: var(--pf-muted); }
+.toiv-agent-proposal .pf-btn { align-self: flex-start; }
+.toiv-agent-compose { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--pf-line); padding-top: 10px; }
+.toiv-agent-compose textarea { width: 100%; resize: vertical; min-height: 52px; max-height: 160px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); background: var(--pf-bg); color: var(--pf-ink); font: inherit; font-size: 13px; padding: 8px 10px; }
+.toiv-agent-compose textarea:focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 1px; }
+.toiv-agent-actions { display: flex; justify-content: flex-end; gap: 6px; }
 
 /* ---- Settings: theme editor ---- */
 .toiv-settings { display: flex; flex-direction: column; gap: 22px; max-width: 960px; }

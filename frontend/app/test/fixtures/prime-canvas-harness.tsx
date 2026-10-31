@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { I18nProvider } from "@/i18n/context";
 import PrimeCanvas from "@/toiv/pages/PrimeCanvas";
+import { applyStoredTheme } from "@/toiv/theme/apply";
 
 declare global {
     interface Window { __loc: string; }
@@ -14,6 +15,7 @@ function LocationProbe() {
 }
 
 const path = new URLSearchParams(window.location.search).get("path") || "/drama/projects/p1/canvas";
+applyStoredTheme();
 createRoot(document.getElementById("root")!).render(
     <MemoryRouter initialEntries={[path]}>
         <I18nProvider>
