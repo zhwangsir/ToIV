@@ -9,8 +9,15 @@ const publicBase = process.env.BEEFTV_PUBLIC_BASE?.trim() || "/";
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:8090";
 const canvasProxyTarget = process.env.VITE_CANVAS_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
 const gatewayTarget = process.env.VITE_STUDIO_GATEWAY_TARGET?.trim() || "http://127.0.0.1:3100";
-const policyCandidates = ["content-lock.ts", "content-policy.ts"].map(file => resolve(here, "../../vendor/canvas/web/src", file));
-const policyModule = policyCandidates.find(file => existsSync(file));
+// 本地仓画布在 vendor/canvas，远端部署布局在 apps/canvas（frontend/app → apps/prime/web）
+export function resolvePolicyModule(appDir: string): string | undefined {
+    const roots = ["../../vendor/canvas/web/src", "../../canvas/web/src"].map(rel => resolve(appDir, rel));
+    return ["content-lock.ts", "content-policy.ts"]
+        .flatMap(file => roots.map(root => resolve(root, file)))
+        .find(file => existsSync(file));
+}
+
+const policyModule = resolvePolicyModule(here);
 if (!policyModule) throw new Error("Missing shared canvas content policy");
 
 export default defineConfig({
