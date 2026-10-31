@@ -91,7 +91,7 @@ export default function PrimeCanvas() {
                         {graph ? (
                             <ReactFlow nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes}
                                 fitView minZoom={0.3} onNodeClick={onNodeClick}>
-                                <Background />
+                                <Background color="var(--grid-color)" bgColor="var(--bg-canvas)" />
                                 <Controls />
                             </ReactFlow>
                         ) : null}

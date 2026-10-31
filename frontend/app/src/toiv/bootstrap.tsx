@@ -11,6 +11,7 @@ const PrimeAssets = lazy(() => import("./pages/PrimeAssets"));
 const PrimeHistory = lazy(() => import("./pages/PrimeHistory"));
 const PrimeCreate = lazy(() => import("./pages/PrimeCreate"));
 const PrimeStyle = lazy(() => import("./pages/PrimeStyle"));
+const PrimeSettings = lazy(() => import("./pages/PrimeSettings"));
 
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
@@ -56,7 +57,7 @@ export default function ToivBootstrap() {
                 <Route path="/legacy/canvas/:id" element={<RequireSession><LegacyCanvas /></RequireSession>} />
                 <Route path="/assets" element={<Navigate to="/drama/assets" replace />} />
                 <Route path="/history" element={<RequireSession><PrimeHistory /></RequireSession>} />
-                <Route path="/settings" element={<RequireSession><LegacyHandoff title="设置" href="/settings" note="模型/渠道设置面将在后续波次原生化。" /></RequireSession>} />
+                <Route path="/settings" element={<RequireSession><PrimeSettings /></RequireSession>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
