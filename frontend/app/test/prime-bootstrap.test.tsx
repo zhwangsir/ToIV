@@ -25,6 +25,15 @@ describe("prime bootstrap routes", () => {
     });
 });
 
+describe("prime router base", () => {
+    test("normalizes the deployed /studio base to the URL the web server actually serves", async () => {
+        const { routerBasename } = await import("../src/toiv/bootstrap");
+        expect(routerBasename("/studio/")).toBe("/studio");
+        expect(routerBasename("/")).toBe("/");
+        expect(routerBasename(undefined)).toBe("/");
+    });
+});
+
 describe("prime project home", () => {
     test("renders workbar, search and create entry", () => {
         const html = renderToStaticMarkup(<MemoryRouter><I18nProvider><ProjectHome /></I18nProvider></MemoryRouter>);

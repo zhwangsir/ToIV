@@ -13,6 +13,11 @@ const PrimeCreate = lazy(() => import("./pages/PrimeCreate"));
 const PrimeStyle = lazy(() => import("./pages/PrimeStyle"));
 const PrimeSettings = lazy(() => import("./pages/PrimeSettings"));
 
+// 远端 Next 兜底把 /studio/ 重定向成 /studio，带尾斜杠的 basename 会整页不渲染
+export function routerBasename(base: string | undefined): string {
+    return (base || "").replace(/\/+$/, "") || "/";
+}
+
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
     "/drama", "/drama/assets", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
@@ -40,7 +45,7 @@ export default function ToivBootstrap() {
     if (!ready) return <p role="status">正在打开工作台…</p>;
     if (entryError) return <p role="alert">浏览器无法保存登录状态，请允许本站存储后重试。</p>;
     return (
-        <BrowserRouter basename={import.meta.env?.BASE_URL || "/"}>
+        <BrowserRouter basename={routerBasename(import.meta.env?.BASE_URL)}>
             <Suspense fallback={<p role="status">正在加载工作面…</p>}>
             <Routes>
                 <Route path="/" element={<RequireSession><ProjectHome /></RequireSession>} />
