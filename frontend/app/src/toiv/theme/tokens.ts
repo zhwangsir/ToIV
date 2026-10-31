@@ -141,17 +141,91 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     },
 };
 
-export const EDITABLE_TOKENS = [
-    { key: "--pf-lime", label: "主色" },
-    { key: "--pf-bg", label: "背景" },
-    { key: "--pf-card", label: "卡片" },
-    { key: "--pf-ink", label: "文字" },
-    { key: "--text-secondary", label: "次要文字" },
-    { key: "--bg-canvas", label: "画布" },
-] as const satisfies readonly { key: ThemeTokenKey; label: string }[];
+export interface ColorTokenField {
+    key: ThemeTokenKey;
+    label: string;
+    alpha?: boolean;
+}
+
+export const TOKEN_GROUPS: readonly { id: string; label: string; tokens: readonly ColorTokenField[] }[] = [
+    {
+        id: "brand",
+        label: "品牌与画布",
+        tokens: [
+            { key: "--pf-lime", label: "主色" },
+            { key: "--pf-lime-soft", label: "主色浅底" },
+            { key: "--bg-canvas", label: "画布" },
+            { key: "--grid-color", label: "画布网格", alpha: true },
+        ],
+    },
+    {
+        id: "surface",
+        label: "表面与文字",
+        tokens: [
+            { key: "--pf-bg", label: "背景" },
+            { key: "--pf-card", label: "卡片" },
+            { key: "--pf-line", label: "分割线", alpha: true },
+            { key: "--pf-ink", label: "文字" },
+            { key: "--text-secondary", label: "次要文字" },
+            { key: "--pf-muted", label: "弱化文字" },
+        ],
+    },
+    {
+        id: "state",
+        label: "状态色",
+        tokens: [
+            { key: "--toiv-danger", label: "危险" },
+            { key: "--toiv-success", label: "成功" },
+            { key: "--toiv-warning", label: "警告" },
+            { key: "--toiv-info", label: "信息" },
+            { key: "--node-border-selected", label: "选中节点" },
+            { key: "--toiv-scrim", label: "遮罩", alpha: true },
+        ],
+    },
+];
+
+export const EDITABLE_COLOR_TOKENS = [
+    "--pf-lime", "--pf-lime-soft", "--bg-canvas", "--grid-color",
+    "--pf-bg", "--pf-card", "--pf-line", "--pf-ink", "--text-secondary", "--pf-muted",
+    "--toiv-danger", "--toiv-success", "--toiv-warning", "--toiv-info", "--node-border-selected", "--toiv-scrim",
+] as const satisfies readonly ThemeTokenKey[];
+
+const CSS_HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const CSS_RGB = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d+)\s*)?\)$/i;
 
 export function isHexColor(value: string): boolean {
-    return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
+    return CSS_HEX.test(value.trim());
+}
+
+export function parseColor(value: string): { hex: string; alpha: number } | null {
+    const raw = value.trim();
+    const hex = CSS_HEX.exec(raw);
+    if (hex) {
+        const short = hex[1];
+        const expanded = short.length === 3 ? short.split("").map((char) => char + char).join("") : short;
+        return { hex: `#${expanded.toLowerCase()}`, alpha: 1 };
+    }
+    const rgb = CSS_RGB.exec(raw);
+    if (!rgb) return null;
+    const channels = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+    if (channels.some((channel) => channel > 255)) return null;
+    const alpha = rgb[4] === undefined ? 1 : Number(rgb[4]);
+    if (!(alpha >= 0 && alpha <= 1)) return null;
+    const hexValue = channels.map((channel) => channel.toString(16).padStart(2, "0")).join("");
+    return { hex: `#${hexValue}`, alpha };
+}
+
+export function isCssColor(value: string): boolean {
+    return parseColor(value) !== null;
+}
+
+export function formatColor(hex: string, alpha: number): string {
+    const parsed = parseColor(hex);
+    if (!parsed) return hex;
+    const safe = Math.min(1, Math.max(0, Number(alpha.toFixed(2))));
+    if (safe >= 1) return parsed.hex;
+    const channels = [1, 3, 5].map((start) => parseInt(parsed.hex.slice(start, start + 2), 16));
+    return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${safe})`;
 }
 
 function hexToRgb(value: string): [number, number, number] | null {

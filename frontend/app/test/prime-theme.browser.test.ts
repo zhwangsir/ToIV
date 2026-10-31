@@ -139,3 +139,96 @@ test("canvas background, grid and selected-node tokens follow the theme", async 
     expect(await probe.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(5, 1, 13)");
     expect(await page.locator(".react-flow__node.selected .toiv-node").evaluate((element) => getComputedStyle(element).borderTopColor)).toBe("rgb(255, 43, 214)");
 });
+
+test("layout preferences apply their tokens and survive a reload", async () => {
+    await visit();
+    expect(await page.evaluate(() => document.documentElement.dataset.density)).toBe("regular");
+    expect(await cssVar("--toiv-space")).toBe("1");
+    await page.getByRole("radiogroup", { name: "密度", exact: true }).getByRole("radio", { name: "紧凑", exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.dataset.density)).toBe("compact");
+    expect(await cssVar("--toiv-space")).toBe("0.85");
+    await page.getByRole("radiogroup", { name: "内容宽度", exact: true }).getByRole("radio", { name: "全宽", exact: true }).click();
+    expect(await cssVar("--toiv-content-max")).toBe("1680px");
+    expect(await page.locator(".pf-shell-main.wide").evaluate((element) => getComputedStyle(element).maxWidth)).toBe("1680px");
+    await page.getByRole("radiogroup", { name: "界面缩放", exact: true }).getByRole("radio", { name: "110%", exact: true }).click();
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("17.6px");
+    await page.getByRole("radiogroup", { name: "动效", exact: true }).getByRole("radio", { name: "精简", exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.dataset.motion)).toBe("reduced");
+    await page.reload();
+    await page.getByRole("heading", { name: "设置", exact: true }).waitFor();
+    expect(await page.evaluate(() => document.documentElement.dataset.density)).toBe("compact");
+    expect(await cssVar("--toiv-content-max")).toBe("1680px");
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("17.6px");
+    expect(await page.getByRole("radiogroup", { name: "密度", exact: true }).getByRole("radio", { name: "紧凑", exact: true }).getAttribute("aria-checked")).toBe("true");
+    await page.getByRole("button", { name: "恢复默认排版", exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.dataset.density)).toBe("regular");
+    expect(await cssVar("--toiv-content-max")).toBe("1440px");
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("16px");
+    expect(await page.evaluate(() => document.documentElement.dataset.motion)).toBe("system");
+});
+
+test("saves the edited palette as a named theme, switches and deletes it", async () => {
+    await visit();
+    await setColor("主色", "#00ffcc");
+    await page.getByRole("button", { name: "另存为我的主题", exact: true }).click();
+    await page.getByLabel("新主题名称", { exact: true }).fill("霓虹实验室");
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    expect(await page.locator(".toiv-notice").textContent()).toContain("已保存「霓虹实验室」");
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("custom");
+    expect(await page.getByLabel("主题名称", { exact: true }).inputValue()).toBe("霓虹实验室");
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("toiv_appearance") ?? "{}"));
+    expect(stored.customThemes.map((theme: { name: string }) => theme.name)).toEqual(["霓虹实验室"]);
+    await page.getByRole("radio", { name: /极光深色/ }).click();
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("builtin");
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime"))).toBe("");
+    await page.getByRole("button", { name: /霓虹实验室/ }).click();
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("custom");
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
+    await page.reload();
+    await page.getByRole("heading", { name: "设置", exact: true }).waitFor();
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("custom");
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
+    await page.getByRole("button", { name: "删除", exact: true }).click();
+    await page.getByRole("button", { name: "确认删除", exact: true }).click();
+    expect(await page.getByRole("button", { name: /霓虹实验室/ }).count()).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe("light");
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("builtin");
+    const cleared = await page.evaluate(() => JSON.parse(localStorage.getItem("toiv_appearance") ?? "{}"));
+    expect(cleared.customThemes).toEqual([]);
+});
+
+test("exports the current appearance and imports it back including layout", async () => {
+    await visit();
+    await setColor("主色", "#00ffcc");
+    await page.getByRole("radiogroup", { name: "圆角", exact: true }).getByRole("radio", { name: "圆润", exact: true }).click();
+    await page.getByRole("radiogroup", { name: "密度", exact: true }).getByRole("radio", { name: "紧凑", exact: true }).click();
+    const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.getByRole("button", { name: "导出当前外观", exact: true }).click(),
+    ]);
+    const path = await download.path();
+    if (!path) throw new Error("missing download path");
+    const payload = JSON.parse(await Bun.file(path).text());
+    expect(payload.schema).toBe("toiv.appearance");
+    expect(payload.version).toBe(2);
+    expect(payload.theme.base).toBe("light");
+    expect(payload.theme.tokens["--pf-lime"]).toBe("#00ffcc");
+    expect(payload.layout).toMatchObject({ radius: "round", density: "compact" });
+    await page.getByRole("button", { name: "恢复当前主题默认", exact: true }).click();
+    await page.getByRole("button", { name: "恢复默认排版", exact: true }).click();
+    expect(await cssVar("--toiv-space")).toBe("1");
+    await page.getByLabel("导入外观文件", { exact: true }).setInputFiles({
+        name: "appearance.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)),
+    });
+    await page.locator(".toiv-notice").filter({ hasText: "已导入" }).waitFor();
+    expect(await page.locator(".toiv-notice").textContent()).toContain("（含排版）");
+    expect(await page.evaluate(() => document.documentElement.dataset.themeKind)).toBe("custom");
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
+    expect(await cssVar("--pf-radius")).toBe("22px");
+    expect(await cssVar("--toiv-space")).toBe("0.85");
+    await page.getByLabel("导入外观文件", { exact: true }).setInputFiles({
+        name: "broken.json", mimeType: "application/json", buffer: Buffer.from("{broken"),
+    });
+    expect(await page.locator(".toiv-notice").filter({ hasText: "不是合法的 JSON 文件" }).count()).toBe(1);
+});

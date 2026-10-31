@@ -52,7 +52,8 @@ test("retired tool routes fall back to the project home", async () => {
     for (const path of ["/preview/tools", "/preview/tools/image"]) {
         await page.goto(`${origin}${path}`);
         await page.getByLabel("搜索项目").waitFor();
-        expect(new URL(page.url()).pathname).toBe("/preview/");
+        // React Router 7 normalizes the index route to `/preview`.
+        expect(new URL(page.url()).pathname.replace(/\/+$/, "")).toBe("/preview");
     }
 }, 30_000);
 

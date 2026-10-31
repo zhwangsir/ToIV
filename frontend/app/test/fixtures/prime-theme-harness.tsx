@@ -1,9 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import PrimeSettings from "@/toiv/pages/PrimeSettings";
-import { applyStoredTheme } from "@/toiv/theme/apply";
+import { applyStoredAppearance } from "@/toiv/theme/appearance";
 
-applyStoredTheme();
+applyStoredAppearance();
 
 createRoot(document.getElementById("root")!).render(
     <MemoryRouter initialEntries={["/settings"]}>

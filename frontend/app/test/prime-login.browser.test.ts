@@ -54,6 +54,8 @@ const credentials = async () => {
     await page.getByLabel("口令").fill("fixture-password");
 };
 const storedToken = () => page.evaluate(() => localStorage.getItem("toiv_token"));
+// React Router 7 normalizes the index route to `/preview`, so compare without the trailing slash.
+const appRoot = (url: string) => new URL(url).pathname.replace(/\/+$/, "");
 
 test("a protected deep link redirects to login and returns to the same project after signing in", async () => {
     await page.goto(`${origin}/preview/studio/p1`);
@@ -79,7 +81,7 @@ test("a rejected sign-in reports the failure and keeps the visitor on the login 
     loginStatus = 200;
     await page.getByRole("button", { name: "进入工作台" }).click();
     await page.getByLabel("搜索项目").waitFor();
-    expect(new URL(page.url()).pathname).toBe("/preview/");
+    expect(appRoot(page.url())).toBe("/preview");
     expect(await storedToken()).toBe("jwt-login");
 });
 
@@ -115,7 +117,7 @@ for (const from of ["/auth", "//evil.example/steal"]) {
         await credentials();
         await page.getByRole("button", { name: "进入工作台" }).click();
         await page.getByLabel("搜索项目").waitFor();
-        expect(new URL(page.url()).pathname).toBe("/preview/");
+        expect(appRoot(page.url())).toBe("/preview");
         expect(new URL(page.url()).host).toBe(new URL(origin).host);
     });
 }
