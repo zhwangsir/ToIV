@@ -1,0 +1,16 @@
+[Unit]
+Description=ToIV VLM (Qwen3-VL-8B BF16 vLLM0.11, OpenAI-compatible, GPU1 via PCI_BUS_ID order)
+After=network-online.target
+
+[Service]
+Type=exec
+User=merlin
+Environment=CUDA_VISIBLE_DEVICES=3
+Environment=HOME=/home/merlin
+Environment=VLLM_LOGGING_LEVEL=INFO
+ExecStart=/opt/toiv-vlm/venv/bin/vllm serve /home/merlin/models/Qwen3-VL-8B-Instruct --served-model-name toiv-vlm --port 9311 --host 0.0.0.0 --gpu-memory-utilization 0.5 --max-model-len 16384
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -3,7 +3,7 @@
 > **本文件是 ToIV 集群现行真源**（主机 / 端口 / 权重 / SSH）。探针 as-of：**2026-10-24 09:50 Asia/Shanghai**（NAMING_N3）；LLM 现网口径以 **2026-10-25 Mia :8888** 为准。  
 > **权威顺序**：① 真机探针（LAN curl / docker inspect）→ ② 仓库代码默认 → ③ 本文件 → ④ 其它文档。冲突以真机为准并回写本文件。  
 > **命名铁律**：一个磁盘权重一个 weight id；served 不得伪装异家族。知识图谱页 canvas `b21e123b-da5f-43d9-90af-a3842894cfcc`。  
-> **最后更新**：2026-10-26 Asia/Shanghai · 文档瘦身（五件套 + `docs/README.md`）；旧 `docs/ops/CLUSTER_TRUTH.md` 已并入本文并归档。  
+> **最后更新**：2026-10-31 Asia/Shanghai · ComfyUI 实例收敛（8196 唯一通用实例 + GPU3 钉卡，8197 改端口桥，8265 退役）+ VLM 0.35 落 GPU1（GPU0 驱动卡死，见 §六）；探针 as-of **2026-10-24 09:50**（NAMING_N3），LLM 口径以 **2026-10-25 Mia :8888** 为准。  
 > **历史长文**：`ALLProject/.archive/toiv-docs-20261026/`；机读 `STATE.json`（只读）。
 
 ---
@@ -64,20 +64,19 @@ cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
 | ep.gateway.admin | core:3200 | 200 |
 | ep.llm.primary | spark02:**8888** | Mia TensorFold TP2；served `DeepSeek-V4.1-Flash-1017`；客户端兼容别名 `deepseek-v4-flash-dspark`（proxy 改写）；旧 `:8000`/dsv4_60 已停（同卡互斥） |
 | （无） | spark01:8000 | TP worker only；无对外监听 |
-| ep.vlm.primary | ws:9311 | served `toiv-vlm` ← Qwen3-VL-8B-Instruct |
-| ep.lb.comfy-primary | ws:8188 | backends=`8196`/`8263`/`8265` |
-| ep.comfy.image-gate | ws:8196 | 通用出图 / LB gpu0 |
-| ep.comfy.video-longcat | ws:8197 | LongCat/Wan/VACE |
+| ep.vlm.primary | ws:9311 | served `toiv-vlm` ← Qwen3-VL-8B-Instruct（GPU1，0.35 配额；`PCI_BUS_ID`+CVD=0） |
+| ep.lb.comfy-primary | ws:8188 | backends=`8196`（2026-10-31 收敛为单后端） |
+| ep.comfy.image-gate | ws:8196 | **唯一通用实例**（GPU3 UUID 钉卡，cuda:0 95GiB）：通用出图 / qwen_edit / LB / LongCat 视频 |
+| ep.comfy.video-longcat | ws:8197 | 端口桥 → 8196（`comfyui-longcat-bridge`，LongCat API 兼容，非独立实例） |
 | ep.comfy.video-animate2 | ws:8199 | Wan-Animate-2 |
 | ep.h3.prod | ws:**8264** | H3 生产（ref2va/fl2va）；`:8195` 已停 |
-| ep.comfy.upscale-a/b | ws:8262 / :8263 | 超分 |
-| ep.comfy.image-worker-c | ws:8265 | LB 池 |
+| ep.comfy.upscale-a/b | ws:8262 / :8263 | 超分（up-only；并入 8196 需改 core env + 重启 API） |
 | ep.tts.primary | ws:9200 | IndexTTS2 |
 | ep.demucs.primary | ws:9220 | demucs-htdemucs |
 | ep.embed.primary | ws:9302 | qwen3-embedding-4b |
 | ep.asr.whisper-cluster | oc*:9310 | whisper-mlx |
 
-**DOWN（勿配默认）**：`:8189` `:8195` `:8261` `:8200` `:8300` `:9004` `:9201` `:9202` `:9203` `:9210` `:9211` `:9304` `:9400`–`:9404`（WS）；spark01 `:8000`。
+**DOWN（勿配默认）**：`:8189` `:8195` `:8261` `:8265` `:8200` `:8300` `:9004` `:9201` `:9202` `:9203` `:9210` `:9211` `:9304` `:9400`–`:9404`（WS）；spark01 `:8000`。
 
 ### 代码默认应对齐
 
@@ -147,3 +146,4 @@ curl -sS http://192.168.71.127:9200/health
 - Acc-8Step / Security Dly / git push / DOWN 口上线：**冻结未做**。  
 - 隔离目录永久 rm：需用户明示。  
 - cloud/openclaw 部分 tailscaled 现场恢复；pc01 非紧急。
+- **workstation GPU0（UUID `c219…`）驱动卡死**：CUDA 已不可见（`device_count` 只算 3 卡），NVML 仍挂着 54.6GB 孤儿（5 天前 VLM `EngineCore` 僵尸/`toiv-vlm.service (deleted)` cgroup）。health 三卡按 `PCI_BUS_ID` 排序 = cuda0:GPU1(embedding) / 1:GPU2(H3) / 2:GPU3(ComfyUI)，**任何新服务勿用数字 0 臆断物理卡**。同批待清：8262 僵尸（`Zsl`，systemd job 卡死）、旧 VLM 僵尸。**均需主机重启窗口**（先排水渲染/作业、串行重启）。

@@ -1,0 +1,11 @@
+[Unit]
+Description=Port bridge 8197 -> 8196 (LongCat API compat after ComfyUI consolidation)
+After=network.target comfyui-gpu0-alt.service
+
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:8197,fork,reuseaddr TCP:127.0.0.1:8196
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
