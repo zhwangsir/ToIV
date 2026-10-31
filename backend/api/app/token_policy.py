@@ -17,7 +17,7 @@ from app.config import get_settings
 
 # scope -> [(METHOD, path regex, 可选 query 约束)]。路径不含 query。
 SCOPES: dict[str, list[tuple[str, re.Pattern[str], dict[str, re.Pattern[str]] | None]]] = {
-    # toiv-h3 画布插件(apps/canvas/plugin-packages/toiv-h3)用到的全部接口,再无其他
+    # toiv-h3 画布插件(vendor/canvas/plugin-packages/toiv-h3)用到的全部接口,再无其他
     "h3": [
         ("POST", re.compile(r"^/api/h3/(t2v|i2v|fl2v|r2v)$"), None),
         # 插件实际上传 kind 只有 h3_i2v(manifest prepare → /api/upload?kind=h3_i2v)

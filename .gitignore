@@ -38,20 +38,20 @@ next-env.d.ts
 backend/api/app/agent/knowledge/rag_cache_*.json
 
 # 预览截图(本地 UI 审查用)
-apps/web/.preview-*.png
-apps/web/.preview-shots/
+vendor/legacy-web/.preview-*.png
+vendor/legacy-web/.preview-shots/
 .heartbeat/
 
 # 仓库卫生(2026-07-27 P2):大目录/生成内容/嵌套 git 不入仓
 # models/ 33GB 模型文件(ComfyUI 本地缓存,不走仓库;锚定根目录,
-# 不再误伤 apps/web/components/models/ 等源码目录 —— 2026-08-18 WIKI 修复)
+# 不再误伤 vendor/legacy-web/components/models/ 等源码目录 —— 2026-08-18 WIKI 修复)
 /models/
 # opentalking/ 嵌套 git 独立项目 —— 禁止 vendor 进仓(2026-08-27 已移出至兄弟目录
 # ../opentalking 常驻运行,代码仅经 URL 127.0.0.1:4403 引用;此条目留作防回潮守卫)
 opentalking/
 # drama/output/ 生成内容(短剧成片/分镜片段/配音等运行时产出);
 # 仅忽略产物目录——drama/scripts/(管线源码,编排器/定妆图/质量门)与
-# apps/web/components/drama/(LibTV 工作台源码)必须入仓(2026-08-16 收窄,
+# vendor/legacy-web/components/drama/(LibTV 工作台源码)必须入仓(2026-08-16 收窄,
 # 原 drama/ 整目录规则把两处源码一并忽略,LibTV 重构代码零追踪)
 drama/output/
 # 设备说明.md:core 监控中心维护分发到各项目的集群拓扑副本,非 ToIV 源码
@@ -76,11 +76,11 @@ backend/api/app/data/rh_h3_presets.json.bak*
 opentalking/
 
 # 2026-09-20 作品库 P0 测试产物(走查截图/Playwright 输出,本地产物不入库)
-apps/web/ui-sweep/
-apps/web/test-results/
-apps/web/test-results-prod/
-apps/web/playwright-report/
-apps/web/.auth/
+vendor/legacy-web/ui-sweep/
+vendor/legacy-web/test-results/
+vendor/legacy-web/test-results-prod/
+vendor/legacy-web/playwright-report/
+vendor/legacy-web/.auth/
 
 # 工作暂存与一次性调试(2026-10-15 结构清理固化;脚本默认写这里的不要 commit)
 /tmp/

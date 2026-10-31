@@ -1,7 +1,7 @@
 # third_party — 六仓融合源码工作区
 
 > **用途**：dramaclaw / Toonflow / hypit / video-use 源码在此供对照与移植；**整树不入仓**（见根 `.gitignore`）。
-> **BeefTV** 不在此目录——已并入 `apps/canvas`（产品主 UI）。
+> **BeefTV** 不在此目录——已并入 `vendor/canvas`（冻结件）。
 > **重新拉取**：从 `~/Desktop/ALLProject/Ai-OSS-Reference/repos/` rsync（排除 `.git`/`node_modules`/`dist`）。
 > **入仓内容**：本 README、`licenses/` 许可证原文、融合记录。移植进 `apps/` 的代码按目标项目自己的许可声明。
 
@@ -13,7 +13,7 @@
 | `toonflow/` | HBAI-Ltd/Toonflow-app | **MIT** | ✅ 自由并码 | 保留版权与 MIT 文本 |
 | `hypit/` | hypit-ai/hypit | **修改版 Apache-2.0** | ✅ 单租户自用可并码 | 禁止多租户 SaaS / 商业再分发；CLI/报告/清单等用户可见面**不得去 logo/版权**（不露出该面则不适用） |
 | `dramaclaw/` | dramaclaw/dramaclaw | **Elastic-2.0**（部分 Apache） | ⚠️ 自用/派生可用，**需保留 NOTICE/品牌归属** | 不得作为对第三方的托管服务提供；不得去掉产品署名；转公开/分发前必须再核 Elastic 限制 |
-| （BeefTV→canvas） | glanderness/BeefTV | 已在 `apps/canvas` 内 | ✅ 已融合 | 命名/生产路径 `beeftv-prod` 待产品化翻转 |
+| （BeefTV→canvas） | glanderness/BeefTV | 已在 `vendor/canvas` 内 | ✅ 已融合 | 命名/生产路径 `beeftv-prod` 待产品化翻转 |
 
 **红线**（继承 AGENTS）：
 - ChatCut=GPL、OpenMontage=AGPL：**只读借鉴，代码与 skill 文本一字不抄**。

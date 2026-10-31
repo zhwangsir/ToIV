@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate apps/canvas/web/src/generated/base-inventory.json (P1b).
+"""Generate vendor/canvas/web/src/generated/base-inventory.json (P1b).
 
 Prefer live NAS scan of checkpoints/ + diffusion_models/ (+ h3/ non-lora weights).
 If mount missing, seed from docs/NAS_MODEL_PICKER.json and mark live=false.
@@ -17,7 +17,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "apps/canvas/web/src/generated/base-inventory.json"
+OUT = ROOT / "vendor/canvas/web/src/generated/base-inventory.json"
 PICKER = ROOT / "docs/NAS_MODEL_PICKER.json"
 TZ = ZoneInfo("Asia/Shanghai")
 

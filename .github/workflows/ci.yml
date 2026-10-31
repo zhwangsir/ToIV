@@ -2,7 +2,7 @@
 #
 # 设计要点:
 #   · push/PR 到 main 触发;changes job 用 paths-filter 按变更路径分发,
-#     backend/api/** 变更只跑 api-tests,apps/web/** 变更只跑 web-check。
+#     backend/api/** 变更只跑 api-tests,vendor/legacy-web/** 变更只跑 web-check。
 #   · api-tests 装**最小依赖集**而非完整 requirements.txt:
 #     requirements 含 faster-whisper/psycopg 等重依赖(CI 装不动/没必要),
 #     且 app 内重依赖(paramiko/sentry/prometheus/whisper)均为惰性或守护导入。
@@ -35,7 +35,7 @@ jobs:
               - "backend/api/**"
               - ".github/workflows/ci.yml"
             web:
-              - "apps/web/**"
+              - "vendor/legacy-web/**"
               - ".github/workflows/ci.yml"
 
   api-tests:
@@ -75,14 +75,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/web
+        working-directory: vendor/legacy-web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: vendor/legacy-web/package-lock.json
       - run: npm ci
       # package.json 无 test 脚本;类型检查即门槛
       - run: npx tsc --noEmit

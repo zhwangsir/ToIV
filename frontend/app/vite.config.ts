@@ -9,7 +9,7 @@ const publicBase = process.env.BEEFTV_PUBLIC_BASE?.trim() || "/";
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:8090";
 const canvasProxyTarget = process.env.VITE_CANVAS_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
 const gatewayTarget = process.env.VITE_STUDIO_GATEWAY_TARGET?.trim() || "http://127.0.0.1:3100";
-const policyCandidates = ["content-lock.ts", "content-policy.ts"].map(file => resolve(here, "../../apps/canvas/web/src", file));
+const policyCandidates = ["content-lock.ts", "content-policy.ts"].map(file => resolve(here, "../../vendor/canvas/web/src", file));
 const policyModule = policyCandidates.find(file => existsSync(file));
 if (!policyModule) throw new Error("Missing shared canvas content policy");
 

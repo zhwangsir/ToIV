@@ -23,12 +23,12 @@ const WEB = join(ROOT, "apps", "web");
 const SKIP_DIRS = new Set(["node_modules", ".next", "tests", "e2e", "playwright-report", "test-results"]);
 // hex 白名单:主题色板/错误页兜底/功能默认值(均已在文件内注释声明)
 const HEX_ALLOW = new Set([
-  "apps/web/lib/theme.ts",
-  "apps/web/app/global-error.tsx",
-  "apps/web/app/not-found.tsx",
-  "apps/web/app/layout.tsx",
-  "apps/web/components/video-edit/VideoEditView.tsx", // 字幕烧录默认色,文件内已注释
-  "apps/web/components/ui/ParticleButton.tsx", // JS fallback 色,已注释
+  "vendor/legacy-web/lib/theme.ts",
+  "vendor/legacy-web/app/global-error.tsx",
+  "vendor/legacy-web/app/not-found.tsx",
+  "vendor/legacy-web/app/layout.tsx",
+  "vendor/legacy-web/components/video-edit/VideoEditView.tsx", // 字幕烧录默认色,文件内已注释
+  "vendor/legacy-web/components/ui/ParticleButton.tsx", // JS fallback 色,已注释
 ]);
 
 function walk(dir, out = []) {

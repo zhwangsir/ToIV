@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build apps/canvas/web/src/generated/model-compat-graph.json (schemaVersion=1).
+"""Build vendor/canvas/web/src/generated/model-compat-graph.json (schemaVersion=1).
 
 Inputs (read-only):
   - generated/lora-inventory.json (whitelist = available P-A/P-B × source A/B)
@@ -28,9 +28,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-INVENTORY = ROOT / "apps/canvas/web/src/generated/lora-inventory.json"
+INVENTORY = ROOT / "vendor/canvas/web/src/generated/lora-inventory.json"
 CARD_CACHE = ROOT / "docs/ops/_card_cache_20261025"
-OUT = ROOT / "apps/canvas/web/src/generated/model-compat-graph.json"
+OUT = ROOT / "vendor/canvas/web/src/generated/model-compat-graph.json"
 HUMAN = ROOT / "docs/ops/MODEL_COMPAT_GRAPH_20261025.md"
 
 sys.path.insert(0, str(ROOT / "backend/api"))
@@ -1098,7 +1098,7 @@ def main() -> None:
         "timezone": "Asia/Shanghai",
         "schemaVersion": 1,
         "joinKey": "basename",
-        "inventoryRef": "apps/canvas/web/src/generated/lora-inventory.json",
+        "inventoryRef": "vendor/canvas/web/src/generated/lora-inventory.json",
         "decisions": {
             "D1": "gray-force-heuristic",
             "D2": "h3-strict-family",

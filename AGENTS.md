@@ -18,20 +18,20 @@
 
 ## 〇b、本地开发与验证
 
-**应用**：`backend/api`(:8090) · `frontend/app`（Prime 创作壳，`apps/prime/web` 的本地源）· `apps/web`(:3100 `/studio`) · `apps/admin`(:3200) · `apps/canvas`（必读 `apps/canvas/AGENTS.md`）；移动端 `MiniProgram/`。  
-目录重排（2026-10-31）：本地 `frontend/app` → 远端 `apps/prime/web`，本地 `backend/api` → 远端 `api`；远端路径契约不变。  
+**应用**：`backend/api`(:8090) · `frontend/app`（Prime 创作壳，远端 `apps/prime/web`）· `frontend/admin`(:3200) · `vendor/legacy-web`(:3100 `/studio`，切流前线上默认前端) · `vendor/canvas`（画布冻结件，必读 `vendor/canvas/AGENTS.md`）；移动端 `vendor/mobile/`。  
+目录重排（2026-10-31）：本地 `backend/api` → 远端 `api`，`frontend/app` → 远端 `apps/prime/web`，`vendor/legacy-web` → 远端 `web`，`vendor/canvas` → 远端 `apps/canvas`；**远端路径契约不变**（systemd/回滚按远端寻址）。  
 Drama∥Studio：新功能只加 Studio；Drama bugfix only。长文 `DEVELOPMENT.md`。暂存 `tmp/`（gitignore）。
 
 ```bash
 cd backend/api && uv sync --extra dev && uv run pytest tests/test_foo.py::test_bar -q
 cd frontend/app && bun test test/ && bun run lint && bun run build
-cd apps/web && npm test && npm run typecheck    # node:test，不是 vitest
-cd apps/admin && npm test && npm run typecheck
-cd apps/canvas/backend && go vet ./... && go test ./...
-cd apps/canvas/web && bun run lint && bun run typecheck && bun run build
+cd vendor/legacy-web && npm test && npm run typecheck    # node:test，不是 vitest
+cd frontend/admin && npm test && npm run typecheck
+cd vendor/canvas/backend && go vet ./... && go test ./...
+cd vendor/canvas/web && bun run lint && bun run typecheck && bun run build
 ```
 
-- `apps/web`/`admin` 仅 **npm**；`apps/canvas/web` 仅 **bun**。新增 `lib/api` 导出必补 `tests/mocks/studioApi.ts`。
+- `vendor/legacy-web`/`frontend/admin` 仅 **npm**；`vendor/canvas/web` 仅 **bun**。新增 `lib/api` 导出必补 `tests/mocks/studioApi.ts`。
 - 部署：`deploy/deploy.sh`；外出大流量用 `core-jump`。web/admin **在 core 本机构建**，勿从 Mac 盲推过期 `.next`。渲染在飞时脚本拒重启 api（`FORCE_API_RESTART=1` 强制）。
 
 ---

@@ -1,8 +1,8 @@
 /**
- * node:test 自定义 ESM 解析钩子(自 apps/web/tests/loader.mjs 平移,去掉 studioApi mock——
+ * node:test 自定义 ESM 解析钩子(自 vendor/legacy-web/tests/loader.mjs 平移,去掉 studioApi mock——
  * admin 首批测试是契约级,直接加载真实 lib/api 模块):
  * 1. `.css` → 空模块(组件 import 样式时短路)
- * 2. `@/*` → apps/admin 根目录(对齐 tsconfig paths)
+ * 2. `@/*` → frontend/admin 根目录(对齐 tsconfig paths)
  * 3. 无扩展名的相对 import(tsconfig moduleResolution: bundler 风格)→ 补 .ts/.tsx 或 index.*
  * 4. load 钩子:.tsx 经 typescript transpileModule 转 ESM(Node strip-types 不认 .tsx)
  */
@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const adminRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-// typescript 从 apps/admin/node_modules 解析(loader 线程非 apps/admin cwd,显式 createRequire)
+// typescript 从 frontend/admin/node_modules 解析(loader 线程非 frontend/admin cwd,显式 createRequire)
 const require = createRequire(path.join(adminRoot, "package.json"));
 const ts = require("typescript");
 

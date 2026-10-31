@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate apps/canvas/web/src/generated/lora-inventory.json from purpose/source CSVs.
+"""Generate vendor/canvas/web/src/generated/lora-inventory.json from purpose/source CSVs.
 
 Rules (settings inventory):
   available + purpose P-A/P-B + source A/B
@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PURPOSE = ROOT / "docs/ops/MODEL_PURPOSE_FROM_CARDS_20261025.csv"
 SOURCE = ROOT / "docs/ops/MODEL_SOURCE_PURPOSE_LORA_20261025.csv"
-OUT = ROOT / "apps/canvas/web/src/generated/lora-inventory.json"
+OUT = ROOT / "vendor/canvas/web/src/generated/lora-inventory.json"
 
 TYPE_BY_CLUSTER = {
     "accel_distill": "加速",

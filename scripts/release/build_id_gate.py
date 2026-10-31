@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P-2 BUILD_ID 发版门禁:含 ``-dirty`` 的指纹不得上线。
 
-格式(与 apps/web/next.config.mjs resolveBuildFingerprint 对齐)::
+格式(与 vendor/legacy-web/next.config.mjs resolveBuildFingerprint 对齐)::
 
     YYYYMMDD-HHmmss-<git短sha>[-dirty]
     或退化:YYYYMMDD-HHmmss-nogit
@@ -9,7 +9,7 @@
 用法::
 
     python3 scripts/release/build_id_gate.py --id '20261020-031200-abc1234'
-    python3 scripts/release/build_id_gate.py --file apps/web/.next/BUILD_ID --require-head
+    python3 scripts/release/build_id_gate.py --file vendor/legacy-web/.next/BUILD_ID --require-head
     python3 scripts/release/build_id_gate.py --assert-clean-tree
 
 退出码:0 通过;1 拒绝(dirty/sha 不匹配/缺文件);2 用法错误。
@@ -71,7 +71,7 @@ def assert_build_id_clean(raw: str) -> ParsedBuildId:
     if parsed.dirty:
         raise BuildIdGateError(
             f"BUILD_ID 含 -dirty,拒绝发版(P-2):{parsed.raw}"
-            " — 请提交/贮藏本地改动后干净重建:cd apps/web && rm -rf .next && npm run build"
+            " — 请提交/贮藏本地改动后干净重建:cd vendor/legacy-web && rm -rf .next && npm run build"
         )
     return parsed
 
@@ -87,7 +87,7 @@ def assert_build_id_matches_head(raw: str, head_sha: str) -> ParsedBuildId:
     if parsed.head.lower() != expected.lower():
         raise BuildIdGateError(
             f"BUILD_ID sha 与 HEAD 不一致:build={parsed.head} head={expected}"
-            " — 请先 cd apps/web && npm run build"
+            " — 请先 cd vendor/legacy-web && npm run build"
         )
     return parsed
 

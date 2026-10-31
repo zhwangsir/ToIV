@@ -20,7 +20,7 @@ handoff 目标基址 = `VITE_LEGACY_BASE`（默认 `/studio`，切换期可指�
 - 回退：`deploy/deploy.sh --canvas-only`（不带 `--prime`），快照自动可 `--rollback`。
 
 ## 5. 翻转后退役（W6）
-删 `apps/canvas/web/src/studio` 三面与 router 顶层 studio 块、legacy-host 路由、`StudioCreateHomeRoute` 桥；达成 UserLayout/globals.css/antd 删除入口；旧 dist 下线。
+删 `vendor/canvas/web/src/studio` 三面与 router 顶层 studio 块、legacy-host 路由、`StudioCreateHomeRoute` 桥；达成 UserLayout/globals.css/antd 删除入口；旧 dist 下线。
 
 ## 6. 取证脚本
 `tmp/ui-proto/`：verify-prime-w1/w2/recipes/editor/canvas/assets/create（本地 dev 代理生产 API）+ verify-studio-5b（旧壳回归对照）。

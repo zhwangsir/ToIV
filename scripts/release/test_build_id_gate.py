@@ -87,7 +87,7 @@ def test_cli_file_and_require_head(tmp_path: Path):
 
 def test_source_contract_next_config_appends_dirty():
     """防回归:next.config 仍用 git status 追加 -dirty(门禁才有意义)。"""
-    cfg = (ROOT / "apps/web/next.config.mjs").read_text(encoding="utf-8")
+    cfg = (ROOT / "vendor/legacy-web/next.config.mjs").read_text(encoding="utf-8")
     assert "-dirty" in cfg
     assert "git status --porcelain" in cfg
     assert "generateBuildId" in cfg

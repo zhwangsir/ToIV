@@ -110,7 +110,7 @@ psql -h 127.0.0.1 -U toiv -d toiv -c "select count(*) from apps where is_public;
 # canvas 后端+SPA 全量：deploy/deploy.sh --canvas-only（rsync 源码→core 构建→停服换装 canvas-api-pg→起服）
 
 # ── canvas 后端单二进制快速换装（改 Go 代码时，10-14 实测口径） ──
-rsync -az apps/canvas/backend/... merlin@192.168.71.47:~/toiv/apps/canvas/backend/
+rsync -az vendor/canvas/backend/... merlin@192.168.71.47:~/toiv/apps/canvas/backend/
 ssh merlin@192.168.71.47 'export PATH=$HOME/sdk/go1.25.0/bin:$PATH XDG_RUNTIME_DIR=/run/user/$(id -u); \
   cd ~/toiv/apps/canvas/backend && CGO_ENABLED=1 go build -trimpath -o /tmp/canvas-api-pg.new ./cmd/server && \
   systemctl --user stop canvas-api-pg && mv /tmp/canvas-api-pg.new ~/beeftv-prod/canvas-api-pg && \

@@ -1,4 +1,4 @@
-# ToIV canvas CI —— apps/canvas（BeefTV 融合线）后端 Go + 前端 Web
+# ToIV canvas CI —— vendor/canvas（BeefTV 融合线，冻结件）后端 Go + 前端 Web
 #
 # 背景（M4-5 单仓合并 2026-10-06）:ToIV-canvas 并入 apps/canvas 后,其自带
 # .github/workflows 因嵌套不再被 GitHub 执行;本文件承接 quality.yml 的核心
@@ -31,7 +31,7 @@ jobs:
         with:
           filters: |
             canvas:
-              - "apps/canvas/**"
+              - "vendor/canvas/**"
               - ".github/workflows/canvas.yml"
 
   backend:
@@ -42,14 +42,14 @@ jobs:
     timeout-minutes: 25
     defaults:
       run:
-        working-directory: apps/canvas/backend
+        working-directory: vendor/canvas/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: apps/canvas/backend/go.mod
+          go-version-file: vendor/canvas/backend/go.mod
           cache: true
-          cache-dependency-path: apps/canvas/backend/go.sum
+          cache-dependency-path: vendor/canvas/backend/go.sum
       - name: Build official protocol packages
         run: sh ../plugin-packages/build-packages.sh
       - name: Vet
@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 25
     defaults:
       run:
-        working-directory: apps/canvas/web
+        working-directory: vendor/canvas/web
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

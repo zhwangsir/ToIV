@@ -3,7 +3,7 @@
 输入 services/workflow_analyzer 的 WorkflowAnalysis(+ 归一化后的 API 图),
 调 LLM(chat_layered L1)产出应用草稿,Pydantic 校验 + 本地消毒后返回:
 
-- icon 白名单:apps/web/components/ui/Icon.tsx 的 ICON_MAP 键快照
+- icon 白名单:vendor/legacy-web/components/ui/Icon.tsx 的 ICON_MAP 键快照
   (2026-08-30 抄录,改前端图标表需同步);LLM 产出不在白名单 → 回落默认 + warning;
 - category/output_kind 非法 → 按分析推断值回落 + warning(不因小错整单 503);
 - params_schema:type 白名单(与 routes/apps._PARAM_TYPES 同源)/key 唯一/select 带 options,
@@ -26,7 +26,7 @@ from app.services.workflow_analyzer import WorkflowAnalysis
 
 logger = logging.getLogger(__name__)
 
-# ── icon 白名单:apps/web/components/ui/Icon.tsx ICON_MAP 键快照(2026-08-30)──
+# ── icon 白名单:vendor/legacy-web/components/ui/Icon.tsx ICON_MAP 键快照(2026-08-30)──
 # 快照原因:api 不读 web 源码(部署分离);前端 ICON_MAP 变更时需人工同步本表。
 ICON_WHITELIST: frozenset[str] = frozenset({
     "chat", "create", "canvas", "manju", "drama", "dub", "train", "library",

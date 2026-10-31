@@ -13,7 +13,7 @@
 #   DEPLOY_DRAIN_WAIT_SEC=120    # api 重启前若 busy 则最多等 N 秒排水(默认 0=立即拒绝)
 #   deploy/deploy.sh --web-only      # 仅前端:rsync web+.next,只重启 toiv-web(不碰 toiv-api,保护烟测)
 #   deploy/deploy.sh --rollback      # 回滚:恢复部署前快照(api/app + web/.next),重启并健康检查
-#   deploy/deploy.sh --with-canvas   # 追加画布件:rsync apps/canvas → core 构建(canvas-api-pg 二进制
+#   deploy/deploy.sh --with-canvas   # 追加画布件:rsync vendor/canvas → core 构建(canvas-api-pg 二进制
 #                                    # + /studio SPA dist)换装重启(M4-5 后 canvas 部署合一入口)
 #   deploy/deploy.sh --canvas-only   # 仅画布件(不动 toiv-api/toiv-web)
 #   deploy/deploy.sh --all           # S12 单部署链路:api + web + canvas 一条命令(等价 --with-canvas 全量)
@@ -22,7 +22,8 @@
 # 目录约定(2026-10-31 重排):
 #   本地 backend/api → 远端 ${REMOTE_DIR}/api
 #   本地 frontend/app → 远端 ${REMOTE_DIR}/apps/prime/web(远端构建路径不变,systemd/回滚契约保持)
-#   本地 apps/web / apps/canvas → 远端 web / apps/canvas(第 6 步归档前不动)
+#   本地 vendor/legacy-web / vendor/canvas → 远端 web / apps/canvas
+#   远端路径一律不变:systemd 单元与 --rollback 快照都按远端路径寻址
 #
 # -E:ERR trap 在函数内失败时也生效(用于部署失败时打印回滚提示)
 set -eEuo pipefail
@@ -71,8 +72,8 @@ dry_run() {
   echo "▶ [dry] 本地→远端映射:"
   echo "    backend/api/     → ${REMOTE_DIR}/api/"
   echo "    frontend/app/    → ${REMOTE_DIR}/apps/prime/web/"
-  echo "    apps/web/        → ${REMOTE_DIR}/web/"
-  echo "    apps/canvas/     → ${REMOTE_DIR}/apps/canvas/"
+  echo "    vendor/legacy-web/ → ${REMOTE_DIR}/web/"
+  echo "    vendor/canvas/   → ${REMOTE_DIR}/apps/canvas/"
   echo "    deploy/          → ${REMOTE_DIR}/deploy/"
 
   check_dir() {
@@ -85,16 +86,16 @@ dry_run() {
   }
 
   if [ "$WEB_ONLY" = true ]; then
-    check_dir apps/web
+    check_dir vendor/legacy-web
   elif [ "$CANVAS_ONLY" = true ]; then
-    check_dir apps/canvas
+    check_dir vendor/canvas
     [ "$PRIME" = true ] && check_dir frontend/app
   else
     check_dir backend/api
     check_dir deploy
-    if [ "$SKIP_WEB" != true ]; then check_dir apps/web; fi
+    if [ "$SKIP_WEB" != true ]; then check_dir vendor/legacy-web; fi
     if [ "$WITH_CANVAS" = true ]; then
-      check_dir apps/canvas
+      check_dir vendor/canvas
       [ "$PRIME" = true ] && check_dir frontend/app
     fi
   fi
@@ -103,10 +104,10 @@ dry_run() {
     echo "  ⚠ frontend/app/index.html 不存在(确认是否仍是 Vite 前端根)" >&2
   fi
   if [ "$SKIP_WEB" != true ] && [ "$WEB_ONLY" != true ] && [ "$CANVAS_ONLY" != true ]; then
-    if [ -f apps/web/.next/BUILD_ID ]; then
-      echo "  ✓ apps/web/.next/BUILD_ID=$(tr -d '\n\r' < apps/web/.next/BUILD_ID)"
+    if [ -f vendor/legacy-web/.next/BUILD_ID ]; then
+      echo "  ✓ vendor/legacy-web/.next/BUILD_ID=$(tr -d '\n\r' < vendor/legacy-web/.next/BUILD_ID)"
     else
-      echo "  ⚠ apps/web/.next 无构建产物:真跑部署会被拒(先 cd apps/web && npm run build,或加 --skip-web)" >&2
+      echo "  ⚠ vendor/legacy-web/.next 无构建产物:真跑部署会被拒(先 cd vendor/legacy-web && npm run build,或加 --skip-web)" >&2
     fi
   fi
 
@@ -246,17 +247,17 @@ if [ "$ROLLBACK" = true ]; then
 fi
 
 # ---------- 画布件(canvas)部署:M4-5 部署合一 ----------
-# 目标链:apps/canvas 源码 rsync → ${REMOTE_DIR}/apps/canvas → core 本机构建
+# 目标链:vendor/canvas 源码 rsync → ${REMOTE_DIR}/apps/canvas → core 本机构建
 #   · Go:   ~/sdk/go1.25.0 CGO 构建.canvas-api-pg.new,停服换装再启(运行中二进制 Text file busy)
 #   · Web:  node_modules 兜底(已有则沿用;缺则 bun install,无 bun 则硬链旧检出)后
 #           VITE_CANVAS_BACKEND_URL=/studio/api --base=/studio/ 生产口径出 dist → toiv-studio/dist
 #   · 插件: core 本机 build-packages.sh → toiv-studio/plugin-packages(canvas-api.env 指向此处)
 #   · 快照:.rollback-previous/canvas-{bin,dist,plugins,api.env}(与 api/web 快照同批,--rollback 一并恢复)
 deploy_canvas() {
-  echo "▶ [canvas] rsync apps/canvas → ${REMOTE}:${REMOTE_DIR}/apps/canvas …"
+  echo "▶ [canvas] rsync vendor/canvas → ${REMOTE}:${REMOTE_DIR}/apps/canvas …"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
     --exclude=node_modules --exclude='.git' --exclude=dist \
-    apps/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
+    vendor/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
   if [ "$PRIME" = true ]; then
     # 本地重排后源码在 frontend/app;远端构建路径 apps/prime/web 保持不变(systemd/回滚契约)
     echo "▶ [prime] rsync frontend/app → ${REMOTE}:${REMOTE_DIR}/apps/prime/web …"
@@ -382,12 +383,12 @@ fi
 
 
 # 拒脏/旧网页:本地 .next/BUILD_ID 不得含 -dirty,且 git 短 sha 须等于当前 HEAD。
-# 格式见 apps/web/next.config.mjs:YYYYMMDD-HHmmss-<git短sha>[-dirty]
+# 格式见 vendor/legacy-web/next.config.mjs:YYYYMMDD-HHmmss-<git短sha>[-dirty]
 # --skip-web 不走此检查(本来就不推 web)。
 # ALLOW_STALE_WEB=1 仅可绕过「sha≠HEAD」的旧构建警告;绝不绕过 -dirty(P-2,无 ALLOW_DIRTY_WEB)。
 assert_web_build_matches_head() {
   local build_id expected_sha build_sha gate
-  build_id="$(tr -d '\n\r' < apps/web/.next/BUILD_ID)"
+  build_id="$(tr -d '\n\r' < vendor/legacy-web/.next/BUILD_ID)"
   expected_sha="$(git rev-parse --short HEAD)"
   gate=(python3 "$ROOT/scripts/release/build_id_gate.py")
 
@@ -412,7 +413,7 @@ assert_web_build_matches_head() {
     echo "  注意:ALLOW_STALE_WEB 不能放行 -dirty(本函数已先过 dirty 闸)" >&2
     return 0
   fi
-  echo "✖ 本地 .next 是旧构建,请先 cd apps/web && npm run build" >&2
+  echo "✖ 本地 .next 是旧构建,请先 cd vendor/legacy-web && npm run build" >&2
   echo "  本地 BUILD_ID=$build_id" >&2
   echo "  期望 sha=$expected_sha" >&2
   return 1
@@ -425,11 +426,11 @@ if [ "$SKIP_WEB" = true ]; then
   # --skip-web 只部署后端:不推 web 源码/.next、不重启 toiv-web。
   # 2026-10-05 事故:旧逻辑本地有 .next 就照推,把旧构建盖掉了线上官网 v3。
   echo "⚠ --skip-web:不动前端(web 源码/.next/toiv-web 均保留远端现状)"
-elif [ -f apps/web/.next/BUILD_ID ]; then
+elif [ -f vendor/legacy-web/.next/BUILD_ID ]; then
   HAS_WEB_BUILD=true
 else
-  echo "✖ 本地无 apps/web/.next 构建产物,拒绝部署(避免上线没有前端的服务)" >&2
-  echo "  请先 cd apps/web && npm run build;确认要沿用远端旧前端时加 --skip-web" >&2
+  echo "✖ 本地无 vendor/legacy-web/.next 构建产物,拒绝部署(避免上线没有前端的服务)" >&2
+  echo "  请先 cd vendor/legacy-web && npm run build;确认要沿用远端旧前端时加 --skip-web" >&2
   exit 1
 fi
 
@@ -463,20 +464,20 @@ trap 'echo "✖ 部署失败。可执行 deploy/deploy.sh --rollback ${REMOTE} �
 
 if [ "$WEB_ONLY" = true ]; then
   if [ "$HAS_WEB_BUILD" != true ]; then
-    echo "✖ --web-only 需要本地 apps/web/.next 构建产物" >&2
-    echo "  请先 cd apps/web && npm run build" >&2
+    echo "✖ --web-only 需要本地 vendor/legacy-web/.next 构建产物" >&2
+    echo "  请先 cd vendor/legacy-web && npm run build" >&2
     exit 1
   fi
-  if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
-    echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
+  if grep -qE "(localhost|127\.0\.0\.1):8200" vendor/legacy-web/.next/routes-manifest.json 2>/dev/null; then
+    echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd vendor/legacy-web && npm run build" >&2
     exit 1
   fi
   echo "▶ rsync 前端源码 → ${REMOTE}(不碰 api)…"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-    apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
+    vendor/legacy-web/ "${REMOTE}:${REMOTE_DIR}/web/"
   echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
-    apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
+    vendor/legacy-web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
   echo "  web+.next 完成"
   echo "▶ 仅重启 toiv-web(保留 toiv-api / 烟测)…"
   remote_restart toiv-web
@@ -491,7 +492,7 @@ else
     backend/api/ "${REMOTE}:${REMOTE_DIR}/api/"
   if [ "$SKIP_WEB" != true ]; then
     rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-      apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"
+      vendor/legacy-web/ "${REMOTE}:${REMOTE_DIR}/web/"
   fi
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
     deploy/ "${REMOTE}:${REMOTE_DIR}/deploy/"
@@ -501,13 +502,13 @@ else
     # 防呆:部署构建必须是不带 INTERNAL_API_BASE 的(默认烘焙 localhost:8090)。
     # 本地验证用的 8200 构建若误部署,core 上 /api 代理全 500(2026-08-07 批3 事故)。
     # 两种写法都要拦:localhost:8200 与 127.0.0.1:8200(2026-08-10 .env.local 用后者,漏检过一次)
-    if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
-      echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
+    if grep -qE "(localhost|127\.0\.0\.1):8200" vendor/legacy-web/.next/routes-manifest.json 2>/dev/null; then
+      echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd vendor/legacy-web && npm run build" >&2
       exit 1
     fi
     echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
     rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
-      apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
+      vendor/legacy-web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
     echo "  .next 完成"
   fi
 

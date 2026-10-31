@@ -56,7 +56,7 @@ uv run pytest                 # 跑测试
 ### 1.2 前端
 
 ```bash
-cd apps/web
+cd vendor/legacy-web
 cp .env.local.example .env.local
 npm install
 npm run dev                   # http://localhost:3100
@@ -240,7 +240,7 @@ npm run dev                   # http://localhost:3100
 - 说明书: 选应用编辑字段后 admin PUT
 - 实测矩阵: 占位(L0 本地 550/550;L2 待接入),暂不读远程
 
-**实现入口**: `backend/api/app/routes/app_guides.py`、`apps/web/components/admin/App*AdminView.tsx`。
+**实现入口**: `backend/api/app/routes/app_guides.py`、`vendor/legacy-web/components/admin/App*AdminView.tsx`。
 
 
 ---
@@ -298,7 +298,7 @@ npm run dev                   # http://localhost:3100
 cd /Users/wangzhenyu/Desktop/ALLProject/ToIV
 
 # 前端构建(必须干净重建,防 P-2 陈旧构建)
-cd apps/web
+cd vendor/legacy-web
 rm -rf .next
 npm run build
 cat .next/BUILD_ID  # 确认 BUILD_ID 是当次代码的新构建
@@ -581,18 +581,20 @@ git ls-files | xargs ls -l 2>/dev/null | awk '$5>50*1024*1024{print $5, $9}'
 
 ## 9. 仓库结构与命名规范
 
-> 2026-08-27 系统性重组定版。2026-10-15 清理定版。新增文件/目录必须按下表归位，禁止在根目录与 `apps/*` 根新增松散脚本；工作暂存写 `tmp/`（已 ignore）用完即删。
+> 2026-08-27 系统性重组定版。2026-10-15 清理定版。新增文件/目录必须按下表归位，禁止在根目录与 `frontend/*`/`vendor/*` 根新增松散脚本；工作暂存写 `tmp/`（已 ignore）用完即删。
 
 ### 9.1 顶层布局
 
 ```
 ToIV/
-├── apps/                 # 全部应用(标准 monorepo 边界)
-│   ├── api/              # FastAPI 后端(app/、tests/、migrations/)
-│   ├── web/              # Next.js 主站+studio(:3100)
-│   ├── admin/            # Next.js 管理台(:3200)
-│   └── canvas/           # 画布(Go backend + Vite web;自带 AGENTS.md/CI)
-├── MiniProgram/          # 唯一移动端(uni-app;半自治,自带五件套)
+├── backend/api/          # FastAPI 后端(app/、tests/、migrations/)
+├── frontend/
+│   ├── app/              # Prime 创作壳(React+Vite;远端 apps/prime/web)
+│   └── admin/            # Next.js 管理台(:3200)
+├── vendor/               # 冻结件:已归档,不再演进
+│   ├── canvas/           # 画布(Go backend + Vite web;自带 AGENTS.md/CI)
+│   ├── legacy-web/       # 旧 Next.js 主站+studio(:3100;切流后退役)
+│   └── mobile/           # 唯一移动端(uni-app;半自治,自带五件套)
 ├── deploy/               # 部署/infra/微服务(见 9.2)
 ├── scripts/              # 仓库级脚本 e2e|eval|h3|ops|bench(见 9.3)
 ├── docs/                 # 产品与 ops 文档(ops/ 焦点计划)
@@ -612,7 +614,7 @@ ToIV/
 **边界规则**:
 - `opentalking` 等第三方独立项目**禁止 vendor 进仓**,以兄弟目录常驻(`../opentalking`),代码仅经 URL 引用(`.gitignore` 有防回潮守卫)。
 - 运行时产物(`*.db`、`drama/output/`、`.coverage`、`test-results*/`)一律不入仓。
-- `apps/web` 包管理器唯一 **npm**(package-lock.json);pnpm 文件已清除,禁止重新引入。
+- `vendor/legacy-web` 包管理器唯一 **npm**(package-lock.json);pnpm 文件已清除,禁止重新引入。
 
 ### 9.2 deploy/ 内部约定(生产路径引用,移动前必须查引用)
 
@@ -638,7 +640,7 @@ ToIV/
 
 - 目录全小写,多词用连字符(`motion-brush`)或下划线(服务源码沿用 `snake_case`,新目录优先连字符)。
 - 脚本名带职能前缀:e2e 检查 `e2e_*_check.py`,评估 `*_eval.py`,一次性调试脚本**不入仓**(本地用完即删)。
-- 子项目 MiniProgram 自治:自维护文档与测试,顶层文档不重复其内容。Expo Mobile 已归档,禁止再加第二套移动端。
+- 子项目 `vendor/mobile`(uni-app)自治:自维护文档与测试,顶层文档不重复其内容。Expo Mobile 已归档,禁止再加第二套移动端。
 
 ---
 

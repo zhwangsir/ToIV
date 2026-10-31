@@ -25,8 +25,9 @@ AI 短剧和画布。公网入口是 [toiv.wineryz.top](https://toiv.wineryz.top
 ## 工程结构
 
 ```
-apps/          api · web · admin · canvas   # 应用主体
-MiniProgram/   uni-app 唯一移动端（半自治）
+frontend/      app（Prime 创作壳）· admin（管理台）
+backend/       api（FastAPI）
+vendor/        canvas（画布冻结件）· legacy-web（旧 Next 主站）· mobile（uni-app 唯一移动端）
 deploy/        部署脚本 / infra / 微服务
 scripts/       e2e · eval · h3 · ops · bench
 docs/          仅 README 索引 + 非 md 数据账本
@@ -48,6 +49,6 @@ third_party/   融合源工作树（不入仓业务）
 | [`docs/README.md`](docs/README.md) | docs 唯一 md：归档索引与数据清单 |
 
 历史方案文已迁：`/Users/wangzhenyu/Desktop/ALLProject/.archive/toiv-docs-20261026/`。  
-`apps/canvas/AGENTS.md`：画布约定（vendored 子树，不计入根五件套）。
+`vendor/canvas/AGENTS.md`：画布约定（vendored 冻结子树，不计入根五件套）。
 
 本地开发命令以 AGENTS.md §〇b / DEVELOPMENT.md 为准。模型与 `tmp/` 试片不要提交。

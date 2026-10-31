@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""从 apps/web/app/globals.css :root 真源重新生成 docs/DESIGN.md 的 token frontmatter。
+"""从 vendor/legacy-web/app/globals.css :root 真源重新生成 docs/DESIGN.md 的 token frontmatter。
 
 用法:python3 scripts/gen_design_md.py
 真源=globals.css;本脚本只重写 DESIGN.md 的 YAML 头(首个 --- 到第二个 ---),
-正文(契约 prose)保持原样。防漂移由 apps/web/tests/designTokens.test.ts 校验。
+正文(契约 prose)保持原样。防漂移由 vendor/legacy-web/tests/designTokens.test.ts 校验。
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CSS = ROOT / "apps/web/app/globals.css"
+CSS = ROOT / "vendor/legacy-web/app/globals.css"
 DESIGN = ROOT / "docs/DESIGN.md"
 
 
@@ -34,7 +34,7 @@ def build_frontmatter(tokens: list[tuple[str, str]]) -> str:
     lines = [
         "---",
         "name: ToIV Web",
-        "# 由 scripts/gen_design_md.py 从 apps/web/app/globals.css :root 生成;勿手改 token 值",
+        "# 由 scripts/gen_design_md.py 从 vendor/legacy-web/app/globals.css :root 生成;勿手改 token 值",
         "tokens:",
     ]
     for g in order:

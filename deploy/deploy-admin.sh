@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 部署独立管理系统(apps/admin → core :3200,systemd toiv-admin)。
+# 部署独立管理系统(frontend/admin → core :3200,systemd toiv-admin)。
 # 用法: bash deploy/deploy-admin.sh [REMOTE]
 #
 # 现行口径(2026-09-22 固化,D7):一律 core 本机构建——
@@ -20,7 +20,7 @@ cd "$ROOT"
 echo "▶ rsync 管理系统源码 → ${REMOTE}:${REMOTE_DIR}/admin/ …"
 rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
   --exclude=node_modules --exclude=.next --exclude=.git --exclude='*.env*' \
-  apps/admin/ "${REMOTE}:${REMOTE_DIR}/admin/"
+  frontend/admin/ "${REMOTE}:${REMOTE_DIR}/admin/"
 
 echo "▶ core 全量依赖安装(依赖未变时秒回)…"
 ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd ${REMOTE_DIR}/admin && PATH=/usr/share/nodejs/corepack/shims:\$PATH npm install --no-audit --no-fund 2>&1 | tail -1"
