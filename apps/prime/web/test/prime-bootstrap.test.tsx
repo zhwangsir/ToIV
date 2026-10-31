@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { I18nProvider } from "../src/i18n/context.tsx";
@@ -9,16 +9,6 @@ const store = new Map<string, string>();
     setItem: (key: string, value: string) => { store.set(key, value); },
     removeItem: (key: string) => { store.delete(key); },
 };
-
-mock.module("../src/toiv/adapters/projects", () => ({
-    loadPrimeProjects: async () => ({
-        cards: [
-            { id: "p1", title: "草船借箭", source: "studio", status: "active", shotCount: 6 },
-            { id: "c1", title: "画布甲", source: "canvas", status: "canvas", shotCount: 0 },
-        ],
-        degraded: "none",
-    }),
-}));
 
 const { default: ProjectHome } = await import("../src/toiv/addons/ProjectHome");
 const { PRIME_ROUTES } = await import("../src/toiv/bootstrap");
@@ -44,6 +34,23 @@ describe("prime project home", () => {
     });
 });
 
+describe("prime workbar", () => {
+    test("does not label an unknown task count as running or zero", async () => {
+        const { ToivWorkbar } = await import("../src/toiv/addons/ToivWorkbar");
+        const html = renderToStaticMarkup(<ToivWorkbar face="pipeline" onFaceChange={() => {}} onOpenTasks={() => {}} />);
+        expect(html).toContain("任务中心");
+        expect(html).not.toContain("运行中");
+    });
+    for (const name of ["PrimeCreate", "PrimeStoryboard", "PrimeHistory", "PrimeEditor", "PrimeCanvas", "PrimeAssets", "PrimeStyle"]) {
+        test(`${name} does not invent a running count before data arrives`, async () => {
+            const { default: Page } = await import(`../src/toiv/pages/${name}`);
+            const html = renderToStaticMarkup(<MemoryRouter><I18nProvider><Page /></I18nProvider></MemoryRouter>);
+            expect(html).not.toContain("0 运行中");
+            expect(html).not.toContain("0 渲染中");
+        });
+    }
+});
+
 describe("prime session", () => {
     beforeEach(() => store.clear());
     test("stores the token under both keys", () => {
@@ -57,8 +64,10 @@ describe("prime session", () => {
     test("redirects to /auth without a session", () => {
         expect(renderToStaticMarkup(<MemoryRouter><RequireSession><p>secret</p></RequireSession></MemoryRouter>)).toBe("");
     });
-    test("renders children with a session", () => {
+    test("does not reveal protected children before the stored session is verified", () => {
         storeToken("jwt-x");
-        expect(renderToStaticMarkup(<RequireSession><p>secret</p></RequireSession>)).toContain("secret");
+        const html = renderToStaticMarkup(<MemoryRouter><RequireSession><p>secret</p></RequireSession></MemoryRouter>);
+        expect(html).not.toContain("secret");
+        expect(html).toContain('role="status"');
     });
 });

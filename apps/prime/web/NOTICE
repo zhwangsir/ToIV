@@ -1,5 +1,6 @@
 printfilm (https://github.com/yi1108/printfilm)
-MIT License — Copyright (c) yi1108/printfilm contributors
+MIT License — Copyright (c) 2026 PRINTFILM
+Full upstream license distributed in public/printfilm-LICENSE.txt.
 Vendored commit: 62f8d95d7ee6a5af9543351040e6183e9dcbbe65
 Vendored tree: src/ (frozen, see test/prime-vendor.manifest.json)
 Bootstrap allowlist (entry swap only): index.html, src/main.tsx

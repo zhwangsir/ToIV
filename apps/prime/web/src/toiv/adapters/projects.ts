@@ -8,7 +8,7 @@ export type PrimeProjectCard = {
 
 export type PrimeProjectsModel = {
     cards: PrimeProjectCard[];
-    degraded: "none" | "studio" | "canvas";
+    degraded: "none" | "studio" | "canvas" | "both";
 };
 
 function authHeaders(): HeadersInit {
@@ -31,10 +31,11 @@ async function fetchStudioProjects(): Promise<PrimeProjectCard[]> {
 }
 
 async function fetchCanvasProjects(): Promise<PrimeProjectCard[]> {
-    const res = await fetch("/studio/api/canvas-projects", { credentials: "include" });
+    const res = await fetch("/studio/api/canvas-projects", { credentials: "include", headers: authHeaders() });
     if (!res.ok) throw new Error(`canvas projects ${res.status}`);
     const body = await res.json();
-    return (body.projects ?? []).map((project: { id: string; title?: string }) => ({
+    if (body.code !== 0 || !Array.isArray(body.data?.projects)) throw new Error("画布项目响应异常");
+    return body.data.projects.map((project: { id: string; title?: string }) => ({
         id: project.id,
         title: project.title || project.id,
         source: "canvas" as const,
@@ -50,6 +51,7 @@ export async function loadPrimeProjects(): Promise<PrimeProjectsModel> {
         ...(canvas.status === "fulfilled" ? canvas.value : []),
     ];
     const degraded: PrimeProjectsModel["degraded"] =
-        studio.status === "rejected" ? "studio" : canvas.status === "rejected" ? "canvas" : "none";
+        studio.status === "rejected" && canvas.status === "rejected" ? "both"
+            : studio.status === "rejected" ? "studio" : canvas.status === "rejected" ? "canvas" : "none";
     return { cards, degraded };
 }

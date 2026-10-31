@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "../../components/ui/Button";
+import Modal from "../../components/ui/Modal";
 import {
     applyPrimeRecipeToShot,
     exportPrimeRecipeBundle,
@@ -23,33 +24,57 @@ function download(fileName: string, text: string) {
 export function PrimeImportDialog({ open, onClose, onInstall }: {
     open: boolean;
     onClose: () => void;
-    onInstall: (payload: unknown) => void;
+    onInstall: (payload: unknown) => Promise<void>;
 }) {
     const [text, setText] = useState("");
-    if (!open) return null;
+    const [pending, setPending] = useState(false);
+    const [failure, setFailure] = useState("");
+    const submitting = useRef(false);
+    const input = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const previous = document.activeElement as HTMLElement | null;
+        const panel = input.current?.closest<HTMLElement>('[role="dialog"]');
+        input.current?.focus();
+        const trap = (event: KeyboardEvent) => {
+            if (event.key !== "Tab" || !panel) return;
+            const controls = [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')];
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (!first) { event.preventDefault(); panel.tabIndex = -1; panel.focus(); return; }
+            if (!panel.contains(document.activeElement) || (!event.shiftKey && document.activeElement === last)) {
+                event.preventDefault(); first.focus();
+            } else if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault(); last?.focus();
+            }
+        };
+        document.addEventListener("keydown", trap);
+        return () => { document.removeEventListener("keydown", trap); if (previous?.isConnected) previous.focus(); };
+    }, [open]);
     const parsed = text.trim() ? parsePrimeRecipeImport(text) : null;
     const error = parsed && "error" in parsed ? parsed.error : null;
+    const install = async () => {
+        if (submitting.current || !parsed || "error" in parsed) return;
+        submitting.current = true;
+        setPending(true);
+        setFailure("");
+        try {
+            await onInstall(parsed.payload);
+            setText("");
+            onClose();
+        } catch {
+            setFailure("安装失败，已保留配方内容，请重试。");
+        } finally { submitting.current = false; setPending(false); }
+    };
     return (
-        <div className="toiv-scrim" onClick={onClose} onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
-            <div className="toiv-dialog" role="dialog" aria-modal="true" aria-label="安装配方" onClick={(event) => event.stopPropagation()}>
-                <header>
-                    <b>安装配方</b><span className="meta">{PRIME_RECIPE_SCHEMA}</span>
-                    <button type="button" className="toiv-dialog-x" onClick={onClose} aria-label="关闭安装配方">×</button>
-                </header>
-                <p className="hint">粘贴从别的机器导出的配方 JSON。格式不符一律拒绝，不落半成品。</p>
-                <textarea aria-label="配方 JSON" rows={10} value={text} onChange={(event) => setText(event.target.value)} />
-                {error ? <p className="err" role="alert">{error}</p> : null}
-                <footer>
-                    <Button variant="ghost" onClick={onClose}>取消</Button>
-                    <Button variant="lime" disabled={!parsed || Boolean(error)}
-                        onClick={() => {
-                            if (!parsed || "error" in parsed) return;
-                            onInstall(parsed.payload);
-                            setText("");
-                        }}>安装</Button>
-                </footer>
-            </div>
-        </div>
+        <Modal open={open} onClose={onClose} dismissible={!pending} title="安装配方" footer={<>
+            <Button variant="ghost" disabled={pending} onClick={onClose}>取消</Button>
+            <Button variant="lime" disabled={pending || !parsed || Boolean(error)} onClick={() => { void install(); }}>{pending ? "正在安装…" : "安装"}</Button>
+        </>}>
+            <p className="pf-muted">粘贴导出的配方 JSON · {PRIME_RECIPE_SCHEMA}</p>
+            <textarea ref={input} className="pf-input" aria-label="配方 JSON" rows={10} value={text} disabled={pending} onChange={event => { setText(event.target.value); setFailure(""); }} />
+            {error || failure ? <p role="alert">{error || failure}</p> : null}
+        </Modal>
     );
 }
 
@@ -118,12 +143,10 @@ export function RecipePanelPrime({ shotId, onNotice }: { shotId?: string; onNoti
                 </article>
             ))}
             <PrimeImportDialog open={importOpen} onClose={() => setImportOpen(false)}
-                onInstall={(payload) => {
-                    setImportOpen(false);
-                    void installPrimeRecipe(payload).then((card) => {
-                        setRecipes((prev) => [card, ...prev]);
-                        onNotice(`配方已安装 · ${card.name}`);
-                    }).catch(() => onNotice("安装失败 · 服务端校验未过", true));
+                onInstall={async (payload) => {
+                    const card = await installPrimeRecipe(payload);
+                    setRecipes(prev => [card, ...prev]);
+                    onNotice(`配方已安装 · ${card.name}`);
                 }} />
         </div>
     );

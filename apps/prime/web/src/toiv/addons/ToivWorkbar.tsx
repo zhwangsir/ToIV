@@ -10,10 +10,11 @@ const FACES: { key: PrimeFace; label: string }[] = [
 
 export function ToivWorkbar({ face, runningCount, onFaceChange, onOpenTasks }: {
     face: PrimeFace;
-    runningCount: number;
+    runningCount?: number;
     onFaceChange: (face: PrimeFace) => void;
     onOpenTasks: () => void;
 }) {
+    const running = (runningCount ?? 0) > 0;
     return (
         <div className="toiv-workbar" role="toolbar" aria-label="ToIV 工作面">
             <span className="toiv-workbar-faces" role="group" aria-label="工作面">
@@ -24,9 +25,9 @@ export function ToivWorkbar({ face, runningCount, onFaceChange, onOpenTasks }: {
                     </Button>
                 ))}
             </span>
-            <button type="button" className="toiv-task-capsule" onClick={onOpenTasks} aria-label="打开任务中心">
-                <span className={`dot${runningCount > 0 ? " run" : ""}`} />{runningCount} 运行中
-            </button>
+            <Button size="sm" variant="outline" className="toiv-task-capsule" onClick={onOpenTasks} aria-label="打开任务中心">
+                {running ? <span className="dot run" /> : null}{running ? `${runningCount} 运行中` : "任务中心"}
+            </Button>
         </div>
     );
 }

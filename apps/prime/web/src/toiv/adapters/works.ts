@@ -1,45 +1,61 @@
+import { primeMediaKind, type PrimeMediaKind } from "./media";
+
 export type PrimeWorkCard = {
     id: string;
     title: string;
     kind: string;
-    status: "done" | "run" | "fail" | "wait";
+    status: "done" | "run" | "fail" | "wait" | "canceled";
     createdAt: string;
     media?: string;
+    mediaKind?: PrimeMediaKind;
 };
 
-function authHeaders(): HeadersInit {
+export function primeJobHeaders(): HeadersInit {
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("toiv_token") : null;
     return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function statusOf(raw: string): PrimeWorkCard["status"] {
+export function primeJobStatus(raw: string): PrimeWorkCard["status"] {
     if (raw === "done" || raw === "succeeded" || raw === "success") return "done";
     if (raw === "running" || raw === "rendering" || raw === "processing") return "run";
     if (raw === "failed" || raw === "error") return "fail";
+    if (raw === "canceled") return "canceled";
     return "wait";
 }
 
 type RawJob = {
-    id?: string;
-    title?: string;
+    id: string;
     kind?: string;
-    type?: string;
     status?: string;
     created_at?: string;
-    results?: { url?: string; path?: string }[];
+    results?: string[];
+    progress?: { pct?: number | null };
 };
 
-export async function loadPrimeWorks(): Promise<PrimeWorkCard[]> {
-    const res = await fetch("/api/jobs?limit=100", { headers: authHeaders() });
+// Both history and task center consume GET /api/jobs, not Studio or canvas tasks.
+export async function loadPrimeJobs(limit: number, signal?: AbortSignal): Promise<RawJob[]> {
+    const res = await fetch(`/api/jobs?limit=${limit}`, { headers: primeJobHeaders(), signal });
     if (!res.ok) throw new Error(`jobs ${res.status}`);
-    const body = (await res.json()) as { jobs?: RawJob[] } | RawJob[];
-    const list = Array.isArray(body) ? body : (body.jobs ?? []);
-    return list.map((job) => ({
-        id: job.id ?? "",
-        title: job.title ?? job.kind ?? job.type ?? job.id ?? "未命名产物",
-        kind: job.kind ?? job.type ?? "—",
-        status: statusOf(job.status ?? ""),
-        createdAt: (job.created_at ?? "").slice(0, 10),
-        media: job.results?.[0]?.url ?? job.results?.[0]?.path,
-    }));
+    const body: unknown = await res.json();
+    if (!Array.isArray(body) || body.some(job => !job || typeof job.id !== "string" || !job.id.trim())) {
+        throw new Error("Invalid jobs response");
+    }
+    return body;
+}
+
+export async function loadPrimeWorks(signal?: AbortSignal): Promise<PrimeWorkCard[]> {
+    const list = await loadPrimeJobs(100, signal);
+    return list.map((job) => {
+        // Persisted results are string URLs; malformed entries are not an object compatibility API.
+        const media = Array.isArray(job.results) ? job.results.find(result => primeMediaKind(result)) : undefined;
+        return {
+            id: job.id,
+            title: job.kind || job.id,
+            kind: job.kind || "—",
+            status: primeJobStatus(job.status ?? ""),
+            createdAt: (job.created_at ?? "").slice(0, 10),
+            media,
+            mediaKind: primeMediaKind(media),
+        };
+    });
 }

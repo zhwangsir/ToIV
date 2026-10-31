@@ -1,22 +1,28 @@
-:root {
-    --pf-lime: oklch(0.68 0.11 205);
-    --pf-lime-soft: oklch(0.68 0.11 205 / 0.14);
-    --accent: var(--pf-lime);
-}
-
-.toiv-workbar { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
-.toiv-workbar-faces { display: flex; gap: 6px; }
-.toiv-task-capsule { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; border: 1px solid var(--pf-line); border-radius: 999px; padding: 6px 14px; background: var(--pf-card); color: var(--pf-ink); font-size: 13px; }
+.toiv-workbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; }
+.toiv-workbar-faces { display: flex; flex-wrap: wrap; gap: 6px; }
+.toiv-task-capsule { display: inline-flex; flex-shrink: 0; white-space: nowrap; align-items: center; gap: 8px; margin-left: auto; border: 1px solid var(--pf-line); border-radius: 999px; padding: 6px 14px; background: var(--pf-card); color: var(--pf-ink); font-size: 13px; }
 .toiv-task-capsule .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pf-muted); }
 .toiv-task-capsule .dot.run { background: var(--pf-lime); }
 
 .toiv-home { display: flex; flex-direction: column; gap: 16px; }
-.toiv-home-bar { display: flex; align-items: center; gap: 12px; }
-.toiv-home-bar h2 { font-size: 20px; }
-.toiv-home-bar .meta { color: var(--pf-muted); font-size: 13px; }
-.toiv-home-bar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-.toiv-home-bar input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 8px 12px; background: var(--pf-card); color: var(--pf-ink); }
-.toiv-degraded { color: oklch(0.55 0.12 70); font-size: 13px; }
+.toiv-home .toiv-workbar { flex-wrap: wrap; justify-content: space-between; }
+/* History rows without unsupported batch selection or output-ratio metadata. */
+.toiv-home .pf-project-card { grid-template-columns: 168px minmax(0, 1fr) auto; }
+.toiv-home .pf-project-info { min-width: 0; overflow-wrap: anywhere; }
+.toiv-home .pf-project-actions { max-width: 240px; }
+.toiv-home .toiv-degraded { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); background: var(--pf-card); color: var(--pf-ink); }
+.toiv-home .toiv-degraded p { flex: 1; margin: 0; }
+.toiv-home .pf-search-field:focus-within,
+.toiv-shell .pf-nav :is(a, button):focus-visible,
+.toiv-home :is(a, button):focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 3px; }
+.toiv-home .pf-project-thumb:focus-visible { outline-offset: -3px; }
+.toiv-shell .pf-nav-drawer { max-height: calc(100dvh - var(--pf-nav-h)); overflow-y: auto; }
+@media (max-width: 700px) {
+    .toiv-home .pf-project-card { grid-template-columns: minmax(0, 1fr); }
+    .toiv-home .pf-project-actions { max-width: none; }
+    .toiv-home .pf-history-filter-right, .toiv-home .pf-search-field { width: 100%; min-width: 0; }
+    .toiv-home .pf-search-field input { min-width: 0; }
+}
 .toiv-empty { border: 1px dashed var(--pf-line); border-radius: var(--pf-radius); padding: 40px; text-align: center; color: var(--pf-muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .toiv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .toiv-card { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--pf-shadow); }
@@ -47,11 +53,12 @@
 .toiv-wip { padding: 80px 0; text-align: center; }
 
 .toiv-lockup { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: 0.02em; color: var(--pf-ink); text-decoration: none; }
-.toiv-lockup .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--pf-lime); color: var(--pf-card); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.toiv-lockup .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--pf-lime); color: var(--pf-ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
 
 .toiv-shots { display: flex; flex-direction: column; gap: 14px; }
-.toiv-shots-bar { display: flex; align-items: baseline; gap: 12px; }
-.toiv-shots-bar h2 { font-size: 20px; }
+.toiv-shots-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.toiv-shots-bar h2 { font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+.toiv-shots-refresh { margin-left: auto; }
 .toiv-shots-bar .meta { color: var(--pf-muted); font-size: 13px; }
 .toiv-saved { color: oklch(0.5 0.06 200); font-size: 13px; }
 .toiv-shot { border: 1px solid var(--pf-line); border-radius: var(--pf-radius); background: var(--pf-card); padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--pf-shadow); }
@@ -59,11 +66,12 @@
 .toiv-shot .meta { color: var(--pf-muted); font-size: 12px; }
 .toiv-shot .flag { margin-left: auto; font-size: 11px; border-radius: 999px; padding: 2px 10px; background: var(--pf-lime-soft); color: var(--pf-ink); }
 .toiv-shot .flag-run { background: oklch(0.78 0.15 75 / 0.2); }
-.toiv-beats { display: flex; flex-wrap: wrap; gap: 6px; }
-.toiv-beats .beat { font-size: 12px; border-radius: 8px; padding: 3px 8px; background: var(--pf-bg); color: var(--pf-muted); border: 1px solid var(--pf-line); }
-.toiv-beats .beat.k-v { background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-beats { display: flex; flex-direction: column; gap: 10px; }
 .toiv-prompt { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--pf-muted); }
-.toiv-prompt textarea { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px; background: var(--pf-bg); color: var(--pf-ink); font-size: 13px; }
+.toiv-prompt textarea,
+.toiv-prompt input { width: 100%; box-sizing: border-box; min-height: 42px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px; background: var(--pf-bg); color: var(--pf-ink); font: inherit; font-size: 13px; }
+.toiv-prompt textarea { resize: vertical; }
+.toiv-prompt :is(textarea, input):focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 2px; }
 .toiv-takes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toiv-take { border: 1px solid var(--pf-line); border-radius: 999px; padding: 5px 12px; background: var(--pf-card); color: var(--pf-ink); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
 .toiv-take[aria-pressed="true"] { background: var(--pf-lime); color: var(--pf-card); border-color: var(--pf-lime); }
