@@ -199,11 +199,18 @@ test("face switch still routes to the canvas group", async () => {
     await at("/drama");
 });
 
+test("the primary navigation offers exactly the five first-class entries", async () => {
+    await sources();
+    await visit();
+    const nav = page.getByRole("navigation", { name: "主导航", exact: true });
+    expect(await nav.getByRole("link").allTextContents()).toEqual(["项目", "画布", "资产", "任务", "设置"]);
+});
+
 for (const [path, current] of [
     ["/", "项目"], ["/studio/s1", "项目"], ["/studio/s1/editor", "项目"],
     ["/drama", "画布"], ["/drama/projects/s1/canvas", "画布"],
     ["/drama/assets", "资产"], ["/drama/projects/s1/assets", "资产"],
-    ["/history", "作品与任务"], ["/tools/image", "工具"], ["/settings", "设置"],
+    ["/history", "任务"], ["/settings", "设置"],
 ]) {
     test(`navigation marks only ${current} active at ${path}`, async () => {
         await sources();
@@ -211,10 +218,15 @@ for (const [path, current] of [
         const nav = page.getByRole("navigation", { name: "主导航", exact: true });
         expect(await nav.locator(".active").allTextContents()).toEqual([current]);
         expect(await nav.locator('[aria-current="page"]').allTextContents()).toEqual([current]);
-        expect(await nav.innerText()).toContain("作品与任务");
-        expect(await nav.innerText()).toContain("资产");
     });
 }
+
+test("retired tool routes are not part of the first-class navigation", async () => {
+    await sources();
+    await visit("/tools/image");
+    const nav = page.getByRole("navigation", { name: "主导航", exact: true });
+    expect(await nav.locator(".active").count()).toBe(0);
+});
 
 for (const width of [390, 768, 1100]) {
     test(`mobile navigation is keyboard operable at ${width}px`, async () => {

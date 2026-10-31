@@ -15,7 +15,7 @@ const PrimeStyle = lazy(() => import("./pages/PrimeStyle"));
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
     "/drama", "/drama/assets", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
-    "/history", "/settings", "/tools", "/tools/:id", "/auth", "/legacy/canvas/:id",
+    "/history", "/settings", "/auth", "/legacy/canvas/:id",
 ];
 
 function LegacyCanvas() {
@@ -57,8 +57,6 @@ export default function ToivBootstrap() {
                 <Route path="/assets" element={<Navigate to="/drama/assets" replace />} />
                 <Route path="/history" element={<RequireSession><PrimeHistory /></RequireSession>} />
                 <Route path="/settings" element={<RequireSession><LegacyHandoff title="设置" href="/settings" note="模型/渠道设置面将在后续波次原生化。" /></RequireSession>} />
-                <Route path="/tools" element={<RequireSession><LegacyHandoff title="工具中心" href="/toiv/market" note="工具市场面将在后续波次原生化。" /></RequireSession>} />
-                <Route path="/tools/:id" element={<RequireSession><LegacyHandoff title="工具中心" href="/toiv/market" note="工具详情面将在后续波次原生化。" /></RequireSession>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>

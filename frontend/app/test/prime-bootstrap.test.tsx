@@ -19,6 +19,8 @@ describe("prime bootstrap routes", () => {
         expect(PRIME_ROUTES).toContain("/studio/:id/editor");
         expect(PRIME_ROUTES).toContain("/drama");
         expect(PRIME_ROUTES).toContain("/history");
+        expect(PRIME_ROUTES).toContain("/settings");
+        expect(PRIME_ROUTES).not.toContain("/tools");
         expect(PRIME_ROUTES).not.toContain("/pricing");
     });
 });

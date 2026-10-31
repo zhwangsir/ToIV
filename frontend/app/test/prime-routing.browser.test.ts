@@ -48,6 +48,14 @@ test("unavailable legacy pages do not redirect into the same SPA", async () => {
     expect(await page.getByRole("button", { name: "打开旧版设置", exact: true }).isEnabled()).toBe(false);
 }, 30_000);
 
+test("retired tool routes fall back to the project home", async () => {
+    for (const path of ["/preview/tools", "/preview/tools/image"]) {
+        await page.goto(`${origin}${path}`);
+        await page.getByLabel("搜索项目").waitFor();
+        expect(new URL(page.url()).pathname).toBe("/preview/");
+    }
+}, 30_000);
+
 test("an expired stored session cannot render a protected project", async () => {
     await page.route("**/api/auth/me", route => route.fulfill({ status: 401, json: { detail: "expired" } }));
     await page.goto(`${origin}/preview/studio/p1`);
