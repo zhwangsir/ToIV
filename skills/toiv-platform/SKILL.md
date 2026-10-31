@@ -6,7 +6,7 @@ description: |
 
 # ToIV 平台使用手册（AI 产品侧）
 
-给 AI 助手的操作手册：如何以程序化方式驱动 ToIV 的创作能力。真源=本仓代码（`apps/api/app/routes/studio.py`、`drama_scenes.py`、`app/services/svml_lite.py`、`svml_timeline.py`）；本文标注核验日期 2026-10-16，端点语义与代码冲突时以代码为准。运维/SSH/部署见 `toiv-cluster` skill。
+给 AI 助手的操作手册：如何以程序化方式驱动 ToIV 的创作能力。真源=本仓代码（`backend/api/app/routes/studio.py`、`drama_scenes.py`、`app/services/svml_lite.py`、`svml_timeline.py`）；本文标注核验日期 2026-10-16，端点语义与代码冲突时以代码为准。运维/SSH/部署见 `toiv-cluster` skill。
 
 ## 0. 心智模型（先读）
 

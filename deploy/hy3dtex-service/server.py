@@ -3,7 +3,7 @@
 core 的 POST /api/3d/texture 把白模 GLB(+可选参考图/风格文本) multipart 发到
 这里,本服务执行多视图扩散 + RealESRGAN 增强 + PBR 烘焙,回传带贴图的新 GLB。
 
-契约(与 apps/api/app/routes/threed_texture.py 对齐):
+契约(与 backend/api/app/routes/threed_texture.py 对齐):
   POST /texture  multipart: file=GLB(必传) / image=参考图(可选)
                  form: texture_size(1024-4096,默认 2048) / prompt(风格文本,可选)
   200 → GLB 字节(model/gltf-binary);4xx 输入非法;5xx 管线失败

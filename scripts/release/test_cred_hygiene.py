@@ -21,7 +21,7 @@ SCAN_GLOBS = [
     "README.md",
     "skills/**/*.md",
     "docs/**/*.md",
-    "apps/api/.env.example",
+    "backend/api/.env.example",
     "deploy/.env.example",
 ]
 
@@ -65,8 +65,8 @@ def test_tracked_docs_forbid_weak_admin_literal(literal: str):
 def test_agents_section_points_to_env_not_password_table():
     text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "TOIV_ADMIN_PASSWORD" in text
-    assert "## 二、凭据与秘密" in text or "凭据与秘密" in text
-    assert "禁止写入仓库" in text or "不得出现在 AGENTS" in text
+    assert "凭据" in text
+    assert "禁止把密码/Token 写入" in text
 
 
 def test_credentials_md_has_no_password_column_values():

@@ -18,11 +18,13 @@
 
 ## 〇b、本地开发与验证
 
-**应用**：`apps/api`(:8090) · `apps/web`(:3100 `/studio`) · `apps/admin`(:3200) · `apps/canvas`（必读 `apps/canvas/AGENTS.md`）；移动端 `MiniProgram/`。  
+**应用**：`backend/api`(:8090) · `frontend/app`（Prime 创作壳，`apps/prime/web` 的本地源）· `apps/web`(:3100 `/studio`) · `apps/admin`(:3200) · `apps/canvas`（必读 `apps/canvas/AGENTS.md`）；移动端 `MiniProgram/`。  
+目录重排（2026-10-31）：本地 `frontend/app` → 远端 `apps/prime/web`，本地 `backend/api` → 远端 `api`；远端路径契约不变。  
 Drama∥Studio：新功能只加 Studio；Drama bugfix only。长文 `DEVELOPMENT.md`。暂存 `tmp/`（gitignore）。
 
 ```bash
-cd apps/api && uv sync --extra dev && uv run pytest tests/test_foo.py::test_bar -q
+cd backend/api && uv sync --extra dev && uv run pytest tests/test_foo.py::test_bar -q
+cd frontend/app && bun test test/ && bun run lint && bun run build
 cd apps/web && npm test && npm run typecheck    # node:test，不是 vitest
 cd apps/admin && npm test && npm run typecheck
 cd apps/canvas/backend && go vet ./... && go test ./...

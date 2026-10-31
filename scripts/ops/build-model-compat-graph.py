@@ -3,7 +3,7 @@
 
 Inputs (read-only):
   - generated/lora-inventory.json (whitelist = available P-A/P-B × source A/B)
-  - apps/api/app/services/lora_catalog.py (confidence A: engines/strength/trigger)
+  - backend/api/app/services/lora_catalog.py (confidence A: engines/strength/trigger)
   - docs/ops/_card_cache_20261025/civ_*.json baseModels (confidence B)
   - docs/MODEL_SOURCES.json notes trainedWords / strength tip (confidence B, parseable only)
   - HF/Qwen package URL+basename/cluster → qwen-image compatible_with B (not C)
@@ -33,7 +33,7 @@ CARD_CACHE = ROOT / "docs/ops/_card_cache_20261025"
 OUT = ROOT / "apps/canvas/web/src/generated/model-compat-graph.json"
 HUMAN = ROOT / "docs/ops/MODEL_COMPAT_GRAPH_20261025.md"
 
-sys.path.insert(0, str(ROOT / "apps/api"))
+sys.path.insert(0, str(ROOT / "backend/api"))
 from app.services.lora_catalog import CATALOG  # noqa: E402
 
 # ── §3.1 family dictionary ──────────────────────────────────────────

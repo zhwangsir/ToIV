@@ -64,12 +64,12 @@ def _resolve_drama_root() -> Path:
                 "TOIV_DRAMA_VIDEO_DIR 目录不存在,降级到本地路径: %s", env_dir
             )
 
-    # 候选路径相对 app 包目录定位:本地开发时 apps/api 位于仓库 apps/ 下;
-    # Docker 中 /app 即 apps/api 内容
-    app_dir = Path(__file__).resolve().parent  # apps/api/app
+    # 候选路径相对 app 包目录定位:本地开发时 backend/api 位于仓库根下;
+    # Docker 中 /app 即 backend/api 内容
+    app_dir = Path(__file__).resolve().parent  # backend/api/app
     candidates = [
         app_dir.parent.parent.parent / "drama" / "output" / "final",  # 仓库根(本地)
-        app_dir.parent / "drama" / "output" / "final",  # apps/api(Docker /app)
+        app_dir.parent / "drama" / "output" / "final",  # backend/api(Docker /app)
         Path("/app/drama/output/final"),
     ]
     for p in candidates:
@@ -121,11 +121,11 @@ def _resolve_audio_root() -> Path:
                 "TOIV_AUDIO_DIR 目录不存在,降级到本地路径: %s", env_dir
             )
 
-    # 候选路径相对 app 包目录定位:本地开发时 apps/api 位于仓库 apps/ 下;
-    # Docker 中 /app 即 apps/api 内容。目录可不存在(调用方写入前 mkdir)。
-    app_dir = Path(__file__).resolve().parent  # apps/api/app
+    # 候选路径相对 app 包目录定位:本地开发时 backend/api 位于仓库根下;
+    # Docker 中 /app 即 backend/api 内容。目录可不存在(调用方写入前 mkdir)。
+    app_dir = Path(__file__).resolve().parent  # backend/api/app
     candidates = [
-        app_dir.parent / "outputs" / "audio",  # apps/api/outputs/audio(本地/Docker /app)
+        app_dir.parent / "outputs" / "audio",  # backend/api/outputs/audio(本地/Docker /app)
         Path("/app/outputs/audio"),
     ]
     for p in candidates:

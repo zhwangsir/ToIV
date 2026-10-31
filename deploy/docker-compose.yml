@@ -5,7 +5,7 @@ name: toiv
 services:
   api:
     build:
-      context: ../apps/api
+      context: ../backend/api
     environment:
       # ComfyUI 直连 5 后端(2026-07-28 设备说明):绕过 LB 8188(其 /object_info 轮询路由故障)。
       # workstation 3×ComfyUI(8189-8191,GPU0-2) + pc01(192.168.71.115:8188) + pc02(192.168.71.114:8193); GPU3 让给 Nemotron。

@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
-apps/api/.venv/
+backend/api/.venv/
 .pytest_cache/
 .coverage
 
@@ -35,7 +35,7 @@ next-env.d.ts
 .trae/
 
 # RAG 缓存(运行时生成)
-apps/api/app/agent/knowledge/rag_cache_*.json
+backend/api/app/agent/knowledge/rag_cache_*.json
 
 # 预览截图(本地 UI 审查用)
 apps/web/.preview-*.png
@@ -69,7 +69,7 @@ test-results/
 dogfood-output/
 
 # 数据文件备份(生产口径以 rh_h3_presets.json 为准)
-apps/api/app/data/rh_h3_presets.json.bak*
+backend/api/app/data/rh_h3_presets.json.bak*
 .verify*.mjs
 
 # 2026-09-18 并入的数字人引擎 R&D 目录（独立 git 历史，ToIV 经 URL :4403 调用，禁止打包部署/提交）

@@ -39,7 +39,7 @@ export default async function globalSetup() {
     if (!healthRes || !healthRes.ok()) {
       throw new Error(
         `[globalSetup] 后端健康检查失败: GET ${API_BASE}/api/health 不可达。` +
-          `请确认后端已启动 (apps/api)。`,
+          `请确认后端已启动 (backend/api)。`,
       );
     }
     const healthBody = await healthRes.json().catch(() => ({}));

@@ -90,7 +90,7 @@ def main() -> int:
     entries = json.load(open(src))
     ledger = {
         (i.get("basename") or "").lower(): i
-        for i in json.load(open("apps/api/app/data/model_sources.json"))["items"]
+        for i in json.load(open("backend/api/app/data/model_sources.json"))["items"]
     }
     cache: dict[str, set[str]] = {}
     plan, skipped = [], Counter()

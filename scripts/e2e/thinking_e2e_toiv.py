@@ -6,14 +6,14 @@
 
 证明 ToIV 代码改动后,实际发出的请求关闭了 thinking,reasoning_tokens=0,延迟大降。
 
-用法:cd apps/api && python ../../scripts/thinking_e2e_toiv.py
+用法:cd backend/api && python ../../scripts/thinking_e2e_toiv.py
 """
 from __future__ import annotations
 
 import asyncio
 import time
 
-# 确保从 apps/api 目录运行,能 import app.*
+# 确保从 backend/api 目录运行,能 import app.*
 from app.agent import llm
 from app.config import get_settings
 

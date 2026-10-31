@@ -16,8 +16,8 @@
   · combo 里存在 ≠ 文件非空可读。
 
 用法:
-  apps/api/.venv/bin/python scripts/ops/rh_smoke_prioritize.py          # 出清单
-  apps/api/.venv/bin/python scripts/ops/rh_smoke_prioritize.py --apply  # 顺带写战役命令
+  backend/api/.venv/bin/python scripts/ops/rh_smoke_prioritize.py          # 出清单
+  backend/api/.venv/bin/python scripts/ops/rh_smoke_prioritize.py --apply  # 顺带写战役命令
 """
 from __future__ import annotations
 
@@ -132,7 +132,7 @@ def main() -> int:
           f"priority_one_model_short.txt({len(near)} 条)")
     if args.apply:
         print("\n建议战役命令(先停现有战役与监管,避免抢卡与熔断污染):")
-        print(f"  apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \\")
+        print(f"  backend/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \\")
         print(f"    --ids-file {OUT}/priority_complete.txt --limit {len(complete)} \\")
         print("    --concurrency 2 --timeout-s 900 --publish-passes --publish-every 10")
     return 0

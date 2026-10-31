@@ -86,7 +86,7 @@ def _resolve_ckpt_path(base_ckpt: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 模型族支持矩阵(与 core apps/api/app/workflows/model_profiles.detect_model_family 对齐)
+# 模型族支持矩阵(与 core backend/api/app/workflows/model_profiles.detect_model_family 对齐)
 # ---------------------------------------------------------------------------
 # detect_model_family 返回集合:flux2/z_image/z_image_base/qwen_image/10eros/ltx/pony/
 # flux/qwen/sdxl_anime/sdxl/sd15。AI-Toolkit 只支持以下族,其余(10eros/ltx/pony/sd15 等)

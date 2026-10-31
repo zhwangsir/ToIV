@@ -32,7 +32,7 @@ Usage (today):
   → exit 2, prints needs-asset lines; probes :8264 health/queue/LoRA visibility
 
 When assets exist + operator explicitly allows FULL_VIDEO:
-  extend build_graph() from apps/api/app/workflows/h3_video.py Ref2VA/FL2VA
+  extend build_graph() from backend/api/app/workflows/h3_video.py Ref2VA/FL2VA
   templates, inject Acc LoRA via LoraLoader, length=22 steps=8, then queue.
 """
 from __future__ import annotations

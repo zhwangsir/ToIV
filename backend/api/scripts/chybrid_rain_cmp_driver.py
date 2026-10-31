@@ -16,7 +16,7 @@ What it does:
   4. Resumable: --resume <copy_project_id> skips shots that are already rendered.
 
 Run (background, after sign-off):
-  bash apps/api/scripts/run_chybrid_rain_cmp.sh
+  bash backend/api/scripts/run_chybrid_rain_cmp.sh
 Code is imported from the worktree (CODE_ROOT); env / DB / NAS come from deploy/.env.
 """
 from __future__ import annotations

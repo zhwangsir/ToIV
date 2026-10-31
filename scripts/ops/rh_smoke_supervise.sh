@@ -45,7 +45,7 @@ for ((r=1; r<=ROUNDS; r++)); do
   else
     TARGET=(--kind "$KIND" --status untested --limit "$LIMIT")
   fi
-  apps/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
+  backend/api/.venv/bin/python scripts/ops/rh_smoke_batch.py \
     "${TARGET[@]}" \
     --concurrency "${ROUND_CONC:-2}" --timeout-s 900 --sleep 1.2 \
     --publish-passes --publish-every 10 >> "$OUT" 2>&1
@@ -55,7 +55,7 @@ for ((r=1; r<=ROUNDS; r++)); do
   # 从最新 jsonl 读本轮结果做止损判断
   NEW=$(ls -t "$LOGDIR"/smoke_all_*.jsonl 2>/dev/null | head -1)
   if [ -n "$NEW" ]; then
-    read -r P F T <<<"$(apps/api/.venv/bin/python - "$NEW" <<'PY'
+    read -r P F T <<<"$(backend/api/.venv/bin/python - "$NEW" <<'PY'
 import json,sys
 rows=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 p=sum(1 for r in rows if r.get("status")=="pass")
@@ -79,7 +79,7 @@ PY
   # 为什么不只靠进程内的 --publish-every:SIGTERM 路径的兜底我无法在无真 pass 的情况下取证,
   # 而轮间收割走的是已经手工跑通三次的同一条 bulk-public 通道(证据可核)。
   echo "[sup $(date +%H:%M:%S)] 轮间收割 pass-but-hidden"
-  apps/api/.venv/bin/python scripts/ops/publish_pass_but_hidden.py >> "$OUT" 2>&1 || echo "  收割失败(不阻断下一轮)"
+  backend/api/.venv/bin/python scripts/ops/publish_pass_but_hidden.py >> "$OUT" 2>&1 || echo "  收割失败(不阻断下一轮)"
 
   # 未测见底就收工
   LEFT=$(ssh -o ConnectTimeout=20 merlin@192.168.71.47 \

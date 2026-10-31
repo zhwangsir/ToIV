@@ -432,7 +432,7 @@ def test_frontend_video_bucket_includes_module_kinds():
     from app.routes.jobs import VIDEO_KINDS
     for k in ("keyframe_chain", "transition", "h3_multishot", "video_edit"):
         assert k in VIDEO_KINDS, f"{k} 须在服务端视频桶(编辑源可选)"
-    canvas = (Path(__file__).parents[2] / "canvas" / "web" / "src" / "pages" / "toiv" / "library-works.tsx").read_text(encoding="utf-8")
+    canvas = (Path(__file__).parents[3] / "apps" / "canvas" / "web" / "src" / "pages" / "toiv" / "library-works.tsx").read_text(encoding="utf-8")
     assert '{ key: "video", label: "视频" }' in canvas, "canvas 作品库须有视频 kind tab 消费服务端桶"
 
 

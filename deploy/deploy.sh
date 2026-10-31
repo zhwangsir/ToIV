@@ -17,6 +17,12 @@
 #                                    # + /studio SPA dist)换装重启(M4-5 后 canvas 部署合一入口)
 #   deploy/deploy.sh --canvas-only   # 仅画布件(不动 toiv-api/toiv-web)
 #   deploy/deploy.sh --all           # S12 单部署链路:api + web + canvas 一条命令(等价 --with-canvas 全量)
+#   deploy/deploy.sh --dry           # 仅本地预检:校验源码路径存在并打印本地→远端映射,不连远端
+#
+# 目录约定(2026-10-31 重排):
+#   本地 backend/api → 远端 ${REMOTE_DIR}/api
+#   本地 frontend/app → 远端 ${REMOTE_DIR}/apps/prime/web(远端构建路径不变,systemd/回滚契约保持)
+#   本地 apps/web / apps/canvas → 远端 web / apps/canvas(第 6 步归档前不动)
 #
 # -E:ERR trap 在函数内失败时也生效(用于部署失败时打印回滚提示)
 set -eEuo pipefail
@@ -31,6 +37,7 @@ ROLLBACK=false
 WITH_CANVAS=false
 CANVAS_ONLY=false
 PRIME=false
+DRY=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -41,6 +48,7 @@ for arg in "$@"; do
     --with-canvas) WITH_CANVAS=true ;;
     --canvas-only) CANVAS_ONLY=true ;;
     --prime)       PRIME=true ;;
+    --dry)         DRY=true ;;
     --all)         SKIP_WEB=${SKIP_WEB:-false}; WITH_CANVAS=true ;;
     *)             REMOTE="$arg" ;;
   esac
@@ -54,6 +62,65 @@ RSYNC_EXCLUDES=(--exclude=node_modules --exclude=.next --exclude=.venv \
 # 项目根(本脚本在 deploy/ 下)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# --dry:本地预检源码路径 + 打印本地→远端映射,不连远端、不构建、不重启。
+# 重排后本地源路径变化最容易漏改到这里,所以把它做成可执行门禁。
+dry_run() {
+  local fail=0
+  echo "▶ [dry] 部署目标: ${REMOTE}:${REMOTE_DIR}"
+  echo "▶ [dry] 本地→远端映射:"
+  echo "    backend/api/     → ${REMOTE_DIR}/api/"
+  echo "    frontend/app/    → ${REMOTE_DIR}/apps/prime/web/"
+  echo "    apps/web/        → ${REMOTE_DIR}/web/"
+  echo "    apps/canvas/     → ${REMOTE_DIR}/apps/canvas/"
+  echo "    deploy/          → ${REMOTE_DIR}/deploy/"
+
+  check_dir() {
+    if [ -d "$1" ]; then
+      echo "  ✓ $1"
+    else
+      echo "  ✖ 缺少本地源目录: $1" >&2
+      fail=1
+    fi
+  }
+
+  if [ "$WEB_ONLY" = true ]; then
+    check_dir apps/web
+  elif [ "$CANVAS_ONLY" = true ]; then
+    check_dir apps/canvas
+    [ "$PRIME" = true ] && check_dir frontend/app
+  else
+    check_dir backend/api
+    check_dir deploy
+    if [ "$SKIP_WEB" != true ]; then check_dir apps/web; fi
+    if [ "$WITH_CANVAS" = true ]; then
+      check_dir apps/canvas
+      [ "$PRIME" = true ] && check_dir frontend/app
+    fi
+  fi
+
+  if [ "$PRIME" = true ] && [ -d frontend/app ] && [ ! -f frontend/app/index.html ]; then
+    echo "  ⚠ frontend/app/index.html 不存在(确认是否仍是 Vite 前端根)" >&2
+  fi
+  if [ "$SKIP_WEB" != true ] && [ "$WEB_ONLY" != true ] && [ "$CANVAS_ONLY" != true ]; then
+    if [ -f apps/web/.next/BUILD_ID ]; then
+      echo "  ✓ apps/web/.next/BUILD_ID=$(tr -d '\n\r' < apps/web/.next/BUILD_ID)"
+    else
+      echo "  ⚠ apps/web/.next 无构建产物:真跑部署会被拒(先 cd apps/web && npm run build,或加 --skip-web)" >&2
+    fi
+  fi
+
+  if [ "$fail" -ne 0 ]; then
+    echo "✖ [dry] 预检失败" >&2
+    exit 1
+  fi
+  echo "✅ [dry] 预检通过(未连接远端)"
+  exit 0
+}
+
+if [ "$DRY" = true ]; then
+  dry_run
+fi
 
 # 远端健康等待:每 2s 轮询一次,最多 60s,HTTP 200 即就绪;超时返回非零
 remote_wait_health() {
@@ -191,10 +258,12 @@ deploy_canvas() {
     --exclude=node_modules --exclude='.git' --exclude=dist \
     apps/canvas/ "${REMOTE}:${REMOTE_DIR}/apps/canvas/"
   if [ "$PRIME" = true ]; then
-    echo "▶ [prime] rsync apps/prime → ${REMOTE}:${REMOTE_DIR}/apps/prime …"
+    # 本地重排后源码在 frontend/app;远端构建路径 apps/prime/web 保持不变(systemd/回滚契约)
+    echo "▶ [prime] rsync frontend/app → ${REMOTE}:${REMOTE_DIR}/apps/prime/web …"
+    ssh "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_DIR}/apps/prime/web'"
     rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
       --exclude=node_modules --exclude='.git' --exclude=dist \
-      apps/prime/ "${REMOTE}:${REMOTE_DIR}/apps/prime/"
+      frontend/app/ "${REMOTE}:${REMOTE_DIR}/apps/prime/web/"
   fi
   echo "▶ [canvas] sync docs/NAS_MODEL_PICKER.json …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p '${REMOTE_DIR}/docs'"
@@ -419,7 +488,7 @@ else
   # 注意:deploy/.env 是 core 上的生产配置(含 secret),不在 rsync 范围内,
   # 如需修改生产配置请直接编辑 /home/merlin/toiv/deploy/.env 并重启 toiv-api。
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
-    apps/api/ "${REMOTE}:${REMOTE_DIR}/api/"
+    backend/api/ "${REMOTE}:${REMOTE_DIR}/api/"
   if [ "$SKIP_WEB" != true ]; then
     rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
       apps/web/ "${REMOTE}:${REMOTE_DIR}/web/"

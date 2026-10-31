@@ -14,7 +14,7 @@
 | 吊销列表等 | `/home/merlin/toiv-studio/secrets/`（目录内文件，权限应收紧） |
 | 测试账号 | 例：`/home/merlin/toiv/secrets/*.env`（600） |
 
-本地开发：复制 `apps/api/.env.example` / `deploy/.env.example` 为未跟踪的 `.env`，填入自管密钥。
+本地开发：复制 `backend/api/.env.example` / `deploy/.env.example` 为未跟踪的 `.env`，填入自管密钥。
 
 ## 登录 API 提醒（无口令）
 

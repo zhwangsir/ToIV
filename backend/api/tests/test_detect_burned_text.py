@@ -102,7 +102,7 @@ def test_detect_burned_text_allowlists_store_sign(tmp_path):
 
 def test_detect_burned_text_flags_haokun_subtitle_fixture():
     """17:00：第10秒烧录「好困/好*」必须检出。"""
-    fixture = Path(__file__).resolve().parents[3] / "apps/api/tests/fixtures/rain_shot0_t10_haokun.jpg"
+    fixture = Path(__file__).resolve().parents[3] / "backend/api/tests/fixtures/rain_shot0_t10_haokun.jpg"
     alt = Path("/home/merlin/toiv/tmp/toiv_report_rain_v5_splice/shot0_t10.jpg")
     mate = Path.home() / "Desktop/ALLProject/toiv_report_rain_v5_splice/shot0_t10.jpg"
     src = next((p for p in (fixture, alt, mate) if p.is_file()), None)

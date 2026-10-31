@@ -25,7 +25,7 @@ def hf(name):
     except Exception as e:
         return {"err":f"{type(e).__name__}"}
 led={ (i.get("basename") or "").lower(): i for i in json.load(
-    open("apps/api/app/data/model_sources.json"))["items"]}
+    open("backend/api/app/data/model_sources.json"))["items"]}
 rows=[l.split("@@") for l in q("select id, left(coalesce(smoke_error,''),400) from app "
         "where smoke_status='fail' and coalesce(smoke_error,'') like '%缺模型%'").strip().splitlines() if "@@" in l]
 print("缺模型 fail 行:",len(rows))

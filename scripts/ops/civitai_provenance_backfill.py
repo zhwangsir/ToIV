@@ -1,12 +1,12 @@
 """W9 P0-1:把 civitai by-hash 溯源结果写入 MODEL_SOURCES 账本(新增条目,非回填)。
 
-背景:9 个 H3 R18 LoRA(apps/api/app/services/h3.py:46-58 的 H3_NSFW_LORAS 名单)此前
+背景:9 个 H3 R18 LoRA(backend/api/app/services/h3.py:46-58 的 H3_NSFW_LORAS 名单)此前
 **完全不在 MODEL_SOURCES 账本里**(816 条零命中)——账本当初按 HF 口径扫,civitai 来源的权重漏了。
 本轮用 civitai.red 的 /api/v1/model-versions/by-hash/{sha256} 做权威溯源(已独立验证:
 HMNSFW_AIO_V2 sha256 608e4212… → ver 3206518 / model 2834417 / 310,168,344 字节完全一致)。
 
 不轻信调研留档:每条都重新打一次 by-hash 取 bytes/downloadUrl/许可四旗标。
-产物:docs/MODEL_SOURCES.json 追加条目 + 同步 core 快照 apps/api/app/data/model_sources.json。
+产物:docs/MODEL_SOURCES.json 追加条目 + 同步 core 快照 backend/api/app/data/model_sources.json。
 """
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ def main() -> int:
                 f"version={d.get('name')} | baseModel={d.get('baseModel')} | creator={p.get('creator')} "
                 f"| downloads={p.get('downloads')} | trainedWords={json.dumps(p.get('trainedWords') or [], ensure_ascii=False)} "
                 f"| sha256={sha} 与 civitai 远端一致 | 本地在 workstation NAS {p['local']} "
-                f"| 名单来源 apps/api/app/services/h3.py H3_NSFW_LORAS"
+                f"| 名单来源 backend/api/app/services/h3.py H3_NSFW_LORAS"
             ),
         }
         if basename in by_base:

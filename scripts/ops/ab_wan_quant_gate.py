@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """#23 视频系量化回顾门：同 seed 同提示词，现网 fp8_scaled 双专家 vs fp16 原件各出一条片。
 
-用法(仓库根, apps/api venv):
-  apps/api/.venv/bin/python scripts/ops/ab_wan_quant_gate.py \
+用法(仓库根, backend/api venv):
+  backend/api/.venv/bin/python scripts/ops/ab_wan_quant_gate.py \
     --worker http://192.168.71.127:8265 \
     --prompt "一只柴犬在城市街道上轻快奔跑，阳光明媚，电影感镜头" \
     --seed 20261015 --out-dir "$HOME/toiv-ops-logs/ab_quant/wan_t2v"

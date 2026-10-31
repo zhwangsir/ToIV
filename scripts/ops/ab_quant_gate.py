@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """量化 A/B 质量门（#22/#23 共用）：同 seed 同提示词，bf16 vs 量化变体各出一张，算 SSIM 并留样。
 
-用法(在仓库根, 用 apps/api 的 venv):
-  apps/api/.venv/bin/python scripts/ops/ab_quant_gate.py \
+用法(在仓库根, 用 backend/api 的 venv):
+  backend/api/.venv/bin/python scripts/ops/ab_quant_gate.py \
     --worker http://192.168.71.127:8265 \
     --ckpt-a z_image_turbo_bf16.safetensors \
     --ckpt-b z-image-turbo_fp8_scaled_e4m3fn_KJ.safetensors \

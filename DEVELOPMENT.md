@@ -46,7 +46,7 @@
 ### 1.1 后端
 
 ```bash
-cd apps/api
+cd backend/api
 cp .env.example .env          # 按需修改 ComfyUI 地址
 uv sync --extra dev
 uv run uvicorn app.main:app --reload --port 8080
@@ -240,7 +240,7 @@ npm run dev                   # http://localhost:3100
 - 说明书: 选应用编辑字段后 admin PUT
 - 实测矩阵: 占位(L0 本地 550/550;L2 待接入),暂不读远程
 
-**实现入口**: `apps/api/app/routes/app_guides.py`、`apps/web/components/admin/App*AdminView.tsx`。
+**实现入口**: `backend/api/app/routes/app_guides.py`、`apps/web/components/admin/App*AdminView.tsx`。
 
 
 ---

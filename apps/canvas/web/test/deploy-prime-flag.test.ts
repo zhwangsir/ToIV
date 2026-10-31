@@ -22,6 +22,7 @@ describe("deploy --prime gray switch", () => {
         expect(script).toContain("VITE_CANVAS_BACKEND_URL=/studio/api ./node_modules/.bin/vite build --base=/studio/");
     });
     test("prime sources are rsynced only when the flag is on", () => {
-        expect(script).toMatch(/if \[ "\$PRIME" = true \]; then\s+echo "▶ \[prime\] rsync apps\/prime/);
+        expect(script).toMatch(/if \[ "\$PRIME" = true \]; then[\s\S]*?echo "▶ \[prime\] rsync frontend\/app/);
+        expect(script).toContain('frontend/app/ "${REMOTE}:${REMOTE_DIR}/apps/prime/web/"');
     });
 });
