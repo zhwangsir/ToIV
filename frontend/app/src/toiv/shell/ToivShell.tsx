@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, matchPath, useLocation } from "react-router-dom";
 import Button from "../../components/ui/Button";
+import { NsfwPreferenceToggle } from "../addons/NsfwPreferenceToggle";
 
 const NAV = [
     { to: "/studio", label: "项目" },
@@ -17,7 +18,7 @@ function currentSection(pathname: string) {
     return NAV.find((item) => matchPath({ path: item.to, end: false }, pathname))?.to;
 }
 
-export default function ToivShell({ children }: { children: ReactNode }) {
+export default function ToivShell({ children, flush = false }: { children: ReactNode; flush?: boolean }) {
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
     const menuId = useId();
@@ -69,6 +70,7 @@ export default function ToivShell({ children }: { children: ReactNode }) {
                 </div>
                 <nav className="pf-nav-center" aria-label="主导航">{centerLinks}</nav>
                 <div className="pf-nav-right">
+                    <NsfwPreferenceToggle />
                     <Button variant="lime" size="sm" to="/studio/new" onClick={closeMenu}>新建项目</Button>
                     <button ref={burger} type="button" className="pf-nav-burger"
                         aria-label={menuOpen ? "关闭菜单" : "打开菜单"} aria-expanded={menuOpen} aria-controls={menuId}
@@ -82,7 +84,7 @@ export default function ToivShell({ children }: { children: ReactNode }) {
                     </div>
                 ) : null}
             </header>
-            <main className="pf-shell-main wide">{children}</main>
+            <main className={flush ? "pf-shell-main flush" : "pf-shell-main wide"}>{children}</main>
         </div>
     );
 }
