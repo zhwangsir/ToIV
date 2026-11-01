@@ -3,22 +3,20 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import ToivShell from "../shell/ToivShell";
 import {
-    DURATION_FRAMES, RATIO_SIZE, fetchGenerationJob, isGenerationDone, isGenerationFailed,
-    submitT2I, submitT2V,
-    type GenerationJob, type ToolDuration, type ToolRatio,
+    defaultDurationValue, defaultModelValue, defaultSizeValue, fetchToolCapabilities,
+    type ToolCapabilities, type ToolCapability,
+} from "../adapters/capabilities";
+import {
+    fetchGenerationJob, isGenerationDone, isGenerationFailed, submitT2I, submitT2V,
+    type GenerationJob,
 } from "../adapters/generation";
 import { primeMediaKind, toivMediaUrl } from "../adapters/media";
 import { findTool, resolveToolId } from "../tools/catalog";
 
-const RATIO_OPTIONS: { value: ToolRatio; label: string }[] = [
-    { value: "1:1", label: "1:1 方图" },
-    { value: "16:9", label: "16:9 横屏" },
-    { value: "9:16", label: "9:16 竖屏" },
-];
-const DURATION_OPTIONS: { value: ToolDuration; label: string }[] = [
-    { value: "short", label: `短 ${Math.round(DURATION_FRAMES.short / 16)} 秒` },
-    { value: "long", label: `长 ${Math.round(DURATION_FRAMES.long / 16)} 秒` },
-];
+type CapabilityState =
+    | { status: "loading"; data: null; error: "" }
+    | { status: "ready"; data: ToolCapabilities; error: "" }
+    | { status: "error"; data: null; error: string };
 
 type Phase = "idle" | "submitting" | "queued" | "running" | "done" | "failed";
 
@@ -35,6 +33,13 @@ function errorText(error: unknown): string {
     return error instanceof Error ? error.message : "操作失败，请重试";
 }
 
+function unavailableHint(options: { label: string; available: boolean; reason: string }[]): string {
+    return options
+        .filter((option) => !option.available && option.reason)
+        .map((option) => `${option.label}：${option.reason}`)
+        .join("；");
+}
+
 export default function PrimeToolRun() {
     const { id } = useParams();
     const tool = findTool(resolveToolId(id));
@@ -42,8 +47,11 @@ export default function PrimeToolRun() {
     const title = tool?.title ?? "工具";
     const [prompt, setPrompt] = useState("");
     const [negative, setNegative] = useState("");
-    const [ratio, setRatio] = useState<ToolRatio>(isVideo ? "16:9" : "1:1");
-    const [duration, setDuration] = useState<ToolDuration>("short");
+    const [capabilityState, setCapabilityState] = useState<CapabilityState>({ status: "loading", data: null, error: "" });
+    const [capabilityAttempt, setCapabilityAttempt] = useState(0);
+    const [sizeValue, setSizeValue] = useState("");
+    const [durationValue, setDurationValue] = useState("");
+    const [modelValue, setModelValue] = useState("");
     const [phase, setPhase] = useState<Phase>("idle");
     const [promptId, setPromptId] = useState<string | null>(null);
     const [seed, setSeed] = useState<number | undefined>(undefined);
@@ -55,13 +63,30 @@ export default function PrimeToolRun() {
     const promptRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
+        let alive = true;
+        setCapabilityState({ status: "loading", data: null, error: "" });
+        fetchToolCapabilities()
+            .then((data) => { if (alive) setCapabilityState({ status: "ready", data, error: "" }); })
+            .catch((cause) => { if (alive) setCapabilityState({ status: "error", data: null, error: errorText(cause) }); });
+        return () => { alive = false; };
+    }, [capabilityAttempt]);
+
+    const capability: ToolCapability | undefined = capabilityState.data?.tools[isVideo ? "video" : "image"];
+
+    useEffect(() => {
+        if (!capability) return;
+        setSizeValue(defaultSizeValue(capability, isVideo ? "16:9" : "1:1"));
+        setDurationValue(defaultDurationValue(capability));
+        setModelValue(defaultModelValue(capability));
+    }, [capability, isVideo]);
+
+    useEffect(() => {
         setPhase("idle");
         setPromptId(null);
         setSeed(undefined);
         setJob(null);
         setError("");
         setFailedMedia({});
-        setRatio(isVideo ? "16:9" : "1:1");
     }, [isVideo, title]);
 
     useEffect(() => {
@@ -95,12 +120,35 @@ export default function PrimeToolRun() {
 
     const busy = phase === "submitting";
     const active = phase === "queued" || phase === "running";
+    const selectedSize = capability?.sizes.find((size) => size.value === sizeValue)
+        ?? capability?.sizes.find((size) => size.available);
+    const selectedDuration = capability?.durations.find((duration) => duration.value === durationValue);
+    const selectedModel = capability?.models.find((model) => model.value === modelValue);
+    const sizeUnavailableHint = capability ? unavailableHint(capability.sizes) : "";
+    const durationUnavailableHint = capability ? unavailableHint(capability.durations) : "";
+    const capabilityUsable = Boolean(
+        capability?.available
+        && selectedSize?.available
+        && (!isVideo || selectedDuration?.available),
+    );
 
     const submit = async (event: FormEvent) => {
         event.preventDefault();
         if (!prompt.trim()) {
             setError("请先写提示词");
             promptRef.current?.focus();
+            return;
+        }
+        if (!capability || !capability.available) {
+            setError(capability?.unavailableReason || "生成能力未就绪");
+            return;
+        }
+        if (!selectedSize || !selectedSize.available) {
+            setError("当前画幅超出引擎能力范围，请换一个画幅");
+            return;
+        }
+        if (isVideo && !selectedDuration?.available) {
+            setError("当前时长不可用，请换一个时长档");
             return;
         }
         setError("");
@@ -111,8 +159,14 @@ export default function PrimeToolRun() {
         setPhase("submitting");
         try {
             const submission = isVideo
-                ? await submitT2V({ prompt: prompt.trim(), ratio, duration })
-                : await submitT2I({ prompt: prompt.trim(), negative: negative.trim(), ratio });
+                ? await submitT2V({
+                    prompt: prompt.trim(), size: selectedSize,
+                    durationSec: selectedDuration!.seconds, route: capability.route,
+                })
+                : await submitT2I({
+                    prompt: prompt.trim(), negative: negative.trim(), model: modelValue || undefined,
+                    size: selectedSize, route: capability.route,
+                });
             setSeed(submission.seed);
             setPromptId(submission.promptId);
             setPhase("queued");
@@ -153,8 +207,28 @@ export default function PrimeToolRun() {
                     <form className="toiv-settings-section toiv-tool-form" onSubmit={submit} aria-labelledby="tool-form-title">
                         <div className="toiv-settings-section-head">
                             <h2 id="tool-form-title">{isVideo ? "出片参数" : "出图参数"}</h2>
-                            <span className="meta">{RATIO_SIZE[ratio].width}×{RATIO_SIZE[ratio].height}</span>
+                            <span className="meta">
+                                {selectedSize ? `${selectedSize.width}×${selectedSize.height}` : "能力读取中"}
+                                {isVideo && selectedDuration ? ` · ${selectedDuration.label}` : ""}
+                            </span>
                         </div>
+                        {capabilityState.status === "loading" ? (
+                            <p className="toiv-workspace-note" role="status">正在读取生成能力…</p>
+                        ) : null}
+                        {capabilityState.status === "error" ? (
+                            <div className="toiv-tool-error" role="alert">
+                                <span>{capabilityState.error}</span>
+                                <Button variant="text" size="sm" type="button"
+                                    onClick={() => setCapabilityAttempt((value) => value + 1)}>重试能力</Button>
+                            </div>
+                        ) : null}
+                        {capability && !capability.available ? (
+                            <div className="toiv-tool-error" role="alert">
+                                <span>{capability.label}暂不可用：{capability.unavailableReason}</span>
+                                <Button variant="text" size="sm" type="button"
+                                    onClick={() => setCapabilityAttempt((value) => value + 1)}>重试能力</Button>
+                            </div>
+                        ) : null}
                         <label className="toiv-tool-field">
                             <span>提示词</span>
                             <textarea ref={promptRef} value={prompt} rows={5}
@@ -168,30 +242,63 @@ export default function PrimeToolRun() {
                                     onChange={(event) => setNegative(event.target.value)} />
                             </label>
                         ) : null}
-                        <div className="toiv-field">
-                            <span className="toiv-field-label">画幅</span>
-                            <div className="toiv-seg toiv-seg-wrap" role="radiogroup" aria-label="画幅">
-                                {RATIO_OPTIONS.map((option) => (
-                                    <button key={option.value} type="button" role="radio" aria-checked={ratio === option.value}
-                                        className={`toiv-seg-item${ratio === option.value ? " is-active" : ""}`}
-                                        onClick={() => setRatio(option.value)}>{option.label}</button>
-                                ))}
+                        {capability?.models.length ? (
+                            <label className="toiv-tool-field">
+                                <span>模型</span>
+                                <select className="toiv-tool-select" aria-label="模型" value={modelValue}
+                                    onChange={(event) => setModelValue(event.target.value)}>
+                                    {capability.models.map((model) => (
+                                        <option key={model.value} value={model.value}>
+                                            {model.label}{model.nsfw ? "（R18）" : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedModel?.desc ? <small className="meta">{selectedModel.desc}</small> : null}
+                            </label>
+                        ) : null}
+                        {capability?.sizes.length ? (
+                            <div className="toiv-field">
+                                <span className="toiv-field-label">画幅</span>
+                                <div className="toiv-seg toiv-seg-wrap" role="radiogroup" aria-label="画幅">
+                                    {capability.sizes.map((option) => (
+                                        <button key={option.value} type="button" role="radio"
+                                            aria-checked={sizeValue === option.value}
+                                            disabled={!option.available}
+                                            title={option.reason || undefined}
+                                            className={`toiv-seg-item${sizeValue === option.value ? " is-active" : ""}${option.available ? "" : " is-disabled"}`}
+                                            onClick={() => { if (option.available) setSizeValue(option.value); }}>
+                                            <span>{option.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                {sizeUnavailableHint ? <small className="toiv-seg-hint">{sizeUnavailableHint}</small> : null}
+                                {capability.sizeHint ? <small className="meta">{capability.sizeHint}</small> : null}
                             </div>
-                        </div>
-                        {isVideo ? (
+                        ) : null}
+                        {isVideo && capability?.durations.length ? (
                             <div className="toiv-field">
                                 <span className="toiv-field-label">时长</span>
                                 <div className="toiv-seg toiv-seg-wrap" role="radiogroup" aria-label="时长">
-                                    {DURATION_OPTIONS.map((option) => (
-                                        <button key={option.value} type="button" role="radio" aria-checked={duration === option.value}
-                                            className={`toiv-seg-item${duration === option.value ? " is-active" : ""}`}
-                                            onClick={() => setDuration(option.value)}>{option.label}</button>
+                                    {capability.durations.map((option) => (
+                                        <button key={option.value} type="button" role="radio"
+                                            aria-checked={durationValue === option.value}
+                                            disabled={!option.available}
+                                            title={option.reason || undefined}
+                                            className={`toiv-seg-item${durationValue === option.value ? " is-active" : ""}${option.available ? "" : " is-disabled"}`}
+                                            onClick={() => { if (option.available) setDurationValue(option.value); }}>
+                                            {option.label}
+                                        </button>
                                     ))}
                                 </div>
+                                {durationUnavailableHint ? <small className="toiv-seg-hint">{durationUnavailableHint}</small> : null}
+                                {capability.durationHint ? <small className="meta">{capability.durationHint}</small> : null}
                             </div>
                         ) : null}
+                        {isVideo && capability && capability.durations.length === 0 ? (
+                            <p className="toiv-workspace-note">该引擎未声明时长档，暂不可提交。</p>
+                        ) : null}
                         <div className="toiv-tool-actions">
-                            <Button variant="lime" type="submit" disabled={busy || active}>
+                            <Button variant="lime" type="submit" disabled={busy || active || !capabilityUsable}>
                                 {busy ? "提交中…" : active ? "生成中…" : isVideo ? "生成视频" : "生成图片"}
                             </Button>
                             <span className="meta">作业完成后自动展示结果</span>
@@ -222,7 +329,7 @@ export default function PrimeToolRun() {
                             </div>
                         ) : null}
                         {phase === "done" && results.length === 0 ? (
-                            <p className="toiv-workspace-note">作业已完成，但没有可预览产物。<Link to="/history">去任务中心查看</Link></p>
+                            <p className="toiv-workspace-note">作业已完成，但没有可预览产物。<Link to="/tasks">去任务中心查看</Link></p>
                         ) : null}
                         {results.length > 0 ? (
                             <div className="toiv-tool-result-grid">
@@ -247,7 +354,7 @@ export default function PrimeToolRun() {
                                             )}
                                             <figcaption>
                                                 <a href={src} target="_blank" rel="noreferrer">{kind === "video" ? "打开原片" : "打开原图"}</a>
-                                                <Link to="/history">在任务中心查看</Link>
+                                                <Link to="/tasks">在任务中心查看</Link>
                                             </figcaption>
                                         </figure>
                                     );

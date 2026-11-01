@@ -18,6 +18,8 @@ describe("prime bootstrap routes", () => {
     test("mounts the three faces and drops billing", () => {
         expect(PRIME_ROUTES).toContain("/studio/:id/editor");
         expect(PRIME_ROUTES).toContain("/drama");
+        expect(PRIME_ROUTES).toContain("/tasks");
+        expect(PRIME_ROUTES).toContain("/library");
         expect(PRIME_ROUTES).toContain("/history");
         expect(PRIME_ROUTES).toContain("/settings");
         expect(PRIME_ROUTES).toContain("/tools");
@@ -54,7 +56,7 @@ describe("prime workbar", () => {
         expect(html).toContain("任务中心");
         expect(html).not.toContain("运行中");
     });
-    for (const name of ["PrimeCreate", "PrimeStoryboard", "PrimeHistory", "PrimeEditor", "PrimeCanvas", "PrimeAssets", "PrimeStyle"]) {
+    for (const name of ["PrimeCreate", "PrimeStoryboard", "PrimeLibrary", "PrimeTasks", "PrimeEditor", "PrimeCanvas", "PrimeAssets", "PrimeStyle"]) {
         test(`${name} does not invent a running count before data arrives`, async () => {
             const { default: Page } = await import(`../src/toiv/pages/${name}`);
             const html = renderToStaticMarkup(<MemoryRouter><I18nProvider><Page /></I18nProvider></MemoryRouter>);

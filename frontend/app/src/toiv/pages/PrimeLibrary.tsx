@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
-import { PrimeTaskList, primeStatusLabel, usePrimeTasks } from "../addons/TaskDrawerPrime";
+import { PrimeTaskList } from "../addons/TaskDrawerPrime";
+import { useTaskCenter, useTaskPolling } from "../addons/TaskCenterProvider";
+import { primeStatusLabel } from "../adapters/tasks";
 import { loadPrimeWorks, type PrimeWorkCard } from "../adapters/works";
 import { toivMediaUrl } from "../adapters/media";
 import { ToivWorkbar } from "../addons/ToivWorkbar";
@@ -29,10 +31,11 @@ function WorkMedia({ work }: { work: PrimeWorkCard }) {
     </>;
 }
 
-export default function PrimeHistory() {
+export default function PrimeLibrary() {
     const navigate = useNavigate();
     const [works, setWorks] = useState<PrimeWorkCard[]>([]);
-    const tasks = usePrimeTasks();
+    useTaskPolling();
+    const tasks = useTaskCenter();
     const taskColumn = useRef<HTMLDivElement>(null);
     const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
     const [attempt, setAttempt] = useState(0);
@@ -47,8 +50,8 @@ export default function PrimeHistory() {
     }, [attempt, tasks.revision]);
     return (
         <ToivShell>
-            <ToivWorkbar face="edit" runningCount={tasks.tasks.filter(task => task.status === "run").length}
-                onFaceChange={face => navigate(face === "edit" ? "/history" : face === "canvas" ? "/drama" : "/studio")}
+            <ToivWorkbar face="edit"
+                onFaceChange={face => navigate(face === "edit" ? "/studio?face=edit" : face === "canvas" ? "/drama" : "/studio")}
                 onOpenTasks={() => taskColumn.current?.scrollIntoView({ behavior: "smooth" })} />
             <section className="toiv-history">
                 <div className="toiv-assets-col">
@@ -74,7 +77,7 @@ export default function PrimeHistory() {
                     </div>
                 </div>
                 <div className="toiv-assets-col" ref={taskColumn}>
-                    <h3>任务 {tasks.phase === "ready" || tasks.tasks.length > 0 ? <span className="meta">{tasks.tasks.length}</span> : null}</h3>
+                    <h3>任务 {tasks.recentPhase === "ready" || tasks.merged.length > 0 ? <span className="meta">{tasks.merged.length}</span> : null}</h3>
                     <PrimeTaskList state={tasks} />
                 </div>
             </section>

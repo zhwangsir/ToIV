@@ -8,6 +8,7 @@ import { agentGraphToFlow, type AgentFlowNodeData } from "../adapters/agent-grap
 import { loadPrimeScenes, primeSceneNodes, type PrimeSceneNode, type PrimeSceneNodeData } from "../adapters/scenes";
 import AgentPanel from "../addons/AgentPanel";
 import { CanvasTaskBar } from "../addons/CanvasTaskBar";
+import PrimeMediaThumb from "../addons/PrimeMediaThumb";
 import CanvasWorkspace from "../shell/CanvasWorkspace";
 import ToivShell from "../shell/ToivShell";
 
@@ -21,7 +22,7 @@ function SceneNode({ data }: { data: PrimeSceneNodeData }) {
             <div className="views">
                 {data.views.map((view) => (
                     <span className="view" key={view.id} title={view.label}>
-                        {view.src ? <img src={view.src} alt={view.label} /> : <i>{view.label}</i>}
+                        <PrimeMediaThumb src={view.src} alt={view.label} />
                     </span>
                 ))}
             </div>
@@ -176,7 +177,7 @@ export default function PrimeCanvas() {
                                     <div className="views">
                                         {selectedScene.views.map((view) => (
                                             <span className="view" key={view.id} title={view.label}>
-                                                {view.src ? <img src={view.src} alt={view.label} /> : view.label}
+                                                <PrimeMediaThumb src={view.src} alt={view.label} />
                                             </span>
                                         ))}
                                     </div>

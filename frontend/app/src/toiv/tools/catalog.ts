@@ -9,8 +9,8 @@ export type PrimeTool = {
 };
 
 export const PRIME_TOOLS: readonly PrimeTool[] = [
-    { id: "t2i", title: "文生图", blurb: "一句提示词出静帧，支持 1:1 / 16:9 / 9:16。", kind: "image", available: true },
-    { id: "t2v", title: "文生视频", blurb: "短镜头直出，可选 3 秒或 6 秒。", kind: "video", available: true },
+    { id: "t2i", title: "文生图", blurb: "一句提示词出静帧，画幅与底模由当前引擎决定。", kind: "image", available: true },
+    { id: "t2v", title: "文生视频", blurb: "短镜头直出，画幅与时长档由当前引擎决定。", kind: "video", available: true },
     { id: "i2i", title: "图生图", blurb: "以现有画面为底图重绘风格与细节。", kind: "image", available: false },
     { id: "i2v", title: "图生视频", blurb: "让一张定稿静帧动起来。", kind: "video", available: false },
     { id: "v2v", title: "视频生视频", blurb: "重绘、延长或补帧现有镜头。", kind: "video", available: false },

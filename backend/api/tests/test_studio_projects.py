@@ -271,6 +271,65 @@ def test_project_status_counts(ctx):
     assert data["next_step"]["step"] == "render"
 
 
+def _set_shot_media(ctx, sid: str, **fields) -> None:
+    from app.db import get_session as _get_session
+    from app.main import app as _app
+    from app.models import StudioShot
+    from sqlmodel import Session
+
+    with Session(_app.dependency_overrides[_get_session]().__next__().bind) as s:
+        shot = s.get(StudioShot, sid)
+        assert shot is not None
+        for key, value in fields.items():
+            setattr(shot, key, value)
+        s.add(shot)
+        s.commit()
+
+
+def _listed_pipeline(client: TestClient, H: dict, pid: str) -> dict:
+    rows = client.get("/api/studio/projects", headers=H).json()
+    return next(row for row in rows if row["id"] == pid)["pipeline"]
+
+
+def test_project_list_pipeline_cover_uses_earliest_shot_media(ctx):
+    """项目卡封面:按 idx 最早有媒体的镜头取,镜内 final_clip > video > image。"""
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    _mk_shots(client, H, pid)
+    shots = client.get(f"/api/studio/projects/{pid}", headers=H).json()["shots"]
+
+    pipeline = _listed_pipeline(client, H, pid)
+    assert pipeline["cover_url"] == "" and pipeline["cover_kind"] == ""
+
+    # 后镜有视频,前镜无媒体 → 用后镜(首个有媒体者)
+    _set_shot_media(ctx, shots[1]["id"], video_url="/api/studio/files/b.mp4", status="rendered")
+    pipeline = _listed_pipeline(client, H, pid)
+    assert pipeline["cover_url"] == "/api/studio/files/b.mp4"
+    assert pipeline["cover_kind"] == "video"
+
+    # 前镜仅有图 → 前镜胜出,不被后镜视频抢走
+    _set_shot_media(ctx, shots[0]["id"], image_url="/api/studio/files/a.png")
+    pipeline = _listed_pipeline(client, H, pid)
+    assert pipeline["cover_url"] == "/api/studio/files/a.png"
+    assert pipeline["cover_kind"] == "image"
+
+    # 前镜同镜内视频 > 图片,成片 > 视频
+    _set_shot_media(ctx, shots[0]["id"], video_url="/api/studio/files/a.mp4")
+    assert _listed_pipeline(client, H, pid)["cover_url"] == "/api/studio/files/a.mp4"
+    _set_shot_media(ctx, shots[0]["id"], final_clip_url="/api/studio/files/a-final.mp4")
+    pipeline = _listed_pipeline(client, H, pid)
+    assert pipeline["cover_url"] == "/api/studio/files/a-final.mp4"
+    assert pipeline["cover_kind"] == "video"
+
+    # 清空前镜媒体 → 回落后镜
+    _set_shot_media(
+        ctx, shots[0]["id"],
+        image_url="", video_url="", final_clip_url="",
+    )
+    assert _listed_pipeline(client, H, pid)["cover_url"] == "/api/studio/files/b.mp4"
+
+
 # ── 项目级产出规格(分辨率/帧率)───────────────────────────────────────────
 
 

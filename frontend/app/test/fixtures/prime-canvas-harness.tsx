@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { I18nProvider } from "@/i18n/context";
 import PrimeCanvas from "@/toiv/pages/PrimeCanvas";
+import { TaskCenterProvider } from "@/toiv/addons/TaskCenterProvider";
 import { applyStoredAppearance } from "@/toiv/theme/appearance";
 
 declare global {
@@ -19,11 +20,13 @@ applyStoredAppearance();
 createRoot(document.getElementById("root")!).render(
     <MemoryRouter initialEntries={[path]}>
         <I18nProvider>
-            <LocationProbe />
-            <Routes>
-                <Route path="/drama/projects/:projectId/canvas" element={<PrimeCanvas />} />
-                <Route path="*" element={<p>导航目标</p>} />
-            </Routes>
+            <TaskCenterProvider>
+                <LocationProbe />
+                <Routes>
+                    <Route path="/drama/projects/:projectId/canvas" element={<PrimeCanvas />} />
+                    <Route path="*" element={<p>导航目标</p>} />
+                </Routes>
+            </TaskCenterProvider>
         </I18nProvider>
     </MemoryRouter>,
 );

@@ -89,13 +89,21 @@ export async function exportPrimeRecipeBundle(recipeId: string): Promise<{ fileN
     return { fileName: `${slug || "toiv-recipe"}.toiv-recipe.json`, text: JSON.stringify(payload, null, 2) };
 }
 
-export async function applyPrimeRecipeToShot(recipeId: string, shotId: string): Promise<string[]> {
+export type PrimeRecipeApplyResult = { fields: string[]; revisionId: string };
+
+export async function applyPrimeRecipeToShot(
+    recipeId: string,
+    shotId: string,
+    expectedRevision?: string,
+): Promise<PrimeRecipeApplyResult> {
+    const payload: Record<string, unknown> = { shot_id: shotId, apply_project_specs: false };
+    if (expectedRevision) payload.expected_revision = expectedRevision;
     const res = await fetch(`/api/studio/recipes/${encodeURIComponent(recipeId)}/apply`, {
         method: "POST",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ shot_id: shotId, apply_project_specs: false }),
+        body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`apply ${res.status}`);
-    const body = (await res.json()) as { applied_fields?: string[] };
-    return body.applied_fields ?? [];
+    const body = (await res.json()) as { applied_fields?: string[]; shot?: { current_revision_id?: string } };
+    return { fields: body.applied_fields ?? [], revisionId: body.shot?.current_revision_id ?? "" };
 }

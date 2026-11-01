@@ -138,6 +138,17 @@ def _get_project(session: Session, pid: str, user: User) -> StudioProject:
     return p
 
 
+def _lock_project(session: Session, pid: str) -> StudioProject | None:
+    """串行化同项目的分镜/阶段写入(FOR UPDATE;SQLite 方言忽略该子句)。
+
+    save_shots/reflow/rollback 先锁项目行再读列表与 stage_revision:CAS 基线与
+    写集在同一事务内稳定,并发写者按序排队而不是各自读旧值后写后写。
+    """
+    return session.exec(
+        select(StudioProject).where(StudioProject.id == pid).with_for_update()
+    ).first()
+
+
 
 def _character_out(c: StudioCharacter) -> dict:
     """角色响应:扁平 reference_images + 按风格分存 reference_images_by_style。"""
@@ -972,6 +983,61 @@ def studio_apply_asset(
     session.commit()
     session.refresh(c)
     return _character_out(c)
+
+
+# ── B3(2026-11-01):跨集资产对账台账 + 幂等 apply ─────────────────────────
+
+
+class LedgerApplyRequest(BaseModel):
+    receipt_id: str = Field(..., min_length=1, max_length=120)
+    action: str = Field(..., min_length=2, max_length=20)
+    asset_key: str = Field(..., min_length=3, max_length=300)
+    entity_id: str | None = Field(default=None, max_length=80)
+
+
+def _get_owned_project(session: Session, pid: str, user: User) -> StudioProject:
+    """对账按「同用户各集」聚合;同租户他人项目一律 404,不泄露存在性。"""
+    p = _get_project(session, pid, user)
+    if p.user_id and p.user_id != user.id:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return p
+
+
+@router.get("/studio/projects/{pid}/asset-ledger")
+def studio_asset_ledger(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """只读台账:逐集资产版本 + 漂移点 + 确定性建议 + 应用回执。"""
+    from app.services.studio import asset_ledger as ledger_svc
+
+    p = _get_owned_project(session, pid, user)
+    return ledger_svc.build_ledger(session, p)
+
+
+@router.post("/studio/projects/{pid}/asset-ledger/apply")
+def studio_asset_ledger_apply(
+    pid: str,
+    body: LedgerApplyRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """应用对账建议(merge/import/create);receipt_id 幂等,重放不改写。"""
+    from app.services.studio import asset_ledger as ledger_svc
+
+    p = _get_owned_project(session, pid, user)
+    try:
+        return ledger_svc.apply_action(
+            session,
+            p,
+            receipt_id=body.receipt_id,
+            action=body.action,
+            asset_key=body.asset_key,
+            entity_id=body.entity_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 # ── W2.4(2026-10-11):工作流模板库(node_mapping 声明式注册) ──
@@ -1964,12 +2030,40 @@ def save_shots(
 ):
     _get_project(session, pid, user)
     from app.services.studio import revisions as rev_svc
+    from app.services.studio import stages as stages_svc
 
-    # C1a 乐观并发预检:expected_revision CAS 全量前置——任何冲突 409,本请求
-    # 不落地任何变更(内容修订与历史保持一致的事务语义)
+    # 项目行锁:同项目的分镜/阶段写入串行化(FOR UPDATE;SQLite 方言忽略)。
+    # 列表基线与 stage_revision 在事务内保持稳定,并发写者排队而非写后写。
+    project = _lock_project(session, pid)
+    if project is None:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    # 全量替换语义的列表前置条件:客户端读取的 id 集合必须仍是当前集合。
+    # 不传=旧客户端兼容;传了就必须精确匹配——并发新增/删除都算冲突,
+    # 刷新后重做,绝不静默删除别人刚建的镜。
+    if body.expected_shot_ids is not None:
+        if len(set(body.expected_shot_ids)) != len(body.expected_shot_ids):
+            raise HTTPException(status_code=422, detail="expected_shot_ids 含重复项")
+        current_ids = set(
+            session.exec(select(StudioShot.id).where(StudioShot.project_id == pid)).all()
+        )
+        expected_ids = set(body.expected_shot_ids)
+        if current_ids != expected_ids:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "分镜列表已被其他修改更新"
+                    f"(current={len(current_ids)},基线={len(expected_ids)}),请刷新后核对"
+                ),
+            )
+
+    # C1a 乐观并发预检:expected_revision CAS 全量前置——任何冲突 409,
+    # 内容/修订/删镜/阶段失效同一事务,不落地任何半写。
     for item in body.shots:
         if item.id and item.expected_revision is not None:
-            shot = session.get(StudioShot, item.id)
+            shot = session.exec(
+                select(StudioShot).where(StudioShot.id == item.id).with_for_update()
+            ).first()
             if not shot or shot.project_id != pid:
                 raise HTTPException(status_code=404, detail=f"分镜不存在:{item.id}")
             if (shot.current_revision_id or "") != item.expected_revision:
@@ -1983,6 +2077,7 @@ def save_shots(
 
     out: list[StudioShot] = []
     revision_created = False
+    deleted_shots = 0
     for i, item in enumerate(body.shots):
         if item.id:
             shot = session.get(StudioShot, item.id)
@@ -2047,15 +2142,16 @@ def save_shots(
         # C1a 修订:真实内容变化才追加(新分镜=imported;旧行编辑=manual-edit;
         # 重复 PUT 内容一致 → 不造版本)。编辑去重只看 CONTENT_FIELDS,
         # ref_images/video_model 回写与 render_params 存档不算用户编辑。
-        # 内容先独立提交:建版并发冲突回滚只丢未提交修订,绝不丢内容。
+        # 内容/修订/删镜/阶段失效同事务:任一步失败整单回滚,不留半写。
         session.add(shot)
-        session.commit()
+        session.flush()  # 新镜先落 id;后续修订与删除基于本次真实写入
         source = "imported" if is_new else "manual-edit"
         try:
             rev = rev_svc.ensure_content_revision(
                 session, shot, source=source, created_by=user.id
             )
         except rev_svc.RevisionConflictError as e:
+            session.rollback()
             raise HTTPException(status_code=409, detail=str(e)) from e
         if rev is not None:
             revision_created = True
@@ -2064,31 +2160,34 @@ def save_shots(
     # 全量替换语义:请求未包含的旧分镜删除(前端拆解剧本/删镜依赖此契约);
     # 其修订行保留(不可变审计,revision 带 project_id 隔离,不泄露他项目)。
     # 删除本身不建内容修订,但同属上游真实修改:删镜(尤其删空)也须触发下游失效。
+    # 给了列表基线时只删基线内的行:本次事务期间才出现的并发新增不属于本次写集。
     keep = {s.id for s in out}
-    deleted_shots = 0
+    baseline = (
+        set(body.expected_shot_ids) if body.expected_shot_ids is not None else None
+    )
     for s in session.exec(select(StudioShot).where(StudioShot.project_id == pid)).all():
-        if s.id not in keep:
-            session.delete(s)
-            deleted_shots += 1
+        if s.id in keep:
+            continue
+        if baseline is not None and s.id not in baseline:
+            continue
+        session.delete(s)
+        deleted_shots += 1
+    # C1c:真实内容变化(含删镜)→ 下游 confirmed/skipped 标 needs_review + 审计;
+    # 无变化保存不误标;不触碰在途渲染/配音。失效与内容同事务提交。
+    if revision_created or deleted_shots:
+        try:
+            stages_svc.invalidate_stages(
+                session, project,
+                stages=["storyboard", "generate", "voice", "timeline"],
+                source="system", note="分镜内容变更(含删镜),下游确认失效",
+                created_by=user.id, commit=False,
+            )
+        except stages_svc.StageConflictError as e:
+            session.rollback()
+            raise HTTPException(status_code=409, detail=str(e)) from e
     session.commit()
     for shot in out:
         session.refresh(shot)
-    # C1c:真实内容变化(含删镜)→ 下游 confirmed/skipped 标 needs_review + 审计;
-    # 无变化保存不误标;不触碰在途渲染/配音。
-    if revision_created or deleted_shots:
-        from app.services.studio import stages as stages_svc
-
-        project = session.get(StudioProject, pid)
-        if project is not None:
-            try:
-                stages_svc.invalidate_stages(
-                    session, project,
-                    stages=["storyboard", "generate", "voice", "timeline"],
-                    source="system", note="分镜内容变更(含删镜),下游确认失效",
-                    created_by=user.id,
-                )
-            except stages_svc.StageConflictError as e:
-                raise HTTPException(status_code=409, detail=str(e)) from e
     return {"shots": [_shot_out(s, session) for s in out]}
 
 
@@ -2098,6 +2197,8 @@ class ShotReflowRequest(BaseModel):
     texts: list[str] | None = Field(default=None, max_length=200)
     total_sec: int | None = Field(default=None, ge=3, le=60)
     persist: bool = True
+    # 持久化基线:与 shot.current_revision_id 不符 → 409(改词基于陈旧文本)
+    expected_revision: str | None = Field(default=None, max_length=64)
 
 
 @router.post("/studio/shots/{sid}/reflow-beats")
@@ -2114,6 +2215,24 @@ def reflow_shot_beats(
     )
 
     shot = _get_shot(session, sid, user)
+    project = None
+    if body.persist:
+        # 项目行锁 + 重读 shot:改词基线与阶段失效 CAS 在同一事务内稳定,
+        # 与 save_shots/rollback 串行化(FOR UPDATE;SQLite 忽略)。
+        project = _lock_project(session, shot.project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="项目不存在")
+        session.refresh(shot)
+        if body.expected_revision is not None and (
+            shot.current_revision_id or ""
+        ) != body.expected_revision:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "分镜已被其他修改更新"
+                    f"(current={shot.current_revision_id or 'unknown'})"
+                ),
+            )
     beats = parse_beats_json(shot.beats_json)
     if not beats and body.texts:
         raise HTTPException(status_code=422, detail="该镜无词锚拍结构,无法重排")
@@ -2134,35 +2253,36 @@ def reflow_shot_beats(
         for field, text in fields.items():
             setattr(shot, field, text)
         shot.updated_at = datetime.utcnow()
-        # C1a:改词重排与手工编辑同一修订规则(真实变化才追加,不绕过)
+        # C1a:改词重排与手工编辑同一修订规则(真实变化才追加,不绕过);
+        # 内容/修订/阶段失效同一事务,任一冲突整单回滚。
         from app.services.studio import revisions as rev_svc
 
         session.add(shot)
-        session.commit()
+        session.flush()
         try:
             rev = rev_svc.ensure_content_revision(
                 session, shot, source="manual-edit", created_by=user.id
             )
         except rev_svc.RevisionConflictError as e:
+            session.rollback()
             raise HTTPException(status_code=409, detail=str(e)) from e
         session.add(shot)
-        session.commit()
-        session.refresh(shot)
         # C1c:重排改词/时长属上游真实修改 → 下游确认失效(同 save_shots 口径)
-        if rev is not None:
+        if rev is not None and project is not None:
             from app.services.studio import stages as stages_svc
 
-            project = session.get(StudioProject, shot.project_id)
-            if project is not None:
-                try:
-                    stages_svc.invalidate_stages(
-                        session, project,
-                        stages=["storyboard", "generate", "voice", "timeline"],
-                        source="system", note="词锚重排变更,下游确认失效",
-                        created_by=user.id,
-                    )
-                except stages_svc.StageConflictError as e:
-                    raise HTTPException(status_code=409, detail=str(e)) from e
+            try:
+                stages_svc.invalidate_stages(
+                    session, project,
+                    stages=["storyboard", "generate", "voice", "timeline"],
+                    source="system", note="词锚重排变更,下游确认失效",
+                    created_by=user.id, commit=False,
+                )
+            except stages_svc.StageConflictError as e:
+                session.rollback()
+                raise HTTPException(status_code=409, detail=str(e)) from e
+        session.commit()
+        session.refresh(shot)
         return _shot_out(shot, session)
     return {**_shot_out(shot, session), **result, **fields, "persisted": False}
 
@@ -2803,6 +2923,11 @@ def shot_rollback(
     from app.services.studio import revisions as rev_svc
 
     shot = _get_shot(session, sid, user)
+    # 项目行锁 + 重读:回滚内容、修订、阶段失效同一事务,与 save_shots/reflow
+    # 串行化(FOR UPDATE;SQLite 忽略)。
+    project = _lock_project(session, shot.project_id)
+    if project is not None:
+        session.refresh(shot)
     if body.expected_revision is not None and (
         shot.current_revision_id or ""
     ) != body.expected_revision:
@@ -2818,27 +2943,30 @@ def shot_rollback(
             session, shot, body.revision_id, created_by=user.id
         )
     except LookupError as e:
+        session.rollback()
         raise HTTPException(status_code=404, detail=str(e)) from e
     except rev_svc.RevisionConflictError as e:
+        session.rollback()
         raise HTTPException(status_code=409, detail=str(e)) from e
     from datetime import datetime
 
     shot.updated_at = datetime.utcnow()
     session.add(shot)
-    session.commit()
-    session.refresh(shot)
-    if rolled is not None:
+    session.flush()
+    if rolled is not None and project is not None:
         from app.services.studio import stages as stages_svc
 
-        project = session.get(StudioProject, shot.project_id)
-        if project is not None:
-            try:
-                stages_svc.invalidate_stages(
-                    session, project, stages=["storyboard", "generate", "voice", "timeline"],
-                    source="system", note="分镜回滚改变内容,下游确认失效", created_by=user.id,
-                )
-            except stages_svc.StageConflictError as e:
-                raise HTTPException(status_code=409, detail=str(e)) from e
+        try:
+            stages_svc.invalidate_stages(
+                session, project, stages=["storyboard", "generate", "voice", "timeline"],
+                source="system", note="分镜回滚改变内容,下游确认失效",
+                created_by=user.id, commit=False,
+            )
+        except stages_svc.StageConflictError as e:
+            session.rollback()
+            raise HTTPException(status_code=409, detail=str(e)) from e
+    session.commit()
+    session.refresh(shot)
     return _shot_out(shot, session)
 
 
@@ -4189,18 +4317,34 @@ def _find_sample_rain_night(session: Session, user: User) -> StudioProject | Non
 
 
 def _studio_pipeline_brief(session: Session, pid: str) -> dict:
-    """项目级管线摘要(供样片返回/列表进度点)。"""
+    """项目级管线摘要(供样片返回/列表进度点/项目卡封面)。"""
     shots = session.exec(
-        select(StudioShot).where(StudioShot.project_id == pid)
+        select(StudioShot)
+        .where(StudioShot.project_id == pid)
+        .order_by(StudioShot.idx)
     ).all()
     next_step = compute_studio_next_step(shots)
     counts: dict[str, int] = {}
     for s in shots:
         counts[s.status] = counts.get(s.status, 0) + 1
+    cover_url, cover_kind = "", ""
+    for s in shots:
+        for value, kind in (
+            (s.final_clip_url, "video"),
+            (s.video_url, "video"),
+            (s.image_url, "image"),
+        ):
+            if isinstance(value, str) and value.strip():
+                cover_url, cover_kind = value.strip(), kind
+                break
+        if cover_url:
+            break
     return {
         "total_shots": len(shots),
         "by_status": counts,
         "next_step": next_step,
+        "cover_url": cover_url,
+        "cover_kind": cover_kind,
     }
 
 

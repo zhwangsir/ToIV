@@ -24,6 +24,10 @@ beforeAll(async () => {
         const path = new URL(route.request().url()).pathname;
         const body = path === "/api/auth/me" ? { user: { id: "test-user", role: "admin" } }
             : path === "/api/studio/projects/p1" ? { id: "p1", title: "测试短片", shots: [], characters: [] }
+            : path === "/api/jobs" ? []
+            : path === "/api/jobs/active" ? { items: [], server_time: "2026-10-30T10:00:00Z" }
+            : path === "/api/jobs/counts" ? { count: 0, failed: 0 }
+            : path === "/api/studio/deps-status" ? { overall: "reachable", deps: [] }
             : path === "/studio/api/canvas-projects" ? { code: 0, data: { projects: [] }, msg: "ok" }
             : path === "/studio/api/canvas-projects/c1" ? {
                 code: 0, msg: "ok", data: {
@@ -63,6 +67,21 @@ test("tool routes open the native tools centre instead of falling home", async (
         await page.getByRole("heading", { name: heading, exact: true }).waitFor();
         expect(new URL(page.url()).pathname).toBe(path);
     }
+}, 30_000);
+
+test("the task centre and works library keep distinct routes with a legacy redirect", async () => {
+    await page.goto(`${origin}/preview/tasks`);
+    await page.getByRole("heading", { name: "任务中心", exact: true }).waitFor();
+    await page.getByText(/队列空闲/).waitFor();
+    const nav = page.getByRole("navigation", { name: "主导航", exact: true });
+    expect(await nav.locator(".active").allTextContents()).toEqual(["任务"]);
+    await page.goto(`${origin}/preview/library`);
+    await page.getByRole("heading", { name: /^作品/ }).waitFor();
+    expect(new URL(page.url()).pathname).toBe("/preview/library");
+    expect(await nav.locator(".active").allTextContents()).toEqual(["任务"]);
+    await page.goto(`${origin}/preview/history`);
+    await page.getByRole("heading", { name: "任务中心", exact: true }).waitFor();
+    expect(new URL(page.url()).pathname).toBe("/preview/tasks");
 }, 30_000);
 
 test("an expired stored session cannot render a protected project", async () => {

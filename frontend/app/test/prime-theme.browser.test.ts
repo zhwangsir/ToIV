@@ -232,3 +232,131 @@ test("exports the current appearance and imports it back including layout", asyn
     });
     expect(await page.locator(".toiv-notice").filter({ hasText: "不是合法的 JSON 文件" }).count()).toBe(1);
 });
+
+const CAPABILITIES = {
+    schema_version: 1,
+    tools: {
+        image: { id: "image", label: "文生图", available: true },
+        video: { id: "video", label: "文生视频", available: true },
+    },
+    slots: [
+        {
+            id: "image", label: "出图", available: true, unavailable_reason: null,
+            affects: ["工具中心 · 文生图", "项目 · 分镜首帧"],
+            engines: [{
+                id: "txt2img", label: "文生图", kind: "image", nsfw: false,
+                description: "基础出图", route: "/api/generate/txt2img",
+                available: true, unavailable_reason: null,
+                params: [
+                    {
+                        key: "ckpt_name", label: "底模", type: "select", default: "z_image.safetensors",
+                        options: [
+                            { value: "z_image.safetensors", label: "Z-Image" },
+                            { value: "sdxl.safetensors", label: "SDXL" },
+                        ],
+                    },
+                    { key: "width", label: "宽", type: "int", default: 1024, min: 64, max: 2048, step: 8 },
+                ],
+                limits: {},
+            }],
+        },
+        {
+            id: "video", label: "视频", available: false, unavailable_reason: "H3 实例不可达",
+            affects: ["工具中心 · 文生视频", "流水线 · 分镜渲染"],
+            engines: [{
+                id: "h3-t2v", label: "H3 文生视频", kind: "video", nsfw: false,
+                description: "H3 管线", route: "/api/h3/t2v",
+                available: false, unavailable_reason: "H3 实例不可达",
+                params: [{
+                    key: "duration", label: "时长", type: "select", default: "5",
+                    options: [{ value: "5", label: "5 秒" }, { value: "10", label: "10 秒" }],
+                }],
+                limits: {},
+            }],
+        },
+        {
+            id: "avatar", label: "数字人", available: false, unavailable_reason: "暂无已注册引擎",
+            affects: ["流水线 · 数字人口播"], engines: [],
+        },
+        {
+            id: "audio", label: "音乐", available: true, unavailable_reason: null,
+            affects: ["配音 · 台词配音"], engines: [],
+        },
+    ],
+    issues: [
+        { id: "slot-video-empty", title: "视频槽位暂无可用引擎", reason: "H3 实例不可达", affects: ["工具中心 · 文生视频"] },
+        { id: "slot-avatar-empty", title: "数字人槽位暂无可用引擎", reason: "暂无已注册引擎", affects: ["流水线 · 数字人口播"] },
+    ],
+};
+
+test("settings nav marks capability and contrast issues", async () => {
+    await page.route("**/api/models/capabilities", (route) => route.fulfill({
+        status: 200, contentType: "application/json", body: JSON.stringify(CAPABILITIES),
+    }));
+    await visit();
+    const nav = page.getByRole("navigation", { name: "设置分区" });
+    expect(await nav.getByRole("link").count()).toBe(4);
+    const models = nav.getByRole("link", { name: /模型与渠道/ });
+    await models.getByLabel("2 个待处理问题").waitFor();
+    expect(await models.textContent()).toContain("2");
+
+    await setColor("次要文字", "#dddddd");
+    const colors = nav.getByRole("link", { name: /颜色/ });
+    expect(await colors.textContent()).toContain("1");
+    expect(await colors.getByLabel("1 个待处理问题").count()).toBe(1);
+});
+
+test("model sheet groups slots, shows pricing/params/tiers and probes endpoints", async () => {
+    await page.route("**/api/models/capabilities", (route) => route.fulfill({
+        status: 200, contentType: "application/json", body: JSON.stringify(CAPABILITIES),
+    }));
+    let probeMethod = "";
+    await page.route("**/api/models/engines/refresh", (route) => {
+        probeMethod = route.request().method();
+        return route.fulfill({
+            status: 200, contentType: "application/json", body: JSON.stringify({
+                count: 2,
+                engines: [
+                    { id: "txt2img", label: "文生图", kind: "image", available: true, submit: { route: "/api/generate/txt2img" } },
+                    {
+                        id: "h3-t2v", label: "H3 文生视频", kind: "video", available: false,
+                        unavailable_reason: "H3 实例不可达", submit: { route: "/api/h3/t2v" },
+                    },
+                ],
+            }),
+        });
+    });
+    await visit();
+    await page.getByRole("button", { name: "打开模型能力" }).click();
+    const dialog = page.getByRole("dialog", { name: "模型能力" });
+    await dialog.waitFor();
+    expect(await dialog.getByRole("tab").allTextContents()).toEqual(["出图", "视频", "数字人", "音乐"]);
+    expect(await dialog.getByText("本地算力 · 免费").textContent()).toContain("免费");
+    expect(await dialog.getByText("默认 Z-Image · 共 2 档").count()).toBe(1);
+    expect(await dialog.getByText("64–2048").count()).toBe(1);
+    expect(await dialog.getByText("工具中心 · 文生图").count()).toBe(1);
+
+    await dialog.getByRole("tab", { name: "视频" }).click();
+    const tiers = dialog.locator(".toiv-sheet-block").filter({ hasText: "时长档" }).locator(".toiv-chips span");
+    expect(await tiers.allTextContents()).toEqual(["5 秒", "10 秒"]);
+    expect(await dialog.getByText("未配置影响").count()).toBe(1);
+    expect(await dialog.locator(".toiv-sheet-block.is-impact .toiv-chips").textContent()).toContain("流水线 · 分镜渲染");
+
+    await dialog.getByRole("button", { name: "测试端点" }).click();
+    await dialog.getByText("已探测 2 个引擎 · 1 个可用").waitFor();
+    expect(probeMethod).toBe("POST");
+    await dialog.getByRole("button", { name: "关闭" }).click();
+    expect(await page.getByRole("dialog").count()).toBe(0);
+});
+
+test("model capability failure degrades to a retryable note without breaking settings", async () => {
+    await page.route("**/api/models/capabilities", (route) => route.fulfill({
+        status: 503, contentType: "application/json", body: JSON.stringify({ detail: "引擎注册表不可用" }),
+    }));
+    await visit();
+    await page.getByText("能力读取失败：引擎注册表不可用").waitFor();
+    const nav = page.getByRole("navigation", { name: "设置分区" });
+    expect(await nav.getByRole("link", { name: /模型与渠道/ }).getByLabel("1 个待处理问题").count()).toBe(1);
+    expect(await page.getByRole("button", { name: "重试", exact: true }).count()).toBe(1);
+    expect(await page.getByRole("radio", { name: /浅色清爽/ }).getAttribute("aria-checked")).toBe("true");
+});

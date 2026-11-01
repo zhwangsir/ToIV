@@ -1,8 +1,17 @@
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Button from "../../components/ui/Button";
 import { legacyDestination } from "../addons/LegacyHandoff";
 import ToivShell from "../shell/ToivShell";
 import AppearancePreview from "../theme/AppearancePreview";
+import { containTab, focusFirst } from "../a11y/focus";
+import {
+    fetchToolCapabilities, refreshModelEndpoints,
+    type EngineProbeResult, type ToolCapabilities,
+} from "../adapters/capabilities";
+import {
+    LOCAL_PRICING, SETTINGS_SECTIONS, buildModelSheet, settingsIssueMarkers,
+    type SettingsSectionId,
+} from "../adapters/settings";
 import {
     LAYOUT_PRESETS, MAX_THEME_NAME,
     applyAppearanceTo, createCustomTheme, deleteCustomTheme, editActiveToken, exportAppearance,
@@ -14,6 +23,24 @@ import {
     THEMES, THEME_IDS, TOKEN_GROUPS, contrastRatio, formatColor, parseColor,
     type ColorTokenField, type ThemeTokenKey,
 } from "../theme/tokens";
+
+type CapabilityState =
+    | { status: "loading"; data: null; error: "" }
+    | { status: "ready"; data: ToolCapabilities; error: "" }
+    | { status: "error"; data: null; error: string };
+
+type ProbeState =
+    | { status: "idle"; result: null; error: "" }
+    | { status: "running"; result: null; error: "" }
+    | { status: "done"; result: EngineProbeResult; error: "" }
+    | { status: "error"; result: null; error: string };
+
+const SECTION_ANCHORS: Record<SettingsSectionId, string> = {
+    appearance: "settings-theme",
+    colors: "settings-colors",
+    layout: "settings-layout",
+    models: "settings-models",
+};
 
 const DENSITY_OPTIONS = [
     { value: "compact", label: "紧凑" },
@@ -127,10 +154,69 @@ export default function PrimeSettings() {
     const [pendingDelete, setPendingDelete] = useState<string | null>(null);
     const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
+    const [activeSection, setActiveSection] = useState<SettingsSectionId>("appearance");
+    const [capabilityState, setCapabilityState] = useState<CapabilityState>({ status: "loading", data: null, error: "" });
+    const [capabilityAttempt, setCapabilityAttempt] = useState(0);
+    const [sheetOpen, setSheetOpen] = useState(false);
+    const sheetRef = useRef<HTMLDivElement>(null);
+    const sheetOpener = useRef<HTMLElement | null>(null);
+    const [activeSlot, setActiveSlot] = useState("");
+    const [probe, setProbe] = useState<ProbeState>({ status: "idle", result: null, error: "" });
 
     const resolved = useMemo(() => resolveTheme(state), [state]);
     const tokens = resolved.tokens;
     const ratio = contrastRatio(tokens["--text-secondary"], tokens["--pf-bg"]);
+    const sheet = useMemo(() => buildModelSheet(capabilityState.data), [capabilityState.data]);
+    const markers = settingsIssueMarkers(capabilityState.data, {
+        contrastOk: ratio >= 4.5,
+        modelsError: capabilityState.status === "error",
+    });
+    const activeGroup = sheet.groups.find((group) => group.id === activeSlot) ?? sheet.groups[0] ?? null;
+
+    useEffect(() => {
+        let alive = true;
+        setCapabilityState({ status: "loading", data: null, error: "" });
+        fetchToolCapabilities()
+            .then((data) => { if (alive) setCapabilityState({ status: "ready", data, error: "" }); })
+            .catch((cause) => { if (alive) setCapabilityState({ status: "error", data: null, error: errorText(cause) }); });
+        return () => { alive = false; };
+    }, [capabilityAttempt]);
+
+    useEffect(() => {
+        if (!sheetOpen) return;
+        if (!sheetRef.current?.contains(document.activeElement)) focusFirst(sheetRef.current);
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setSheetOpen(false);
+                return;
+            }
+            containTab(event, sheetRef.current);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            const opener = sheetOpener.current;
+            sheetOpener.current = null;
+            if (opener?.isConnected) opener.focus();
+        };
+    }, [sheetOpen]);
+
+    const openSheet = () => {
+        sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setProbe({ status: "idle", result: null, error: "" });
+        setActiveSlot(sheet.groups[0]?.id ?? "");
+        setSheetOpen(true);
+    };
+
+    const runProbe = async () => {
+        setProbe({ status: "running", result: null, error: "" });
+        try {
+            setProbe({ status: "done", result: await refreshModelEndpoints(), error: "" });
+        } catch (cause) {
+            setProbe({ status: "error", result: null, error: errorText(cause) });
+        }
+    };
+
     const activeCustom = resolved.custom
         ? state.customThemes.find((theme) => theme.id === resolved.id) ?? null
         : null;
@@ -211,6 +297,23 @@ export default function PrimeSettings() {
                 ) : null}
 
                 <div className="toiv-settings-body">
+                    <nav className="toiv-settings-nav" aria-label="设置分区">
+                        {SETTINGS_SECTIONS.map((section) => {
+                            const count = markers[section.id];
+                            return (
+                                <a key={section.id} href={`#${SECTION_ANCHORS[section.id]}`}
+                                    title={section.hint}
+                                    className={activeSection === section.id ? "is-active" : undefined}
+                                    aria-current={activeSection === section.id ? "true" : undefined}
+                                    onClick={() => setActiveSection(section.id)}>
+                                    <span>{section.label}</span>
+                                    {count > 0 ? (
+                                        <span className="toiv-nav-badge" aria-label={`${count} 个待处理问题`}>{count > 99 ? "99+" : count}</span>
+                                    ) : null}
+                                </a>
+                            );
+                        })}
+                    </nav>
                     <div className="toiv-settings-main">
                         <section className="toiv-settings-section" aria-labelledby="settings-theme">
                             <div className="toiv-settings-section-head">
@@ -367,10 +470,48 @@ export default function PrimeSettings() {
                             </div>
                         </section>
 
-                        <section className="toiv-settings-section" aria-labelledby="settings-legacy">
+                        <section className="toiv-settings-section" id="settings-models" aria-labelledby="settings-legacy">
                             <div className="toiv-settings-section-head">
                                 <h2 id="settings-legacy">模型与渠道</h2>
+                                <span className="meta">
+                                    {capabilityState.status === "ready"
+                                        ? `${sheet.available} / ${sheet.total} 槽位可用`
+                                        : capabilityState.status === "error" ? "能力读取失败" : "读取中"}
+                                </span>
                             </div>
+                            <p className="toiv-settings-note">
+                                生成能力只读自后端引擎注册表；新增模型、比例或时长档只改注册表一处，生成面板与设置页同时生效。
+                            </p>
+                            {capabilityState.status === "loading" ? (
+                                <p className="toiv-settings-note" role="status">正在读取生成能力…</p>
+                            ) : null}
+                            {capabilityState.status === "error" ? (
+                                <div className="toiv-capability-error">
+                                    <p role="status">能力读取失败：{capabilityState.error}</p>
+                                    <Button variant="outline" size="sm"
+                                        onClick={() => setCapabilityAttempt((attempt) => attempt + 1)}>重试</Button>
+                                </div>
+                            ) : null}
+                            {capabilityState.status === "ready" ? (
+                                <div className="toiv-capability-card">
+                                    <div className="toiv-capability-summary">
+                                        <div><span className="meta">业务槽位</span><b>{sheet.available} / {sheet.total} 可用</b></div>
+                                        <div><span className="meta">待处理问题</span><b>{sheet.issues}</b></div>
+                                        <div><span className="meta">计费</span><b>{LOCAL_PRICING.label}</b></div>
+                                    </div>
+                                    <div className="toiv-capability-slots">
+                                        {sheet.groups.map((group) => (
+                                            <span key={group.id}
+                                                className={`toiv-slot-chip${group.available ? "" : " is-off"}`}
+                                                title={group.available ? group.coverage.join("、") : group.reason}>
+                                                {group.label}
+                                                <small>{group.available ? "可用" : "不可用"}</small>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={openSheet}>打开模型能力</Button>
+                                </div>
+                            ) : null}
                             <p className="toiv-settings-note">旧版设置页保留模型、渠道与账号选项；切换完成后可在此打开。</p>
                             <Button variant="outline" disabled={!legacy}
                                 onClick={() => { if (legacy) window.location.assign(legacy); }}>打开旧版设置</Button>
@@ -392,6 +533,124 @@ export default function PrimeSettings() {
                         </div>
                     </aside>
                 </div>
+
+                {sheetOpen ? (
+                    <div className="toiv-sheet-backdrop"
+                        onMouseDown={(event) => { if (event.target === event.currentTarget) setSheetOpen(false); }}>
+                        <div ref={sheetRef} className="toiv-sheet" role="dialog" aria-modal="true" aria-labelledby="settings-sheet-title" tabIndex={-1}>
+                            <header className="toiv-sheet-head">
+                                <div>
+                                    <span className="meta">模型能力 · 只读</span>
+                                    <h2 id="settings-sheet-title">模型能力</h2>
+                                </div>
+                                <Button variant="text" size="sm" autoFocus onClick={() => setSheetOpen(false)}>关闭</Button>
+                            </header>
+                            <div className="toiv-sheet-tabs" role="tablist" aria-label="业务槽位">
+                                {sheet.groups.map((group) => (
+                                    <button key={group.id} type="button" role="tab"
+                                        aria-selected={group.id === activeGroup?.id}
+                                        className={group.id === activeGroup?.id ? "is-active" : undefined}
+                                        onClick={() => setActiveSlot(group.id)}>
+                                        {group.label}
+                                        <i className={`toiv-slot-dot${group.available ? " is-on" : " is-off"}`} aria-hidden="true" />
+                                    </button>
+                                ))}
+                            </div>
+                            {activeGroup ? (
+                                <div className="toiv-sheet-body" role="tabpanel" aria-label={activeGroup.label}>
+                                    <div className="toiv-sheet-price">
+                                        <span className="meta">价格</span>
+                                        <b>{activeGroup.price}</b>
+                                        <small>{activeGroup.priceNote}</small>
+                                    </div>
+                                    <div className="toiv-sheet-block">
+                                        <span className="meta">能力覆盖</span>
+                                        <div className="toiv-chips">
+                                            {activeGroup.coverage.map((item) => <span key={item}>{item}</span>)}
+                                        </div>
+                                    </div>
+                                    {!activeGroup.available ? (
+                                        <div className="toiv-sheet-block is-impact">
+                                            <span className="meta">未配置影响</span>
+                                            <div className="toiv-chips">
+                                                {activeGroup.impact.map((item) => <span key={item}>{item}</span>)}
+                                            </div>
+                                            <p>{activeGroup.reason}</p>
+                                        </div>
+                                    ) : null}
+                                    {activeGroup.issues.length ? (
+                                        <ul className="toiv-sheet-issues">
+                                            {activeGroup.issues.map((issue) => (
+                                                <li key={issue.id}><b>{issue.title}</b><span>{issue.reason}</span></li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                    <div className="toiv-sheet-engines">
+                                        {activeGroup.engines.map((engine) => (
+                                            <article className="toiv-sheet-engine" key={engine.id}>
+                                                <header>
+                                                    <b>{engine.label}</b>
+                                                    <span className={`toiv-engine-state${engine.available ? " is-on" : " is-off"}`}>
+                                                        {engine.available ? "可用" : "不可用"}
+                                                    </span>
+                                                </header>
+                                                <p className="meta">
+                                                    {engine.kind || "引擎"}{engine.nsfw ? " · NSFW" : ""}
+                                                    {engine.route ? ` · ${engine.route}` : ""}
+                                                </p>
+                                                {engine.reason ? <p className="toiv-sheet-reason">{engine.reason}</p> : null}
+                                                {engine.params.length ? (
+                                                    <dl className="toiv-sheet-params">
+                                                        {engine.params.map((param) => (
+                                                            <div key={param.key}>
+                                                                <dt>{param.label}</dt>
+                                                                <dd>{param.summary}</dd>
+                                                            </div>
+                                                        ))}
+                                                    </dl>
+                                                ) : null}
+                                                {engine.durations.length ? (
+                                                    <div className="toiv-sheet-block">
+                                                        <span className="meta">时长档</span>
+                                                        <div className="toiv-chips">
+                                                            {engine.durations.map((duration) => <span key={duration}>{duration}</span>)}
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+                                            </article>
+                                        ))}
+                                        {!activeGroup.engines.length ? (
+                                            <p className="toiv-settings-note">该槽位暂无已注册引擎。</p>
+                                        ) : null}
+                                    </div>
+                                    <div className="toiv-sheet-probe">
+                                        <Button variant="outline" size="sm"
+                                            disabled={probe.status === "running"} onClick={runProbe}>
+                                            {probe.status === "running" ? "探测中…" : "测试端点"}
+                                        </Button>
+                                        {probe.status === "done" ? (
+                                            <p className="toiv-probe-result" role="status">
+                                                已探测 {probe.result.count} 个引擎 · {probe.result.availableCount} 个可用
+                                            </p>
+                                        ) : null}
+                                        {probe.status === "error" ? (
+                                            <p className="toiv-probe-result is-error" role="alert">{probe.error}</p>
+                                        ) : null}
+                                    </div>
+                                    {probe.status === "done" && probe.result.engines.some((engine) => !engine.available) ? (
+                                        <ul className="toiv-sheet-issues">
+                                            {probe.result.engines.filter((engine) => !engine.available).map((engine) => (
+                                                <li key={engine.id}><b>{engine.label}</b><span>{engine.reason || "不可用"}</span></li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <p className="toiv-settings-note">暂无可展示的业务槽位。</p>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </ToivShell>
     );

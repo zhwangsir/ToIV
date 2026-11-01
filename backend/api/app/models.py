@@ -857,6 +857,31 @@ class StudioStageConfirmation(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now)
 
 
+class StudioAssetLedgerApply(SQLModel, table=True):
+    """跨集资产对账应用回执(B3):receipt_id 幂等,重放不覆盖后来编辑。
+
+    只记「这次应用做了什么」,不存正典快照;对账状态永远由 Entity/
+    StudioCharacter 现算,回执不得代替产物时效。
+    """
+
+    __tablename__ = "studioassetledgerapply"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "receipt_id", name="uq_assetledgerapply_project_receipt"
+        ),
+    )
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    project_id: str = Field(index=True)
+    receipt_id: str = Field(index=True)
+    asset_key: str = ""
+    action: str = "merge"  # merge | import | create
+    entity_id: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
 class StudioShotRevision(SQLModel, table=True):
     """分镜不可变修订:内容历史 + 生成输入快照(含可比较指纹)。
 

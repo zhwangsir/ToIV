@@ -14,7 +14,7 @@ export default function PrimeTools() {
                         <h1>工具</h1>
                         <p className="toiv-settings-note">独立生成台：不建项目也能出图出片，产物统一进任务中心。</p>
                     </div>
-                    <Button variant="outline" size="sm" to="/history">去任务中心</Button>
+                    <Button variant="outline" size="sm" to="/tasks">去任务中心</Button>
                 </header>
 
                 <section className="toiv-settings-section" aria-labelledby="tools-ready">

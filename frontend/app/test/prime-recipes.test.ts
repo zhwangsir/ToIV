@@ -38,14 +38,32 @@ describe("prime recipes adapter", () => {
         const bundle = await exportPrimeRecipeBundle("r2");
         expect(bundle.fileName).toBe("日戏-外景.toiv-recipe.json");
     });
-    test("apply posts shot id and reports fields", async () => {
+    test("apply posts the revision precondition and reports fields plus the new revision", async () => {
+        let body: Record<string, unknown> = {};
         globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
             calls.push({ path: String(input), method: init?.method ?? "GET" });
-            return new Response(JSON.stringify({ applied_fields: ["prompt", "seed"] }), { status: 200 });
+            body = JSON.parse(String(init?.body ?? "{}"));
+            return new Response(JSON.stringify({
+                applied_fields: ["prompt", "seed"],
+                shot: { id: "sh2", current_revision_id: "rev-applied" },
+            }), { status: 200 });
         }) as typeof fetch;
         const { applyPrimeRecipeToShot } = await import("../src/toiv/adapters/recipes");
-        expect(await applyPrimeRecipeToShot("r1", "sh2")).toEqual(["prompt", "seed"]);
+        expect(await applyPrimeRecipeToShot("r1", "sh2", "rev-base")).toEqual({
+            fields: ["prompt", "seed"], revisionId: "rev-applied",
+        });
         expect(calls[0].path).toContain("/api/studio/recipes/r1/apply");
         expect(calls[0].method).toBe("POST");
+        expect(body).toEqual({ shot_id: "sh2", apply_project_specs: false, expected_revision: "rev-base" });
+    });
+    test("apply omits the precondition when the caller has no revision yet", async () => {
+        let body: Record<string, unknown> = {};
+        globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+            body = JSON.parse(String(init?.body ?? "{}"));
+            return new Response(JSON.stringify({ applied_fields: [], shot: {} }), { status: 200 });
+        }) as typeof fetch;
+        const { applyPrimeRecipeToShot } = await import("../src/toiv/adapters/recipes");
+        expect(await applyPrimeRecipeToShot("r1", "sh2")).toEqual({ fields: [], revisionId: "" });
+        expect(body).toEqual({ shot_id: "sh2", apply_project_specs: false });
     });
 });

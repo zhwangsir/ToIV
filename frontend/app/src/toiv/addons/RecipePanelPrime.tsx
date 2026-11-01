@@ -78,42 +78,74 @@ export function PrimeImportDialog({ open, onClose, onInstall }: {
     );
 }
 
-export function RecipePanelPrime({ shotId, onNotice }: { shotId?: string; onNotice: (text: string, warn?: boolean) => void }) {
+export function RecipePanelPrime({ shotId, shotRevisionId, onNotice, onApplied }: {
+    shotId?: string;
+    shotRevisionId?: string;
+    onNotice: (text: string, warn?: boolean) => void;
+    onApplied?: () => void;
+}) {
     const [recipes, setRecipes] = useState<PrimeRecipeCard[]>([]);
+    const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+    const [attempt, setAttempt] = useState(0);
     const [name, setName] = useState("");
     const [importOpen, setImportOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [exporting, setExporting] = useState("");
+    const [applying, setApplying] = useState("");
+    const [revision, setRevision] = useState(shotRevisionId ?? "");
+    const noticeRef = useRef(onNotice);
+    const busyRef = useRef({ save: false, export: "", apply: "" });
+    noticeRef.current = onNotice;
     useEffect(() => {
         let alive = true;
-        loadPrimeRecipes().then((cards) => { if (alive) setRecipes(cards); }).catch(() => { if (alive) onNotice("配方列表加载失败 · 创作不受影响", true); });
+        setPhase("loading");
+        loadPrimeRecipes().then((cards) => {
+            if (alive) { setRecipes(cards); setPhase("ready"); }
+        }).catch(() => {
+            if (alive) setPhase("error");
+        });
         return () => { alive = false; };
-    }, [onNotice]);
+    }, [attempt]);
+    useEffect(() => { setRevision(shotRevisionId ?? ""); }, [shotId, shotRevisionId]);
     const save = async () => {
-        if (!shotId) return;
+        if (!shotId || busyRef.current.save) return;
+        busyRef.current.save = true;
+        setSaving(true);
         try {
             const card = await savePrimeRecipeFromShot(shotId, name.trim() || "镜01 配方");
             setRecipes((prev) => [card, ...prev]);
-            onNotice(`已存为配方 · ${card.name}`);
+            noticeRef.current(`已存为配方 · ${card.name}`);
         } catch {
-            onNotice("存配方失败 · 镜头需已有采用候选", true);
-        }
+            noticeRef.current("存配方失败 · 镜头需已有采用候选", true);
+        } finally { busyRef.current.save = false; setSaving(false); }
     };
     const exportOne = async (recipeId: string) => {
+        if (busyRef.current.export) return;
+        busyRef.current.export = recipeId;
+        setExporting(recipeId);
         try {
             const bundle = await exportPrimeRecipeBundle(recipeId);
             download(bundle.fileName, bundle.text);
-            onNotice(`配方已导出 · ${bundle.fileName}`);
+            noticeRef.current(`配方已导出 · ${bundle.fileName}`);
         } catch {
-            onNotice("导出失败", true);
-        }
+            noticeRef.current("导出失败", true);
+        } finally { busyRef.current.export = ""; setExporting(""); }
     };
     const apply = async (recipeId: string) => {
-        if (!shotId) return;
+        if (!shotId || busyRef.current.apply) return;
+        busyRef.current.apply = recipeId;
+        setApplying(recipeId);
         try {
-            const fields = await applyPrimeRecipeToShot(recipeId, shotId);
-            onNotice(`已复用配方 · 写入 ${fields.join(" / ") || "无字段变化"}`);
-        } catch {
-            onNotice("复用失败 · 修订号冲突或镜头不存在", true);
-        }
+            const result = await applyPrimeRecipeToShot(recipeId, shotId, revision || undefined);
+            if (result.revisionId) setRevision(result.revisionId);
+            noticeRef.current(`已复用配方 · 写入 ${result.fields.join(" / ") || "无字段变化"}`);
+            onApplied?.();
+        } catch (error) {
+            const conflict = error instanceof Error && error.message.includes("409");
+            noticeRef.current(conflict
+                ? "复用失败 · 分镜已被其他修改更新，请刷新分镜后重试"
+                : `复用失败 · ${error instanceof Error ? error.message : "请求失败"}`, true);
+        } finally { busyRef.current.apply = ""; setApplying(""); }
     };
     return (
         <div className="toiv-recipes">
@@ -121,10 +153,19 @@ export function RecipePanelPrime({ shotId, onNotice }: { shotId?: string; onNoti
                 <input value={name} placeholder="镜01 配方" onChange={(event) => setName(event.target.value)} />
             </label>
             <div className="toiv-recipebar">
-                <Button variant="lime" disabled={!shotId} onClick={() => { void save(); }}>从本镜存配方</Button>
+                <Button variant="lime" disabled={!shotId || saving} onClick={() => { void save(); }}>
+                    {saving ? "正在保存…" : "从本镜存配方"}
+                </Button>
                 <Button variant="ghost" onClick={() => setImportOpen(true)}>安装配方 JSON</Button>
             </div>
-            {recipes.length === 0 ? <div className="toiv-empty"><p>还没有配方。存一个满意的镜头，或安装别处导出的 JSON。</p></div> : null}
+            {phase === "loading" ? <p className="meta" role="status">正在载入配方…</p> : null}
+            {phase === "error" ? (
+                <div className="toiv-empty" role="alert">
+                    <p>配方列表载入失败 · 创作不受影响</p>
+                    <Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>重试载入配方</Button>
+                </div>
+            ) : null}
+            {phase === "ready" && recipes.length === 0 ? <div className="toiv-empty"><p>还没有配方。存一个满意的镜头，或安装别处导出的 JSON。</p></div> : null}
             {recipes.map((recipe) => (
                 <article className="toiv-recipe" key={recipe.id}>
                     <header>
@@ -136,8 +177,14 @@ export function RecipePanelPrime({ shotId, onNotice }: { shotId?: string; onNoti
                     <footer>
                         <span className="sub">更新 {recipe.updatedOn}</span>
                         <span className="acts">
-                            <Button variant="ghost" size="sm" onClick={() => { void exportOne(recipe.id); }}>导出</Button>
-                            <Button variant="lime" size="sm" disabled={!shotId} onClick={() => { void apply(recipe.id); }}>复用到本镜</Button>
+                            <Button variant="ghost" size="sm" disabled={Boolean(exporting)}
+                                onClick={() => { void exportOne(recipe.id); }}>
+                                {exporting === recipe.id ? "导出中…" : "导出"}
+                            </Button>
+                            <Button variant="lime" size="sm" disabled={!shotId || Boolean(applying)}
+                                onClick={() => { void apply(recipe.id); }}>
+                                {applying === recipe.id ? "复用中…" : "复用到本镜"}
+                            </Button>
                         </span>
                     </footer>
                 </article>
@@ -146,7 +193,7 @@ export function RecipePanelPrime({ shotId, onNotice }: { shotId?: string; onNoti
                 onInstall={async (payload) => {
                     const card = await installPrimeRecipe(payload);
                     setRecipes(prev => [card, ...prev]);
-                    onNotice(`配方已安装 · ${card.name}`);
+                    noticeRef.current(`配方已安装 · ${card.name}`);
                 }} />
         </div>
     );

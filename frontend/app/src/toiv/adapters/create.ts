@@ -53,7 +53,7 @@ export async function retryPrimeImport(project: PrimeCreateResult, script: strin
         stage = "check";
         await readEmptyProject(project.id);
         stage = "shots";
-        await request(`${path}/shots`, "PUT", { shots: parsed.shots.map(primeShotWriteInput) });
+        await request(`${path}/shots`, "PUT", { shots: parsed.shots.map(primeShotWriteInput), expected_shot_ids: [] });
         return { ...base, imported: true };
     } catch (error) {
         return { ...base, recovery: { script, stage, message: error instanceof Error ? error.message : "导入失败，请核对项目后重试" } };

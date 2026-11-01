@@ -13,10 +13,12 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
+const appRoot = join(testDir, "..");
 const repoRoot = join(testDir, "..", "..", "..");
 
 function readSrc(rel: string): string {
-  return readFileSync(join(repoRoot, rel), "utf-8");
+  const local = join(appRoot, rel.replace(/^apps\/web\//, ""));
+  return readFileSync(existsSync(local) ? local : join(repoRoot, rel), "utf-8");
 }
 
 test("F9 跳转壳:登录态 home 的渲染闸门在 app-shell 之前", () => {

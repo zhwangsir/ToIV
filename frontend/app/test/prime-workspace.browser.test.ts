@@ -173,7 +173,7 @@ test("the task bar shows live jobs and never invents a running count", async () 
     expect(await bar.textContent()).toContain("scene-render");
     expect(await bar.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("40");
     await bar.getByRole("link", { name: "全部任务", exact: true }).click();
-    await at("/history");
+    await at("/tasks");
 });
 
 test("an empty queue reads as idle without claiming zero running", async () => {

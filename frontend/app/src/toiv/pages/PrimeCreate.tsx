@@ -39,9 +39,9 @@ export default function PrimeCreate() {
     };
     return (
         <ToivShell>
-            <ToivWorkbar face="pipeline" runningCount={0}
-                onFaceChange={(face) => navigate(face === "canvas" ? "/drama" : face === "edit" ? "/history" : "/studio")}
-                onOpenTasks={() => navigate("/history")} />
+            <ToivWorkbar face="pipeline"
+                onFaceChange={(face) => navigate(face === "canvas" ? "/drama" : face === "edit" ? "/studio?face=edit" : "/studio")}
+                onOpenTasks={() => navigate("/tasks")} />
             <form className="toiv-create" onSubmit={submit} aria-label="新建项目" aria-busy={busy}>
                 <h2>新建项目</h2>
                 <label>标题<input value={title} disabled={busy || Boolean(created)} onChange={(event) => setTitle(event.target.value)} placeholder="例：雨夜便利店" /></label>

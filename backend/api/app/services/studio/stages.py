@@ -57,13 +57,16 @@ def load_store(project: StudioProject) -> dict[str, str]:
 
 def _persist_store(
     session: Session, project: StudioProject, store: dict[str, str], *,
-    expected_revision: int,
+    expected_revision: int, commit: bool = True,
 ) -> None:
     """条件 UPDATE(CAS)持久化人工态:仅当 stage_revision 仍为 expected 才落库。
 
     多进程/多请求并发下防写后写:版本被他人推进时 0 行命中 → 回滚本事务
     (审计行一并丢弃)并抛 StageConflictError。不用 ORM 读-改-写冒充原子;
     UPDATE ... WHERE id=? AND stage_revision=? 在 PG 与 SQLite 语义一致。
+
+    commit=False 供上层原子写入复用:内容/修订/失效同一事务,调用方最后统一
+    commit;冲突时本函数已回滚整个事务,调用方不得继续写入。
     """
     from datetime import datetime, timezone
 
@@ -86,7 +89,8 @@ def _persist_store(
         raise StageConflictError(
             f"阶段状态已被并发修改(stage_revision 已非 {expected_revision}),请重读重试"
         )
-    session.commit()
+    if commit:
+        session.commit()
 
 
 def _audit(
@@ -204,12 +208,15 @@ def stage_state_of(session: Session, project: StudioProject, stage: str) -> dict
 def invalidate_stages(
     session: Session, project: StudioProject, *,
     stages: list[str], source: str, note: str,
-    created_by: str = "system",
+    created_by: str = "system", commit: bool = True,
 ) -> list[str]:
     """上游真实修改 → 对应下游 confirmed/skipped 标 needs_review + 审计。
 
     只动已确认/已跳过的阶段(未确认的不必标);重复调用对已 needs_review 幂等
     (不再写历史)。不触碰在途渲染/配音作业。
+
+    commit=False 供内容写入同事务复用:不重试(重试会丢弃调用方尚未提交的
+    内容),CAS 冲突直接抛 StageConflictError,由调用方整体回滚。
     """
     # 显式去重并按 STUDIO_STAGES 稳定顺序归一:调用方可传重复/乱序/非法项
     # (如 premise+style 同变时 storyboard 重复),审计与返回序必须确定。
@@ -227,6 +234,17 @@ def invalidate_stages(
         changed.append((stage, current))
     if not changed:
         return []
+    if not commit:
+        for stage, prev in changed:
+            _audit(
+                session, project, stage=stage, from_state=prev, to_state="needs_review",
+                source=source, note=note, created_by=created_by,
+            )
+        _persist_store(
+            session, project, store,
+            expected_revision=int(project.stage_revision or 0), commit=False,
+        )
+        return [stage for stage, _prev in changed]
     # CAS 竞争时重读合并重试:只降级 confirmed/skipped,对他人已提交的跃迁
     # 纯合并不覆盖;重试耗尽仍冲突则抛出(上游业务变更已提交,绝不静默丢审计)。
     for attempt in range(5):

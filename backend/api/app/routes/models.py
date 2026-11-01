@@ -24,6 +24,7 @@ from app.services.provenance import (
 )
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
+from app.services.tool_capabilities import build_tool_capabilities
 from app.workflows.ace_step import AceStep15Params
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.llm_router import list_content_types, list_llm_endpoints
@@ -556,6 +557,19 @@ async def nsfw_recommendations(
     admin = is_admin_user(user)
     items = [redact_nsfw_recommendation(it, is_admin=admin) for it in NSFW_RECOMMENDATIONS]
     return {"items": items, "count": len(items)}
+
+
+@router.get("/models/capabilities")
+async def model_capabilities(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """生成工具能力单源:模型档/尺寸档/时长档/可用性/未配置影响。
+
+    与 /models/engines 同源(engine_registry),但不另写比例/时长/模型清单:
+    前端生成面板与设置页只读本端点,新增模型只改引擎注册表一处即前后端生效。
+    """
+    return build_tool_capabilities(await list_engines(pool, user))
 
 
 @router.get("/models/engines")

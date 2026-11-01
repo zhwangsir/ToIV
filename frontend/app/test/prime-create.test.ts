@@ -39,6 +39,7 @@ describe("Prime create persistence and recovery", () => {
         expect(calls.filter(c => c.path.endsWith("characters")).map(c => c.body)).toEqual([{ name: "小雨" }, { name: "阿明" }]);
         const put = calls.find(c => c.method === "PUT");
         expect(put?.path).toBe("/api/studio/projects/p9/shots");
+        expect(put?.body.expected_shot_ids).toEqual([]);
         expect(put?.body.shots).toMatchObject(parsed.shots);
         expect(calls.indexOf(put!)).toBeGreaterThan(calls.findLastIndex(c => c.path.endsWith("characters")));
         expect(calls[0].body.title).toBe("新剧");

@@ -10,6 +10,11 @@ let putStatus: number;
 let pickStatus: number;
 let holdCreate: Promise<void> | undefined;
 let holdPick: Promise<void> | undefined;
+let holdRecipeApply: Promise<void> | undefined;
+let holdRecipeList: Promise<void> | undefined;
+let recipeListStatus: number;
+let recipeApplyStatus: number;
+let recipeApplies: Record<string, unknown>[];
 let errors: string[];
 const initialShots = () => [
     { id: "s1", prompt: "原提示词", camera: "STATIC", duration_sec: 6, current_revision_id: "r1", status: "error", error: "engine failed", beats: [], candidates_digest: "d1", candidates: [
@@ -39,6 +44,8 @@ beforeAll(async () => {
 beforeEach(async () => {
     project = { id: "p1", title: "测试剧", characters: [], shots: initialShots() };
     calls = []; errors = []; putStatus = 200; pickStatus = 200; holdCreate = undefined; holdPick = undefined;
+    holdRecipeApply = undefined; holdRecipeList = undefined;
+    recipeListStatus = 200; recipeApplyStatus = 200; recipeApplies = [];
     page = await browser.newPage();
     page.setDefaultTimeout(2500);
     page.on("pageerror", error => errors.push(error.message));
@@ -69,6 +76,18 @@ beforeEach(async () => {
             project.shots = body.shots.map((s: any, index: number) => ({ ...project.shots.find((old: any) => old.id === s.id), ...s, id: s.id || `import${index}`, current_revision_id: `saved${index}` }));
             await route.fulfill({ json: { shots: project.shots } }); return;
         }
+        if (path === "/api/studio/recipes" && method === "GET") {
+            await holdRecipeList;
+            if (recipeListStatus !== 200) { await route.fulfill({ status: recipeListStatus, json: { detail: "配方服务不可用" } }); return; }
+            await route.fulfill({ json: { recipes: [{ id: "r1", name: "夜戏配方", engine: "h3", pipeline: "ref2va", render_mode: "video", updated_at: "2026-11-01T08:00:00Z" }] } }); return;
+        }
+        if (path === "/api/studio/recipes/r1/apply" && method === "POST") {
+            recipeApplies.push(body);
+            await holdRecipeApply;
+            if (recipeApplyStatus !== 200) { await route.fulfill({ status: recipeApplyStatus, json: { detail: "分镜已被其他修改更新" } }); return; }
+            project.shots[0].current_revision_id = "applied-rev";
+            await route.fulfill({ json: { applied_fields: ["prompt", "render_mode"], shot: project.shots[0] } }); return;
+        }
         if (path.endsWith("/reflow-beats")) {
             const shot = project.shots[1];
             shot.beats = shot.beats.map((beat: any, i: number) => ({ ...beat, text: body.texts[i] }));
@@ -91,6 +110,13 @@ afterAll(async () => { await browser?.close(); server?.stop(true); });
 const goto = (path: string) => page.goto(`http://127.0.0.1:${server.port}${path}`);
 const shot = (index: number) => page.locator(".toiv-shot").nth(index);
 const writes = () => calls.filter(c => c.method === "PUT" || c.method === "POST");
+async function until(check: () => boolean, label: string, timeout = 3000) {
+    const started = Date.now();
+    while (!check()) {
+        if (Date.now() - started > timeout) throw new Error(`timed out waiting for ${label}`);
+        await new Promise(resolve => setTimeout(resolve, 25));
+    }
+}
 
 test("create blocks synchronous duplicate submits and retries failed import within the same project", async () => {
     putStatus = 503;
@@ -173,7 +199,7 @@ test("beat edits use ordered text controls, readonly derived prompt and reflow p
     await shot(1).getByLabel("总时长（秒）").fill("9");
     await shot(1).getByRole("button", { name: "保存并重排" }).click();
     await page.getByRole("status").filter({ hasText: /已保存/ }).waitFor();
-    expect(writes().find(c => c.path.endsWith("reflow-beats"))?.body).toEqual({ texts: ["画面", "新台词"], total_sec: 9, persist: true });
+    expect(writes().find(c => c.path.endsWith("reflow-beats"))?.body).toEqual({ texts: ["画面", "新台词"], total_sec: 9, persist: true, expected_revision: "r2" });
     await page.reload();
     expect(await shot(1).getByLabel("第 2 拍文本").inputValue()).toBe("新台词");
 });
@@ -207,6 +233,82 @@ test("takes expose metadata and signed previews; pending and 409 never change se
     expect(calls.filter(c => c.path.endsWith("/pick")).at(-1)?.body).toEqual({ expected_candidates_digest: "d1" });
     await page.reload();
     expect(await c2.getAttribute("aria-pressed")).toBe("true");
+});
+
+test("shot deep links focus and highlight the exact card", async () => {
+    await goto("/studio/p1?shot=s2");
+    const target = page.locator("#shot-s2");
+    await target.waitFor();
+    await page.waitForFunction(() => document.querySelector("#shot-s2")?.classList.contains("is-focused"));
+    expect(await page.locator(".toiv-shot.is-focused").count()).toBe(1);
+    expect(await page.locator("#shot-s1.is-focused").count()).toBe(0);
+    expect(await target.getAttribute("tabindex")).toBe("-1");
+    expect(await target.evaluate(element => element === document.activeElement)).toBe(true);
+});
+
+test("recipe list loading and failure are explicit instead of claiming an empty library", async () => {
+    let release!: () => void;
+    holdRecipeList = new Promise(resolve => { release = resolve; });
+    await goto("/studio/p1");
+    await page.getByRole("button", { name: "配方", exact: true }).click();
+    await page.getByText("正在载入配方…", { exact: true }).waitFor();
+    expect(await page.getByText(/还没有配方/).count()).toBe(0);
+    release();
+    await page.getByText("夜戏配方", { exact: true }).waitFor();
+    expect(await page.getByText(/还没有配方/).count()).toBe(0);
+    holdRecipeList = undefined;
+    recipeListStatus = 503;
+    await page.getByRole("button", { name: "分镜", exact: true }).click();
+    await page.getByRole("button", { name: "配方", exact: true }).click();
+    const failure = page.getByRole("alert");
+    await failure.waitFor();
+    expect(await failure.innerText()).toContain("配方列表载入失败");
+    expect(await page.getByText(/还没有配方/).count()).toBe(0);
+    recipeListStatus = 200;
+    await page.getByRole("button", { name: "重试载入配方", exact: true }).click();
+    await page.getByText("夜戏配方", { exact: true }).waitFor();
+    expect(await page.getByRole("alert").count()).toBe(0);
+    expect(errors).toEqual([]);
+});
+
+test("recipe apply carries the live revision, blocks duplicate submits and rebases after the silent refresh", async () => {
+    let release!: () => void;
+    holdRecipeApply = new Promise(resolve => { release = resolve; });
+    await goto("/studio/p1");
+    await page.getByRole("button", { name: "配方", exact: true }).click();
+    await page.getByText("夜戏配方", { exact: true }).waitFor();
+    const apply = page.getByRole("button", { name: "复用到本镜", exact: true });
+    await apply.evaluate(button => {
+        button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const pending = page.getByRole("button", { name: "复用中…", exact: true });
+    await pending.waitFor();
+    expect(await pending.isDisabled()).toBe(true);
+    expect(recipeApplies).toHaveLength(1);
+    release();
+    await page.getByRole("status").filter({ hasText: "已复用配方 · 写入 prompt / render_mode" }).waitFor();
+    const projectReads = () => calls.filter(call => call.path === "/api/studio/projects/p1" && call.method === "GET").length;
+    await until(() => projectReads() >= 2, "the silent revision refresh");
+    await page.getByRole("button", { name: "复用到本镜", exact: true }).click();
+    await until(() => recipeApplies.length === 2, "the second apply");
+    expect(recipeApplies[0]).toEqual({ shot_id: "s1", apply_project_specs: false, expected_revision: "r1" });
+    expect(recipeApplies[1]).toEqual({ shot_id: "s1", apply_project_specs: false, expected_revision: "applied-rev" });
+    expect(errors).toEqual([]);
+});
+
+test("a revision conflict is named and leaves the apply action retryable", async () => {
+    recipeApplyStatus = 409;
+    await goto("/studio/p1");
+    await page.getByRole("button", { name: "配方", exact: true }).click();
+    await page.getByText("夜戏配方", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "复用到本镜", exact: true }).click();
+    const notice = page.getByRole("status").filter({ hasText: /复用失败/ });
+    await notice.waitFor();
+    expect(await notice.innerText()).toContain("已被其他修改更新");
+    expect(await notice.innerText()).toContain("刷新分镜");
+    expect(await page.getByRole("button", { name: "复用到本镜", exact: true }).isEnabled()).toBe(true);
+    expect(errors).toEqual([]);
 });
 
 for (const width of [320, 390]) {

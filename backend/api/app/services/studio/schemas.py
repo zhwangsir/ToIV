@@ -248,6 +248,9 @@ class ShotInput(BaseModel):
 
 class ShotsSaveRequest(BaseModel):
     shots: list[ShotInput]
+    # 列表基线(全量替换语义的原子前置条件):与项目当前分镜 id 集合不符 → 409。
+    # 不传=兼容旧客户端;新客户端应在读取列表后回传,防止把并发新增的镜删掉。
+    expected_shot_ids: list[str] | None = Field(default=None, max_length=500)
 
 
 class ScriptParseRequest(BaseModel):

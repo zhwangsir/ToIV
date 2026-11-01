@@ -2,13 +2,14 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, matchPath, useLocation } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import { NsfwPreferenceToggle } from "../addons/NsfwPreferenceToggle";
+import { containTab, focusFirst } from "../a11y/focus";
 
 const NAV = [
     { to: "/studio", label: "项目" },
     { to: "/drama", label: "画布" },
     { to: "/drama/assets", label: "资产" },
     { to: "/tools", label: "工具" },
-    { to: "/history", label: "任务" },
+    { to: "/tasks", label: "任务" },
     { to: "/settings", label: "设置" },
 ];
 
@@ -16,6 +17,7 @@ function currentSection(pathname: string) {
     if (/^\/drama\/(?:assets(?:\/|$)|projects\/[^/]+\/assets(?:\/|$))/.test(pathname)) return "/drama/assets";
     if (/^\/(?:drama|legacy\/canvas)(?:\/|$)/.test(pathname)) return "/drama";
     if (pathname === "/" || /^\/studio(?:\/|$)/.test(pathname)) return "/studio";
+    if (pathname === "/library") return "/tasks";
     return NAV.find((item) => matchPath({ path: item.to, end: false }, pathname))?.to;
 }
 
@@ -24,16 +26,20 @@ export default function ToivShell({ children, flush = false }: { children: React
     const [menuOpen, setMenuOpen] = useState(false);
     const menuId = useId();
     const burger = useRef<HTMLButtonElement>(null);
+    const drawer = useRef<HTMLDivElement>(null);
     const current = currentSection(location.pathname);
 
     useEffect(() => { setMenuOpen(false); }, [location.pathname, location.search]);
     useEffect(() => {
         if (!menuOpen) return;
+        if (!drawer.current?.contains(document.activeElement)) focusFirst(drawer.current);
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 setMenuOpen(false);
                 burger.current?.focus();
+                return;
             }
+            containTab(event, drawer.current);
         };
         const desktop = window.matchMedia("(min-width: 1101px)");
         const onResize = () => { if (desktop.matches) setMenuOpen(false); };
@@ -80,12 +86,13 @@ export default function ToivShell({ children, flush = false }: { children: React
                     </button>
                 </div>
                 {menuOpen ? (
-                    <div className="pf-nav-drawer" id={menuId}>
+                    <div ref={drawer} className="pf-nav-drawer" id={menuId}
+                        role="dialog" aria-modal="true" aria-label="站点菜单" tabIndex={-1}>
                         <nav className="pf-nav-drawer-links" aria-label="移动导航">{centerLinks}</nav>
                     </div>
                 ) : null}
             </header>
-            <main className={flush ? "pf-shell-main flush" : "pf-shell-main wide"}>{children}</main>
+            <main className={flush ? "pf-shell-main flush" : "pf-shell-main wide"} inert={menuOpen || undefined}>{children}</main>
         </div>
     );
 }

@@ -131,7 +131,9 @@ test("an empty successful library offers creation", async () => {
     await visit();
     const empty = page.locator(".pf-history-empty");
     expect(await empty.textContent()).toContain("还没有项目");
+    expect(await empty.locator(".toiv-empty-mark").count()).toBe(1);
     expect(await page.getByRole("alert").count()).toBe(0);
+    expect(await empty.getByRole("link", { name: "打开工具中心" }).getAttribute("href")).toBe("/tools");
     await empty.getByRole("link", { name: "新建项目" }).click();
     await at("/studio/new");
 });
@@ -151,6 +153,94 @@ test("native project rows expose keyboard entry without fabricated shot counts",
     await rows.first().getByRole("button", { name: "打开项目 Moon Story" }).focus();
     await page.keyboard.press("Enter");
     await at("/studio/s1");
+});
+
+test("project cards show cover, progress axis, repair pill and relative update time", async () => {
+    const updatedAt = new Date(Date.now() - 3 * 3_600_000).toISOString();
+    await sources({
+        body: {
+            projects: [
+                {
+                    id: "s1", title: "雨夜", status: "generating", updated_at: updatedAt,
+                    pipeline: {
+                        total_shots: 4,
+                        by_status: { rendered: 2, error: 1, draft: 1 },
+                        next_step: { step: "render", label: "渲染分镜", todo: 2 },
+                        cover_url: "/api/studio/files/a.png",
+                        cover_kind: "image",
+                    },
+                },
+                {
+                    id: "s2", title: "已完片", status: "done",
+                    pipeline: {
+                        total_shots: 2,
+                        by_status: { done: 2 },
+                        next_step: { step: "done", label: "全部完成", todo: 0 },
+                        cover_url: "/api/studio/files/b.mp4",
+                        cover_kind: "video",
+                    },
+                },
+            ],
+        },
+    }, { body: { code: 0, data: { projects: [] }, msg: "ok" } });
+    await visit();
+    const rows = page.locator(".pf-project-card");
+    await rows.first().waitFor();
+    const first = rows.nth(0);
+    expect(await first.locator(".pf-project-thumb img").getAttribute("src")).toContain("/api/studio/files/a.png");
+    expect(await first.getByText("待修复 1", { exact: true }).count()).toBe(1);
+    expect(await first.textContent()).toContain("4 镜头");
+    expect(await first.textContent()).toContain("更新于 3 小时前");
+    expect(await first.locator(".toiv-progress li.is-current").textContent()).toContain("画面");
+    expect(await first.locator(".toiv-progress li.is-todo").count()).toBe(3);
+
+    const second = rows.nth(1);
+    expect(await second.locator(".pf-project-thumb video").getAttribute("src")).toContain("/api/studio/files/b.mp4");
+    expect(await second.locator(".toiv-repair-pill").count()).toBe(0);
+    expect(await second.locator(".toiv-progress li.is-done").count()).toBe(4);
+    expect(await second.textContent()).toContain("全部完成");
+});
+
+test("status filters count studio cards and keep canvas out of pipeline buckets", async () => {
+    await sources({
+        body: {
+            projects: [
+                { id: "s1", title: "待救火", status: "generating", pipeline: { total_shots: 2, by_status: { error: 1, done: 1 }, next_step: { step: "render", label: "渲染分镜", todo: 1 } } },
+                { id: "s2", title: "已完片", status: "done", pipeline: { total_shots: 2, by_status: { done: 2 }, next_step: { step: "done", label: "全部完成", todo: 0 } } },
+                { id: "s3", title: "空稿", status: "draft", pipeline: { total_shots: 0, by_status: {}, next_step: { step: "render", label: "渲染分镜", todo: 0 } } },
+            ],
+        },
+    });
+    await visit();
+    await page.locator(".pf-project-card").first().waitFor();
+    const filters = page.getByRole("group", { name: "项目状态" });
+    expect(await filters.getByRole("button", { name: /^全部/ }).textContent()).toBe("全部4");
+    expect(await filters.getByRole("button", { name: /^待修复/ }).textContent()).toBe("待修复1");
+    expect(await filters.getByRole("button", { name: /^已完成/ }).textContent()).toBe("已完成1");
+    expect(await filters.getByRole("button", { name: /^草稿/ }).textContent()).toBe("草稿1");
+    await filters.getByRole("button", { name: /^待修复/ }).click();
+    expect(await page.locator(".pf-project-card").count()).toBe(1);
+    expect(await page.locator(".pf-project-card").first().textContent()).toContain("待救火");
+    await filters.getByRole("button", { name: /^已完成/ }).click();
+    expect(await page.locator(".pf-project-card").count()).toBe(1);
+    expect(await page.locator(".pf-project-card").first().textContent()).toContain("已完片");
+    await filters.getByRole("button", { name: /^全部/ }).click();
+    expect(await page.locator(".pf-project-card").count()).toBe(4);
+});
+
+test("gallery or list view survives a reload", async () => {
+    await sources();
+    await visit();
+    const list = page.locator(".pf-project-list");
+    await page.locator(".pf-project-card").first().waitFor();
+    expect(await list.getAttribute("class")).toContain("is-gallery");
+    await page.getByRole("button", { name: "列表", exact: true }).click();
+    expect(await list.getAttribute("class")).toContain("is-list");
+    await visit();
+    await page.locator(".pf-project-card").first().waitFor();
+    expect(await page.locator(".pf-project-list").getAttribute("class")).toContain("is-list");
+    await page.getByRole("button", { name: "画廊", exact: true }).click();
+    expect(await page.locator(".pf-project-list").getAttribute("class")).toContain("is-gallery");
 });
 
 test("source tabs and normalized title search distinguish no results from no data", async () => {
@@ -211,7 +301,7 @@ for (const [path, current] of [
     ["/drama", "画布"], ["/drama/projects/s1/canvas", "画布"], ["/legacy/canvas/c1", "画布"],
     ["/drama/assets", "资产"], ["/drama/projects/s1/assets", "资产"],
     ["/tools", "工具"], ["/tools/t2i", "工具"], ["/tools/image", "工具"],
-    ["/history", "任务"], ["/settings", "设置"],
+    ["/tasks", "任务"], ["/library", "任务"], ["/settings", "设置"],
 ]) {
     test(`navigation marks only ${current} active at ${path}`, async () => {
         await sources();
@@ -246,6 +336,30 @@ for (const width of [390, 768, 1100]) {
         expect(await page.getByRole("button", { name: "打开菜单" }).getAttribute("aria-expanded")).toBe("false");
     });
 }
+
+test("the mobile drawer is a modal dialog that contains focus and restores it on close", async () => {
+    await page.setViewportSize({ width: 390, height: 850 });
+    await sources();
+    await visit();
+    const burger = page.getByRole("button", { name: "打开菜单", exact: true });
+    await burger.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "站点菜单", exact: true });
+    await dialog.waitFor();
+    expect(await dialog.getAttribute("aria-modal")).toBe("true");
+    expect(await page.locator(".pf-shell-main").getAttribute("inert")).not.toBeNull();
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    for (let index = 0; index < 8; index++) {
+        await page.keyboard.press("Tab");
+        expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    }
+    await page.keyboard.press("Shift+Tab");
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    expect(await page.locator(".pf-shell-main").getAttribute("inert")).toBeNull();
+    expect(await burger.evaluate(element => element === document.activeElement)).toBe(true);
+});
 
 test("the shell restores vendor accent and keeps mobile cards within the viewport", async () => {
     await sources();

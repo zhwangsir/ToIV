@@ -16,17 +16,18 @@ beforeAll(async () => {
                 import { createRoot } from "${import.meta.dir}/../node_modules/react-dom/client";
                 import { MemoryRouter } from "${import.meta.dir}/../node_modules/react-router-dom";
                 import { I18nProvider } from "${import.meta.dir}/../src/i18n/context";
-                import PrimeHistory from "${import.meta.dir}/../src/toiv/pages/PrimeHistory";
+                import PrimeLibrary from "${import.meta.dir}/../src/toiv/pages/PrimeLibrary";
                 import { TaskDrawerPrime } from "${import.meta.dir}/../src/toiv/addons/TaskDrawerPrime";
+                import { TaskCenterProvider } from "${import.meta.dir}/../src/toiv/addons/TaskCenterProvider";
                 function App() {
                     const [open, setOpen] = useState(false);
                     const [mounted, setMounted] = useState(true);
-                    return <MemoryRouter><I18nProvider>
+                    return <MemoryRouter><I18nProvider><TaskCenterProvider>
                         <button onClick={() => setMounted(false)}>卸载测试视图</button>
                         {mounted && (location.pathname === "/drawer"
                             ? <><button onClick={() => setOpen(true)}>打开任务</button><TaskDrawerPrime open={open} onClose={() => setOpen(false)} /></>
-                            : <PrimeHistory />)}
-                    </I18nProvider></MemoryRouter>;
+                            : <PrimeLibrary />)}
+                    </TaskCenterProvider></I18nProvider></MemoryRouter>;
                 }
                 createRoot(document.getElementById("root")).render(<App />);
             ` }));
@@ -58,6 +59,10 @@ async function withPage(run: (page: Page, errors: string[]) => Promise<void>) {
     // No request, even a malformed external media URL, can reach a real service.
     await page.route("**/*", route => new URL(route.request().url()).origin === origin
         ? route.continue() : route.fulfill({ status: 404, body: "test-only external stub" }));
+    // The shared task provider reads these three endpoints alongside the jobs list.
+    await page.route("**/api/jobs/active", route => route.fulfill({ json: { items: [], server_time: "2026-10-30T10:00:00Z" } }));
+    await page.route("**/api/jobs/counts", route => route.fulfill({ json: { count: 0, failed: 0 } }));
+    await page.route("**/api/studio/deps-status", route => route.fulfill({ json: { overall: "reachable", deps: [] } }));
     try { await run(page, errors); } finally { await page.close(); }
 }
 const card = (page: Page, title: string) => page.locator("article").filter({ has: page.locator("b", { hasText: title }) });
@@ -65,7 +70,7 @@ const card = (page: Page, title: string) => page.locator("article").filter({ has
 // Old code's object[] assumption / unconditional img must fail this test.
 test("history renders media-specific elements and signs only same-origin API requests", () => withPage(async page => {
     const mediaRequests: string[] = [];
-    await page.route("**/api/jobs?*", route => route.fulfill({ json: [
+    await page.route(/\/api\/jobs\?limit=/, route => route.fulfill({ json: [
         job("video", ["/api/images?filename=movie.MP4&type=output"]),
         job("audio", ["/api/studio/files/speech.wav"]),
         job("image", ["/api/images?filename=cover.webp"]),
@@ -77,7 +82,7 @@ test("history renders media-specific elements and signs only same-origin API req
         mediaRequests.push(route.request().url());
         await route.fulfill({ status: 404, body: "missing fixture" });
     });
-    await page.goto(`${origin}/history`);
+    await page.goto(`${origin}/library`);
     await card(page, "video").locator("video").waitFor({ state: "attached" });
     expect(await card(page, "video").locator("video").getAttribute("controls")).not.toBeNull();
     expect(await card(page, "video").locator("video").getAttribute("preload")).toBe("metadata");
@@ -108,13 +113,13 @@ test("image and audio retries recover from HTTP errors into decoded local fixtur
     wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28);
     wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(1600, 40);
     let fail = true;
-    await page.route("**/api/jobs?*", route => route.fulfill({ json: [
+    await page.route(/\/api\/jobs\?limit=/, route => route.fulfill({ json: [
         job("recover-image", ["/api/studio/files/frame.png"]), job("recover-audio", ["/api/studio/files/voice.wav"]),
     ] }));
     await page.route("**/api/studio/files/**", route => route.fulfill(fail ? { status: 403, body: "expired test session" }
         : route.request().url().includes("frame.png") ? { body: png, contentType: "image/png" }
             : { body: wav, contentType: "audio/wav" }));
-    await page.goto(`${origin}/history`);
+    await page.goto(`${origin}/library`);
     await card(page, "recover-image").getByRole("alert").waitFor();
     await card(page, "recover-audio").getByRole("alert").waitFor();
     fail = false;
@@ -132,11 +137,11 @@ test("history distinguishes loading, request failure and true empty, with retry"
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     let fail = true;
-    await page.route("**/api/jobs?*", async route => {
+    await page.route(/\/api\/jobs\?limit=/, async route => {
         await gate;
         await route.fulfill(fail ? { status: 503, json: { detail: "unavailable" } } : { json: [] });
     });
-    await page.goto(`${origin}/history`);
+    await page.goto(`${origin}/library`);
     expect(await page.getByText(/还没有产物|队列空闲/).count()).toBe(0);
     expect(await page.getByRole("status").count()).toBeGreaterThan(0);
     // An in-flight read is unknown, not zero.
@@ -154,13 +159,13 @@ test("history distinguishes loading, request failure and true empty, with retry"
     expect((await page.locator(".toiv-assets-col h3").last().innerText()).trim()).toBe("任务 0");
 }), 15_000);
 
-for (const surface of ["history", "drawer"]) {
+for (const surface of ["library", "drawer"]) {
     test(`${surface}: cancellation failure recovers, duplicate pending action is disabled, success refreshes`, () => withPage(async (page, errors) => {
         let canceled = false;
         let attempts = 0;
         let release!: () => void;
         const gate = new Promise<void>(resolve => { release = resolve; });
-        await page.route("**/api/jobs?*", route => route.fulfill({ json: [job("running-task", [], canceled ? "canceled" : "running")] }));
+        await page.route(/\/api\/jobs\?limit=/, route => route.fulfill({ json: [job("running-task", [], canceled ? "canceled" : "running")] }));
         await page.route("**/api/jobs/running-task/cancel", async route => {
             attempts++;
             if (attempts === 1) { await gate; await route.fulfill({ status: 409, json: { detail: "cancel rejected" } }); }
@@ -184,7 +189,7 @@ for (const surface of ["history", "drawer"]) {
 test("successful cancellation remains acknowledged when the follow-up refresh fails", () => withPage(async page => {
     let canceled = false;
     let failRefresh = true;
-    await page.route("**/api/jobs?*", route => route.fulfill(canceled && failRefresh
+    await page.route(/\/api\/jobs\?limit=/, route => route.fulfill(canceled && failRefresh
         ? { status: 503, json: {} } : { json: [job("refresh-task", [], canceled ? "canceled" : "running")] }));
     await page.route("**/api/jobs/refresh-task/cancel", route => {
         canceled = true;
@@ -206,7 +211,7 @@ test("a late cancellation response cannot update a reopened drawer or an unmount
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     let reads = 0;
-    await page.route("**/api/jobs?*", route => {
+    await page.route(/\/api\/jobs\?limit=/, route => {
         reads++;
         return route.fulfill({ json: [job(reads === 1 ? "old-task" : "new-task", [], "running")] });
     });
@@ -227,11 +232,11 @@ test("a late cancellation response cannot update a reopened drawer or an unmount
 
     let finishReads!: () => void;
     const historyGate = new Promise<void>(resolve => { finishReads = resolve; });
-    await page.route("**/api/jobs?*", async route => {
+    await page.route(/\/api\/jobs\?limit=/, async route => {
         await historyGate;
         await route.fulfill({ json: [job("late-history")] }).catch(() => {});
     });
-    await page.goto(`${origin}/history`);
+    await page.goto(`${origin}/library`);
     await page.getByRole("button", { name: "卸载测试视图" }).click();
     finishReads();
     await page.evaluate(() => fetch("/harness.js").then(response => response.text()));
@@ -241,7 +246,7 @@ test("a late cancellation response cannot update a reopened drawer or an unmount
 
 test("drawer errors are explicit and retryable; closed controls leave the DOM", () => withPage(async page => {
     let fail = true;
-    await page.route("**/api/jobs?*", route => route.fulfill(fail ? { status: 503, json: {} } : { json: [] }));
+    await page.route(/\/api\/jobs\?limit=/, route => route.fulfill(fail ? { status: 503, json: {} } : { json: [] }));
     await page.goto(`${origin}/drawer`);
     expect(await page.getByRole("button", { name: /取消|关闭/ , includeHidden: true }).count()).toBe(0);
     await page.getByRole("button", { name: "打开任务", exact: true }).click();
@@ -258,7 +263,7 @@ test("drawer errors are explicit and retryable; closed controls leave the DOM", 
 test("drawer polls again after completion, then stops when unmounted while open", () => withPage(async page => {
     await page.clock.install();
     let reads = 0;
-    await page.route("**/api/jobs?*", route => {
+    await page.route(/\/api\/jobs\?limit=/, route => {
         reads++;
         return route.fulfill({ json: [job("polled-task", [], reads === 1 ? "running" : "done")] });
     });
@@ -279,13 +284,13 @@ test("drawer polling does not overlap slow requests and stops on close/unmount",
     let requests = 0;
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
-    await page.route("**/api/jobs?*", async route => {
+    await page.route(/\/api\/jobs\?limit=/, async route => {
         requests++;
         await gate;
         await route.fulfill({ json: [job("late-task", [], "running")] }).catch(() => {});
     });
     await page.goto(`${origin}/drawer`);
-    const firstRead = page.waitForRequest("**/api/jobs?*");
+    const firstRead = page.waitForRequest(/\/api\/jobs\?limit=/);
     await page.getByRole("button", { name: "打开任务", exact: true }).click();
     await firstRead;
     await page.clock.runFor(16_000);

@@ -7,32 +7,43 @@ afterEach(() => { globalThis.fetch = originalFetch; });
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 
-test("txt2img submits ToIV generation fields and unwraps the prompt id", async () => {
+test("txt2img submits capability-derived size and model, then unwraps the prompt id", async () => {
     let seen: { url: string; body: Record<string, unknown> } | null = null;
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         seen = { url: String(input), body: JSON.parse(String(init?.body)) };
         return json({ prompt_id: "p-1", seed: 42 });
     }) as typeof fetch;
-    const result = await submitT2I({ prompt: "雨夜街口", negative: "水印", ratio: "16:9" });
+    const result = await submitT2I({
+        prompt: "雨夜街口", negative: "水印", model: "sdxl.safetensors",
+        size: { width: 1024, height: 576 }, route: "/api/generate/txt2img",
+    });
     expect(result).toEqual({ promptId: "p-1", seed: 42 });
     expect(seen!.url).toBe("/api/generate/txt2img");
-    expect(seen!.body).toMatchObject({ positive: "雨夜街口", negative: "水印", width: 1024, height: 576 });
+    expect(seen!.body).toMatchObject({
+        positive: "雨夜街口", negative: "水印", ckpt_name: "sdxl.safetensors", width: 1024, height: 576,
+    });
     expect(seen!.body).not.toHaveProperty("seed");
 });
 
-test("txt2video maps the duration choice to a 4n+1 frame count", async () => {
-    let body: Record<string, unknown> | null = null;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-        body = JSON.parse(String(init?.body));
+test("txt2video submits the H3 capability route with the selected duration in seconds", async () => {
+    let seen: { url: string; body: Record<string, unknown> } | null = null;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        seen = { url: String(input), body: JSON.parse(String(init?.body)) };
         return json({ prompt_id: "v-1" });
     }) as typeof fetch;
-    await submitT2V({ prompt: "推镜", ratio: "9:16", duration: "long" });
-    expect(body).toMatchObject({ positive: "推镜", width: 576, height: 1024, length: 97, fps: 16 });
+    await submitT2V({
+        prompt: "推镜", size: { width: 768, height: 1344 }, durationSec: 6, route: "/api/h3/t2v",
+    });
+    expect(seen!.url).toBe("/api/h3/t2v");
+    expect(seen!.body).toMatchObject({ positive: "推镜", width: 768, height: 1344, duration_sec: 6 });
+    expect(seen!.body).not.toHaveProperty("length");
 });
 
 test("backend detail is surfaced when generation is rejected", async () => {
     globalThis.fetch = (async () => json({ detail: "worker 忙" }, 503)) as typeof fetch;
-    await expect(submitT2I({ prompt: "x", negative: "", ratio: "1:1" })).rejects.toThrow("worker 忙");
+    await expect(submitT2I({
+        prompt: "x", negative: "", size: { width: 1024, height: 1024 },
+    })).rejects.toThrow("worker 忙");
 });
 
 test("job polling finds the prompt in the latest jobs and normalises results", async () => {

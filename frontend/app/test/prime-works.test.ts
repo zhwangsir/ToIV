@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { loadPrimeWorks } from "../src/toiv/adapters/works";
-import { cancelPrimeTask, loadPrimeTasks } from "../src/toiv/addons/TaskDrawerPrime";
+import { cancelTask, loadRecentTasks } from "../src/toiv/adapters/tasks";
 
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -64,7 +64,7 @@ describe("prime tasks: jobs only", () => {
     test("uses real progress snapshots and permits queued/held cancellation but never terminal cancellation", async () => {
         respond([job({ status: "running", progress: { pct: 37 } }), job({ status: "queued" }),
             job({ status: "held" }), job({ status: "canceled" }), job(), job({ status: "error" })]);
-        const tasks = await loadPrimeTasks();
+        const tasks = await loadRecentTasks();
         expect(tasks[0].progress).toBe(37);
         expect(tasks.map(task => task.cancellable)).toEqual([true, true, true, false, false, false]);
         expect(tasks[3].status).toBe("canceled");
@@ -72,9 +72,9 @@ describe("prime tasks: jobs only", () => {
     test("never sends an empty cancellation id and preserves cancel failures", async () => {
         let requests = 0;
         globalThis.fetch = (async () => { requests++; return Response.json({ ok: true }); }) as typeof fetch;
-        await expect(cancelPrimeTask("")).rejects.toThrow();
+        await expect(cancelTask("")).rejects.toThrow();
         expect(requests).toBe(0);
         respond({ detail: "already terminal" }, 409);
-        await expect(cancelPrimeTask("j1")).rejects.toThrow();
+        await expect(cancelTask("j1")).rejects.toThrow();
     });
 });

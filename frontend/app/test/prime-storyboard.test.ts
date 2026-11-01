@@ -60,6 +60,7 @@ describe("Prime storyboard read and write contracts", () => {
         const result = await storyboard.savePrimeShotPrompt(before, "sh2", "新提示词");
         const put = calls.find(c => c.method === "PUT")!;
         expect(put.path).toBe("/api/studio/projects/p1/shots");
+        expect(put.body.expected_shot_ids).toEqual(["sh1", "sh2", "sh3"]);
         expect(put.body.shots).toHaveLength(3);
         expect(put.body.shots[0]).toEqual({ id: "sh1", scene: "崖边", prompt: "晨雾", negative: "blur", camera: "STATIC", dialogue: "旧词", speaker: "甲", duration_sec: 6, characters: ["甲"], render_mode: "image_motion", seam_to_next: "continue", seam_anchor: "崖", ref_epoch: 2, ref_epoch_note: "换装", beats: [{ text: "旧词", kind: "d", cues: ["光"], anchor_words: "词", block: 1 }], expected_revision: "rev1" });
         expect(put.body.shots[1].prompt).toBe("新提示词");
@@ -80,14 +81,14 @@ describe("Prime storyboard read and write contracts", () => {
         await expect(storyboard.savePrimeShotPrompt(model, "missing", "词")).rejects.toThrow();
         expect(calls.some(c => c.method === "PUT")).toBe(false);
     });
-    test("preflight refuses remote revision or list changes instead of rebasing stale edits", async () => {
-        api(() => stubProject());
+    test("sends the loaded shot ids as the list baseline instead of a preflight GET", async () => {
+        const calls = api(() => stubProject());
         const model = await storyboard.loadPrimeStoryboard("p1");
-        const changed = stubProject();
-        changed.shots[1].current_revision_id = "remote";
-        const calls = api(() => changed);
-        await expect(storyboard.savePrimeShotPrompt(model, "sh2", "本地草稿")).rejects.toThrow("刷新");
-        expect(calls.some(c => c.method === "PUT")).toBe(false);
+        await storyboard.savePrimeShotPrompt(model, "sh2", "新词");
+        const writes = calls.filter(c => c.method !== "GET");
+        expect(writes).toHaveLength(1);
+        expect(writes[0].body.expected_shot_ids).toEqual(["sh1", "sh2", "sh3"]);
+        expect(calls.filter(c => c.method === "GET")).toHaveLength(2);
     });
     test("PUT 409 propagates refresh guidance without retrying", async () => {
         const calls = api(call => call.method === "PUT" ? Response.json({ detail: "revision changed" }, { status: 409 }) : stubProject());
@@ -108,7 +109,8 @@ describe("Prime storyboard read and write contracts", () => {
         });
         const model = await storyboard.loadPrimeStoryboard("p1");
         const next = await storyboard.savePrimeShotBeats(model, "sh1", ["新词"], 9);
-        expect(calls.find(c => c.method === "POST")).toEqual({ path: "/api/studio/shots/sh1/reflow-beats", method: "POST", body: { texts: ["新词"], total_sec: 9, persist: true } });
+        expect(calls.find(c => c.method === "POST")).toEqual({ path: "/api/studio/shots/sh1/reflow-beats", method: "POST", body: { texts: ["新词"], total_sec: 9, persist: true, expected_revision: "rev1" } });
+        expect(calls.filter(c => c.method === "GET")).toHaveLength(2);
         expect(calls.at(-1)?.method).toBe("GET");
         expect(next.shots[0].beats[0].text).toBe("新词");
         expect(next.shots[0].durationSec).toBe(9);
@@ -158,5 +160,36 @@ describe("Prime storyboard read and write contracts", () => {
             expect(storyboard.primeTakeMediaUrl(url)).toBe(url);
         }
         expect(storyboard.primeTakeMediaUrl("javascript:alert(1)")).toBe("");
+    });
+});
+
+describe("Prime storyboard stage projection", () => {
+    const states = {
+        script: { state: "confirmed", ready: true, blockers: [] },
+        assets: { state: "skipped", ready: false, blockers: ["尚无角色卡"] },
+        storyboard: { state: "pending_confirmation", ready: true, blockers: [] },
+        generate: { state: "draft", ready: false, blockers: ["镜0 视觉产物未就绪(none)"] },
+        voice: { state: "draft", ready: false, blockers: [] },
+        timeline: { state: "draft", ready: false, blockers: [] },
+    };
+    test("loads the six-stage projection and CAS revision with the shots", async () => {
+        api(() => ({ ...stubProject(), stage_states: states, stage_revision: 4 }));
+        const model = await storyboard.loadPrimeStoryboard("p1");
+        expect(model.stages?.revision).toBe(4);
+        expect(model.stages?.states.storyboard.state).toBe("pending_confirmation");
+        expect(model.stages?.states.assets.blockers).toEqual(["尚无角色卡"]);
+        expect(model.shots).toHaveLength(3);
+    });
+    test("keeps shots editable when the projection is absent or incomplete, never inventing stage state", async () => {
+        api(() => stubProject());
+        expect((await storyboard.loadPrimeStoryboard("p1")).stages).toBeNull();
+
+        api(() => ({ ...stubProject(), stage_states: { ...states, voice: undefined }, stage_revision: 4 }));
+        const partial = await storyboard.loadPrimeStoryboard("p1");
+        expect(partial.stages).toBeNull();
+        expect(partial.shots).toHaveLength(3);
+
+        api(() => ({ ...stubProject(), stage_states: states }));
+        expect((await storyboard.loadPrimeStoryboard("p1")).stages).toEqual({ states, revision: null });
     });
 });

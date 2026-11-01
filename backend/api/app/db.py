@@ -545,6 +545,23 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_stageconfirmation_proj ON studiostageconfirmation(project_id)",
+    # ── B3:跨集资产对账应用回执(studioassetledgerapply)──
+    # (project_id, receipt_id) 唯一:重放幂等,不重复应用。
+    """
+    CREATE TABLE IF NOT EXISTS studioassetledgerapply (
+        id          TEXT PRIMARY KEY,
+        tenant_id   TEXT NOT NULL,
+        user_id     TEXT NOT NULL,
+        project_id  TEXT NOT NULL,
+        receipt_id  TEXT NOT NULL,
+        asset_key   TEXT NOT NULL DEFAULT '',
+        action      TEXT NOT NULL DEFAULT 'merge',
+        entity_id   TEXT NOT NULL DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_assetledgerapply_proj ON studioassetledgerapply(project_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_assetledgerapply_project_receipt ON studioassetledgerapply(project_id, receipt_id)",
     """
     CREATE TABLE IF NOT EXISTS agentmessage (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,

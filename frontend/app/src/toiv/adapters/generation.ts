@@ -1,17 +1,7 @@
-export type ToolRatio = "1:1" | "16:9" | "9:16";
-export type ToolDuration = "short" | "long";
+export type ToolSize = { width: number; height: number };
 
 export type GenerationSubmission = { promptId: string; seed?: number };
 export type GenerationJob = { status: string; results: string[]; error: string };
-
-export const RATIO_SIZE: Record<ToolRatio, { width: number; height: number }> = {
-    "1:1": { width: 768, height: 768 },
-    "16:9": { width: 1024, height: 576 },
-    "9:16": { width: 576, height: 1024 },
-};
-
-// Wan 视频帧数必须是 4n+1；16fps 下 49≈3 秒、97≈6 秒。
-export const DURATION_FRAMES: Record<ToolDuration, number> = { short: 49, long: 97 };
 
 function authHeaders(): Record<string, string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -32,24 +22,33 @@ async function submit(path: string, body: Record<string, unknown>): Promise<Gene
     return typeof payload?.seed === "number" ? { promptId, seed: payload.seed } : { promptId };
 }
 
-export function submitT2I(input: { prompt: string; negative: string; ratio: ToolRatio }): Promise<GenerationSubmission> {
-    const size = RATIO_SIZE[input.ratio];
-    return submit("/api/generate/txt2img", {
+export function submitT2I(input: {
+    prompt: string;
+    negative: string;
+    model?: string;
+    size: ToolSize;
+    route?: string | null;
+}): Promise<GenerationSubmission> {
+    return submit(input.route || "/api/generate/txt2img", {
         positive: input.prompt,
         negative: input.negative,
-        width: size.width,
-        height: size.height,
+        ...(input.model ? { ckpt_name: input.model } : {}),
+        width: input.size.width,
+        height: input.size.height,
     });
 }
 
-export function submitT2V(input: { prompt: string; ratio: ToolRatio; duration: ToolDuration }): Promise<GenerationSubmission> {
-    const size = RATIO_SIZE[input.ratio];
-    return submit("/api/generate/txt2video", {
+export function submitT2V(input: {
+    prompt: string;
+    size: ToolSize;
+    durationSec: number;
+    route?: string | null;
+}): Promise<GenerationSubmission> {
+    return submit(input.route || "/api/h3/t2v", {
         positive: input.prompt,
-        width: size.width,
-        height: size.height,
-        length: DURATION_FRAMES[input.duration],
-        fps: 16,
+        width: input.size.width,
+        height: input.size.height,
+        duration_sec: input.durationSec,
     });
 }
 
