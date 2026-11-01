@@ -23,6 +23,7 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       web: ${{ steps.filter.outputs.web }}
+      prime: ${{ steps.filter.outputs.prime }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +37,9 @@ jobs:
               - ".github/workflows/ci.yml"
             web:
               - "vendor/legacy-web/**"
+              - ".github/workflows/ci.yml"
+            prime:
+              - "frontend/app/**"
               - ".github/workflows/ci.yml"
 
   api-tests:
@@ -86,6 +90,41 @@ jobs:
       - run: npm ci
       # package.json 无 test 脚本;类型检查即门槛
       - run: npx tsc --noEmit
+
+  # Prime(新创作壳):类型/单测/浏览器套件/构建。
+  # 浏览器套件必须逐文件独立进程(test:browser),Bun 1.2.17 单进程装载多个
+  # Playwright harness 会挂起或漏报——整套 `bun test test/` 的绿灯不可信。
+  prime-check:
+    needs: changes
+    if: needs.changes.outputs.prime == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.17
+      - run: bun install --frozen-lockfile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/app/bun.lock') }}
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Typecheck
+        run: bun x tsc -b
+      - name: Lint
+        run: bun run lint
+      - name: Unit tests
+        run: bun run test:unit
+      - name: Browser suites (one process per file)
+        run: bun run test:browser
+      - name: Build
+        run: bun run build
 
   # P-2:BUILD_ID -dirty 不得发版 — 门禁单测常驻(与路径变更无关)
   release-gate:

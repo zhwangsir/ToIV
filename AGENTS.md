@@ -24,12 +24,15 @@ Drama∥Studio：新功能只加 Studio；Drama bugfix only。长文 `DEVELOPMEN
 
 ```bash
 cd backend/api && uv sync --extra dev && uv run pytest tests/test_foo.py::test_bar -q
-cd frontend/app && bun test test/ && bun run lint && bun run build
+cd frontend/app && bun run test:unit && bun run test:browser && bun run lint && bun run build
 cd vendor/legacy-web && npm test && npm run typecheck    # node:test，不是 vitest
 cd frontend/admin && npm test && npm run typecheck
 cd vendor/canvas/backend && go vet ./... && go test ./...
 cd vendor/canvas/web && bun run lint && bun run typecheck && bun run build
 ```
+
+- `frontend/app` 浏览器套件**必须逐文件独立进程**（`test:browser` 已封装，单文件超时 180s）；Bun 1.2.17 单进程加载多个 Playwright harness 会挂起或漏报，整套 `bun test test/` 的绿灯不可信。Playwright 1.64.1 在 Bun 下销毁 context 时会偶发 `Unhandled error between tests`（协议对象已释放）；runner 仅在「0 fail 且错误全部命中三条 dispatcher 签名」时判过并打印 `warn`，其它未处理错误仍硬失败。
+- Prime 内容策略唯一来源是 `@content-lock`（`vite.config.ts` + `tsconfig.app.json` 同一优先级：共享 `content-lock.ts` → 共享 `content-policy.ts` → 本地 `src/toiv/policy/noop-content-lock.ts`）。新增门控/隐藏/徽标不得自造判断；删除锁文件后构建、类型检查与页面须照常（`test/prime-content-lock.browser.test.ts` 覆盖此演练）。
 
 - `vendor/legacy-web`/`frontend/admin` 仅 **npm**；`vendor/canvas/web` 仅 **bun**。新增 `lib/api` 导出必补 `tests/mocks/studioApi.ts`。
 - 部署：`deploy/deploy.sh`；外出大流量用 `core-jump`。web/admin **在 core 本机构建**，勿从 Mac 盲推过期 `.next`。渲染在飞时脚本拒重启 api（`FORCE_API_RESTART=1` 强制）。

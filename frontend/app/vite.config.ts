@@ -10,15 +10,17 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.
 const canvasProxyTarget = process.env.VITE_CANVAS_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
 const gatewayTarget = process.env.VITE_STUDIO_GATEWAY_TARGET?.trim() || "http://127.0.0.1:3100";
 // 本地仓画布在 vendor/canvas，远端部署布局在 apps/canvas（frontend/app → apps/prime/web）
-export function resolvePolicyModule(appDir: string): string | undefined {
+// 删除锁文件即回落 content-policy.ts 的 no-op；共享策略整体缺席时用本地 no-op，
+// 保证开发期删锁不报错、不白屏、不缺功能。
+export function resolvePolicyModule(appDir: string): string {
     const roots = ["../../vendor/canvas/web/src", "../../canvas/web/src"].map(rel => resolve(appDir, rel));
-    return ["content-lock.ts", "content-policy.ts"]
+    const shared = ["content-lock.ts", "content-policy.ts"]
         .flatMap(file => roots.map(root => resolve(root, file)))
         .find(file => existsSync(file));
+    return shared ?? resolve(appDir, "src/toiv/policy/noop-content-lock.ts");
 }
 
 const policyModule = resolvePolicyModule(here);
-if (!policyModule) throw new Error("Missing shared canvas content policy");
 
 export default defineConfig({
     base: publicBase,

@@ -16,6 +16,18 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* 与 vite.config.ts 的 @content-lock 别名保持同一优先级：共享锁 → 共享放行 → 本地放行。
+       末项始终存在，删除锁文件后 tsc 仍能解析，不会因为唯一来源被摘掉而红灯。 */
+    "paths": {
+      "@content-lock": [
+        "./../../vendor/canvas/web/src/content-lock.ts",
+        "./../../vendor/canvas/web/src/content-policy.ts",
+        "./../../canvas/web/src/content-lock.ts",
+        "./../../canvas/web/src/content-policy.ts",
+        "./src/toiv/policy/noop-content-lock.ts"
+      ]
+    },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

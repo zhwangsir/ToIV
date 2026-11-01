@@ -1,10 +1,11 @@
-import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "bun:test";
-import { chromium, type Browser, type Page } from "playwright";
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { createServer, type ViteDevServer } from "vite";
 import { resolve } from "node:path";
 
 let server: ViteDevServer;
 let browser: Browser;
+let context: BrowserContext;
 let page: Page;
 let origin: string;
 let loginStatus: number;
@@ -19,17 +20,10 @@ beforeAll(async () => {
     if (!address || typeof address === "string") throw new Error("Missing local preview address");
     origin = `http://127.0.0.1:${address.port}`;
     browser = await chromium.launch({ headless: true });
-}, 60_000);
-
-afterEach(async () => { await page?.close(); });
-afterAll(async () => { await browser?.close(); await server?.close(); });
-
-beforeEach(async () => {
-    loginStatus = 200;
-    exchangeStatus = 200;
-    loginCalls = 0;
-    holdLogin = undefined;
-    page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    // 全程复用一个 context：Playwright 1.64.1 在 Bun 下销毁仍在加载的 page/context
+    // 会把迟到的响应报成 "Unhandled error between tests"，逐测试关闭会让套件假红。
+    context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    page = await context.newPage();
     page.setDefaultTimeout(2500);
     await page.route("**/api/**", route => route.fulfill({ status: 404, json: { detail: "unmocked" } }));
     await page.route("**/studio/api/**", route => route.fulfill({ status: 404, json: { detail: "unmocked" } }));
@@ -47,6 +41,26 @@ beforeEach(async () => {
     await page.route("**/api/studio/projects/p1", route => route.fulfill({ json: { id: "p1", title: "测试短片", shots: [], characters: [] } }));
     await page.route("**/api/studio/projects?limit=200", route => route.fulfill({ json: { projects: [] } }));
     await page.route("**/studio/api/canvas-projects", route => route.fulfill({ json: { code: 0, data: { projects: [] }, msg: "ok" } }));
+}, 60_000);
+
+afterAll(async () => {
+    // 直接关掉仍在拉取资源的页面会把迟到的响应打成未处理错误；先落到空白页排水再销毁。
+    await page?.goto("about:blank").catch(() => {});
+    await page?.waitForTimeout(100);
+    await context?.close();
+    await browser?.close();
+    await server?.close();
+});
+
+beforeEach(async () => {
+    loginStatus = 200;
+    exchangeStatus = 200;
+    loginCalls = 0;
+    holdLogin = undefined;
+    await page.waitForLoadState("networkidle", { timeout: 2000 }).catch(() => {});
+    await context.clearCookies();
+    await page.goto(`${origin}/preview/`);
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
 });
 
 const credentials = async () => {
