@@ -7,6 +7,7 @@ const NAV = [
     { to: "/studio", label: "项目" },
     { to: "/drama", label: "画布" },
     { to: "/drama/assets", label: "资产" },
+    { to: "/tools", label: "工具" },
     { to: "/history", label: "任务" },
     { to: "/settings", label: "设置" },
 ];

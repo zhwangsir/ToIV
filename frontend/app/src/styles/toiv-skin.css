@@ -564,3 +564,87 @@ body { background: var(--pf-bg); color: var(--pf-ink); }
     .toiv-theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .toiv-theme-card small { display: none; }
 }
+
+/* ---- Tools centre ---- */
+.toiv-tools { display: flex; flex-direction: column; gap: calc(22px * var(--toiv-space, 1)); max-width: 1200px; }
+.toiv-tools-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+.toiv-tools-head > div { flex: 1 1 320px; min-width: 0; }
+.toiv-tools-head h1 { margin: 0 0 6px; font-size: 28px; }
+.toiv-tool-crumb { margin: 0 0 6px; color: var(--pf-muted); font-size: 12px; }
+.toiv-tool-crumb a { color: var(--pf-muted); text-decoration: none; }
+.toiv-tool-crumb a:hover { color: var(--pf-ink); }
+.toiv-tools-head > .pf-btn, .toiv-tools-head > .is-disabled { margin-left: auto; }
+.toiv-tools :is(a, button, textarea):focus-visible,
+.toiv-legacy :is(a, button):focus-visible { outline: 2px solid var(--pf-ink); outline-offset: 2px; }
+
+.toiv-tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.toiv-tool-card { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); background: var(--pf-bg); color: var(--pf-ink); padding: 16px; text-decoration: none; min-height: 150px; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+a.toiv-tool-card:hover { border-color: var(--pf-ink); transform: translateY(-2px); box-shadow: var(--pf-shadow); }
+.toiv-tool-card.is-soon { opacity: 0.62; }
+.toiv-tool-kind { font-size: 10px; letter-spacing: 0.08em; border-radius: 999px; padding: 2px 8px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-tool-card b { font-size: 16px; }
+.toiv-tool-card small { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.toiv-tool-open { margin-top: auto; font-size: 12px; color: var(--pf-muted); }
+a.toiv-tool-card:hover .toiv-tool-open { color: var(--pf-ink); }
+
+.toiv-tool-run { max-width: 1280px; }
+.toiv-tool-body { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.toiv-tool-form { position: sticky; top: calc(var(--pf-nav-h) + 12px); }
+.toiv-tool-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.toiv-tool-field textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 10px 12px; background: var(--pf-bg); color: var(--pf-ink); font: inherit; font-size: 13px; line-height: var(--toiv-line-height, 1.5); resize: vertical; }
+.toiv-tool-field textarea::placeholder { color: var(--pf-muted); }
+.toiv-tool-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.toiv-tool-actions .meta { color: var(--pf-muted); font-size: 12px; }
+.toiv-tool-error { margin: 0; color: var(--toiv-danger); font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.toiv-tool-run .toiv-tool-form .meta { margin: 0; color: var(--pf-muted); font-size: 12px; }
+
+.toiv-tool-results { min-height: 360px; }
+.toiv-tool-status { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--pf-muted); }
+.toiv-tool-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--pf-muted); }
+.toiv-tool-status code { font-family: inherit; font-size: 11px; color: var(--pf-muted); }
+.toiv-tool-status.is-queued i, .toiv-tool-status.is-running i { background: var(--toiv-warning); }
+.toiv-tool-status.is-done i { background: var(--toiv-info); }
+.toiv-tool-status.is-failed i { background: var(--toiv-danger); }
+.toiv-tool-failure { border: 1px solid var(--pf-line); border-left: 3px solid var(--toiv-danger); border-radius: var(--pf-radius-sm); background: var(--pf-bg); padding: 10px 12px; font-size: 13px; color: var(--toiv-danger); }
+.toiv-tool-failure p { margin: 0; }
+.toiv-tool-result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.toiv-tool-result { margin: 0; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); background: var(--pf-bg); padding: 8px; }
+.toiv-tool-media { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; border-radius: calc(var(--pf-radius-sm) * 0.7); background: var(--bg-canvas); }
+.toiv-tool-media.is-failed { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 12px; font-size: 12px; color: var(--pf-muted); border: 1px dashed var(--pf-line); box-sizing: border-box; }
+.toiv-tool-media.is-failed p { margin: 0; }
+.toiv-tool-result figcaption { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; font-size: 12px; }
+.toiv-tool-result figcaption a { color: var(--pf-muted); text-decoration: none; }
+.toiv-tool-result figcaption a:hover { color: var(--pf-ink); text-decoration: underline; }
+
+/* ---- Legacy canvas reader ---- */
+.toiv-legacy { display: flex; flex-direction: column; gap: 14px; max-width: 1280px; }
+.toiv-legacy-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+.toiv-legacy-head > div:first-child { flex: 1 1 340px; min-width: 0; }
+.toiv-legacy-head h1 { margin: 0 0 6px; font-size: 28px; overflow-wrap: anywhere; }
+.toiv-legacy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.toiv-readonly-badge { border: 1px solid var(--pf-line); border-radius: 999px; padding: 3px 10px; font-size: 11px; background: var(--pf-lime-soft); color: var(--pf-ink); }
+.toiv-legacy-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--pf-muted); font-size: 12px; }
+.toiv-legacy-canvas { position: relative; height: clamp(360px, 68vh, 720px); border: 1px solid var(--pf-line); border-radius: var(--pf-radius); overflow: hidden; background: var(--bg-canvas); --xy-controls-button-background-color: var(--pf-card); --xy-controls-button-background-color-hover: var(--pf-bg); --xy-controls-button-color: var(--pf-ink); --xy-controls-button-color-hover: var(--pf-ink); --xy-controls-button-border-color: var(--pf-line); --xy-attribution-background-color: transparent; }
+.toiv-legacy-canvas .react-flow { width: 100%; height: 100%; }
+.toiv-legacy-canvas .react-flow__handle { opacity: 0; pointer-events: none; }
+.toiv-legacy-canvas .react-flow__edge-path { stroke: var(--pf-muted); stroke-width: 1.5; }
+.toiv-legacy-node { width: 100% !important; height: 100%; box-sizing: border-box; overflow: hidden; }
+.toiv-legacy-node header b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toiv-legacy-media { position: relative; flex: 1 1 auto; min-height: 0; border-radius: 6px; overflow: hidden; background: var(--pf-bg); border: 1px solid var(--pf-line); }
+.toiv-legacy-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.toiv-legacy-play { position: absolute; right: 6px; bottom: 6px; border-radius: 999px; padding: 1px 7px; font-size: 10px; background: var(--pf-ink); color: var(--pf-card); }
+.toiv-legacy-excerpt { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+.toiv-legacy .toiv-settings-note a { color: inherit; }
+
+@media (max-width: 1100px) {
+    .toiv-tool-body { grid-template-columns: minmax(0, 1fr); }
+    .toiv-tool-form { position: static; }
+    .toiv-tool-results { min-height: 0; }
+}
+@media (max-width: 700px) {
+    .toiv-tools-head > .pf-btn, .toiv-tools-head > .is-disabled { margin-left: 0; }
+    .toiv-tool-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .toiv-tool-card { min-height: 0; padding: 12px; }
+    .toiv-legacy-head h1 { font-size: 24px; }
+    .toiv-legacy-canvas { height: 62vh; min-height: 320px; }
+}

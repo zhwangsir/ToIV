@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { RequireSession, ToivLoginPage, storeToken } from "../toiv/auth/session";
-import LegacyHandoff from "./addons/LegacyHandoff";
 
 const PrimeStoryboard = lazy(() => import("./pages/PrimeStoryboard"));
 const PrimeEditor = lazy(() => import("./pages/PrimeEditor"));
@@ -12,6 +11,9 @@ const PrimeHistory = lazy(() => import("./pages/PrimeHistory"));
 const PrimeCreate = lazy(() => import("./pages/PrimeCreate"));
 const PrimeStyle = lazy(() => import("./pages/PrimeStyle"));
 const PrimeSettings = lazy(() => import("./pages/PrimeSettings"));
+const PrimeTools = lazy(() => import("./pages/PrimeTools"));
+const PrimeToolRun = lazy(() => import("./pages/PrimeToolRun"));
+const PrimeLegacyCanvas = lazy(() => import("./pages/PrimeLegacyCanvas"));
 
 // 远端 Next 兜底把 /studio/ 重定向成 /studio，带尾斜杠的 basename 会整页不渲染
 export function routerBasename(base: string | undefined): string {
@@ -21,13 +23,8 @@ export function routerBasename(base: string | undefined): string {
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
     "/drama", "/drama/assets", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
-    "/history", "/settings", "/auth", "/legacy/canvas/:id",
+    "/tools", "/tools/:id", "/history", "/settings", "/auth", "/legacy/canvas/:id",
 ];
-
-function LegacyCanvas() {
-    const { id } = useParams();
-    return <LegacyHandoff title="画布编辑器" href={`/canvas/${encodeURIComponent(id!)}`} note="已有画布保留在原工作台，独立入口就绪后可在这里打开。" />;
-}
 
 export default function ToivBootstrap() {
     const [ready, setReady] = useState(false);
@@ -59,8 +56,10 @@ export default function ToivBootstrap() {
                 <Route path="/drama/projects/:projectId/canvas" element={<RequireSession><PrimeCanvas /></RequireSession>} />
                 <Route path="/drama/assets" element={<RequireSession><ProjectHome face="canvas" openHref={(card) => (card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/assets`)} /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/assets" element={<RequireSession><PrimeAssets /></RequireSession>} />
-                <Route path="/legacy/canvas/:id" element={<RequireSession><LegacyCanvas /></RequireSession>} />
+                <Route path="/legacy/canvas/:id" element={<RequireSession><PrimeLegacyCanvas /></RequireSession>} />
                 <Route path="/assets" element={<Navigate to="/drama/assets" replace />} />
+                <Route path="/tools" element={<RequireSession><PrimeTools /></RequireSession>} />
+                <Route path="/tools/:id" element={<RequireSession><PrimeToolRun /></RequireSession>} />
                 <Route path="/history" element={<RequireSession><PrimeHistory /></RequireSession>} />
                 <Route path="/settings" element={<RequireSession><PrimeSettings /></RequireSession>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

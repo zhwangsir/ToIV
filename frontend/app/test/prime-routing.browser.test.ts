@@ -25,6 +25,15 @@ beforeAll(async () => {
         const body = path === "/api/auth/me" ? { user: { id: "test-user", role: "admin" } }
             : path === "/api/studio/projects/p1" ? { id: "p1", title: "测试短片", shots: [], characters: [] }
             : path === "/studio/api/canvas-projects" ? { code: 0, data: { projects: [] }, msg: "ok" }
+            : path === "/studio/api/canvas-projects/c1" ? {
+                code: 0, msg: "ok", data: {
+                    project: {
+                        id: "c1", canvasTitle: "旧画布甲", updatedAt: "2026-10-30T10:00:00Z",
+                        nodes: [{ id: "n1", type: "text", title: "台词", position: { x: 0, y: 0 }, width: 240, height: 120, metadata: { content: "别回头。" } }],
+                        connections: [],
+                    },
+                },
+            }
             : [];
         await route.fulfill({ json: body });
     });
@@ -48,12 +57,11 @@ test("unavailable legacy pages do not redirect into the same SPA", async () => {
     expect(await page.getByRole("button", { name: "打开旧版设置", exact: true }).isEnabled()).toBe(false);
 }, 30_000);
 
-test("retired tool routes fall back to the project home", async () => {
-    for (const path of ["/preview/tools", "/preview/tools/image"]) {
+test("tool routes open the native tools centre instead of falling home", async () => {
+    for (const [path, heading] of [["/preview/tools", "工具"], ["/preview/tools/image", "文生图"], ["/preview/tools/t2v", "文生视频"]]) {
         await page.goto(`${origin}${path}`);
-        await page.getByLabel("搜索项目").waitFor();
-        // React Router 7 normalizes the index route to `/preview`.
-        expect(new URL(page.url()).pathname.replace(/\/+$/, "")).toBe("/preview");
+        await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+        expect(new URL(page.url()).pathname).toBe(path);
     }
 }, 30_000);
 
@@ -99,7 +107,11 @@ test("project home does not eagerly fetch the canvas editor module", async () =>
     expect(requests.some(path => path.endsWith("/pages/PrimeCanvas.tsx"))).toBe(false);
 });
 
-test("legacy canvas deep links have an explicit destination state instead of silently going home", async () => {
+test("legacy canvas deep links render the read-only snapshot instead of silently going home", async () => {
     await page.goto(`${origin}/preview/legacy/canvas/c1`);
-    await page.getByRole("heading", { name: "画布编辑器", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "旧画布甲", exact: true }).waitFor();
+    expect(await page.getByText("只读", { exact: true }).count()).toBeGreaterThan(0);
+    expect(await page.getByText("1 个节点", { exact: true }).count()).toBeGreaterThan(0);
+    await page.getByText("别回头。", { exact: true }).waitFor();
+    expect(new URL(page.url()).pathname).toBe("/preview/legacy/canvas/c1");
 });
