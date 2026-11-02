@@ -51,7 +51,8 @@ function openHrefDefault(card: { source: "studio" | "canvas"; id: string }, face
     return face === "canvas" ? `/drama/projects/${card.id}/canvas` : `/studio/${card.id}`;
 }
 
-export default function ProjectHome({ face = "pipeline", openHref }: { face?: PrimeFace; openHref?: (card: { source: "studio" | "canvas"; id: string }) => string }) {
+/** 项目库专用：顶栏「画布/资产库」已拆到 CanvasHub / AssetsHub，不再用 face/openHref 伪装多面。 */
+export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace }) {
     const navigate = useNavigate();
     const location = useLocation();
     const currentFace = new URLSearchParams(location.search).get("face") === "edit" ? "edit" : face;
@@ -84,15 +85,14 @@ export default function ProjectHome({ face = "pipeline", openHref }: { face?: Pr
     const failed = model?.degraded === "both";
     const partial = model?.degraded === "studio" || model?.degraded === "canvas";
     const filtered = Boolean(search) || source !== SOURCES[0] || statusFilter !== "all";
-    const assets = location.pathname === "/drama/assets";
 
     return (
         <ToivShell>
             <section className="toiv-home">
                 <div className="pf-history-head">
                     <div>
-                        <h1>{assets ? "项目资产" : currentFace === "edit" ? "项目剪辑" : "项目"}</h1>
-                        <p>{assets ? "选择项目，管理角色、场景与素材。" : currentFace === "edit" ? "选择 Studio 项目，继续剪辑与时间线编辑。" : "从剧本到画布，继续你的创作。"}</p>
+                        <h1>{currentFace === "edit" ? "项目剪辑" : "项目"}</h1>
+                        <p>{currentFace === "edit" ? "选择 Studio 项目，继续剪辑与时间线编辑。" : "从剧本到画布，继续你的创作。"}</p>
                     </div>
                     <div className="pf-history-head-actions">
                         <Button variant="lime" icon to="/studio/new"><IconPlus size={16} />新建项目</Button>
@@ -178,7 +178,7 @@ export default function ProjectHome({ face = "pipeline", openHref }: { face?: Pr
                         {cards.length > 0 ? (
                             <div className={`pf-project-list is-${view}`}>
                                 {cards.map((card) => {
-                                    const href = openHref ? openHref(card) : openHrefDefault(card, currentFace);
+                                    const href = openHrefDefault(card, currentFace);
                                     const cover = cardCover(card);
                                     const stages = projectStages(card);
                                     const repair = card.pipeline?.byStatus.error ?? 0;
@@ -217,7 +217,7 @@ export default function ProjectHome({ face = "pipeline", openHref }: { face?: Pr
                                                 ) : null}
                                             </div>
                                             <div className="pf-project-actions">
-                                                <Button variant="text" size="sm" icon to={href}><IconEdit size={14} />{currentFace === "edit" && card.source === "studio" && !openHref ? "继续剪辑" : "打开项目"}</Button>
+                                                <Button variant="text" size="sm" icon to={href}><IconEdit size={14} />{currentFace === "edit" && card.source === "studio" ? "继续剪辑" : "打开项目"}</Button>
                                                 {card.source === "studio" ? <Button variant="text" size="sm" to={`/drama/projects/${card.id}/assets`}>资产</Button> : null}
                                             </div>
                                         </article>

@@ -4,6 +4,8 @@ import ProjectHome from "../toiv/addons/ProjectHome";
 import { TaskCenterProvider } from "./addons/TaskCenterProvider";
 import { RequireSession, ToivLoginPage, storeToken } from "../toiv/auth/session";
 
+const CanvasHub = lazy(() => import("./pages/CanvasHub"));
+const AssetsHub = lazy(() => import("./pages/AssetsHub"));
 const PrimeStoryboard = lazy(() => import("./pages/PrimeStoryboard"));
 const PrimeEditor = lazy(() => import("./pages/PrimeEditor"));
 const PrimeCanvas = lazy(() => import("./pages/PrimeCanvas"));
@@ -55,9 +57,9 @@ export default function ToivBootstrap() {
                 <Route path="/studio/:id/style" element={<RequireSession><PrimeStyle /></RequireSession>} />
                 <Route path="/studio/:id/editor" element={<RequireSession><PrimeEditor /></RequireSession>} />
                 <Route path="/studio/:id" element={<RequireSession><PrimeStoryboard /></RequireSession>} />
-                <Route path="/drama" element={<RequireSession><ProjectHome face="canvas" /></RequireSession>} />
+                <Route path="/drama" element={<RequireSession><CanvasHub /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/canvas" element={<RequireSession><PrimeCanvas /></RequireSession>} />
-                <Route path="/drama/assets" element={<RequireSession><ProjectHome face="canvas" openHref={(card) => (card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/assets`)} /></RequireSession>} />
+                <Route path="/drama/assets" element={<RequireSession><AssetsHub /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/assets" element={<RequireSession><PrimeAssets /></RequireSession>} />
                 <Route path="/legacy/canvas/:id" element={<RequireSession><PrimeLegacyCanvas /></RequireSession>} />
                 <Route path="/assets" element={<Navigate to="/drama/assets" replace />} />

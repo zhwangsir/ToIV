@@ -264,7 +264,7 @@ for (const entry of [
     { path: "/edit-library", title: "Moon Story", target: "/studio/s1/editor" },
     { path: "/studio?face=edit", title: "Moon Story", target: "/studio/s1/editor" },
     { path: "/drama/assets", title: "Moon Story", target: "/drama/projects/s1/assets" },
-    { path: "/drama/assets", title: "画布草稿", target: "/legacy/canvas/c1" },
+    { path: "/drama/assets", title: "画布草稿", target: "/drama/projects/c1/assets" },
 ]) {
     test(`project entry ${entry.path} preserves target ${entry.target}`, async () => {
         await sources();
@@ -293,13 +293,13 @@ test("the primary navigation offers exactly the six first-class entries", async 
     await sources();
     await visit();
     const nav = page.getByRole("navigation", { name: "主导航", exact: true });
-    expect(await nav.getByRole("link").allTextContents()).toEqual(["项目", "画布", "资产", "工具", "任务", "设置"]);
+    expect(await nav.getByRole("link").allTextContents()).toEqual(["项目", "画布", "资产库", "工具", "任务", "设置"]);
 });
 
 for (const [path, current] of [
     ["/", "项目"], ["/studio/s1", "项目"], ["/studio/s1/editor", "项目"],
     ["/drama", "画布"], ["/drama/projects/s1/canvas", "画布"], ["/legacy/canvas/c1", "画布"],
-    ["/drama/assets", "资产"], ["/drama/projects/s1/assets", "资产"],
+    ["/drama/assets", "资产库"], ["/drama/projects/s1/assets", "资产库"],
     ["/tools", "工具"], ["/tools/t2i", "工具"], ["/tools/image", "工具"],
     ["/tasks", "任务"], ["/library", "任务"], ["/settings", "设置"],
 ]) {
@@ -328,7 +328,7 @@ for (const width of [390, 768, 1100]) {
         expect(await mobile.count()).toBe(0);
         expect(await burger.evaluate((element) => element === document.activeElement)).toBe(true);
         await page.keyboard.press("Enter");
-        const assets = mobile.getByRole("link", { name: "资产", exact: true });
+        const assets = mobile.getByRole("link", { name: "资产库", exact: true });
         await assets.focus();
         await page.keyboard.press("Enter");
         await at("/drama/assets");

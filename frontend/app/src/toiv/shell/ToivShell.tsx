@@ -7,7 +7,7 @@ import { containTab, focusFirst } from "../a11y/focus";
 const NAV = [
     { to: "/studio", label: "项目" },
     { to: "/drama", label: "画布" },
-    { to: "/drama/assets", label: "资产" },
+    { to: "/drama/assets", label: "资产库" },
     { to: "/tools", label: "工具" },
     { to: "/tasks", label: "任务" },
     { to: "/settings", label: "设置" },
