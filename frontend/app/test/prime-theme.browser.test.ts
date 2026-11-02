@@ -124,7 +124,7 @@ test("custom colours stay scoped to their theme across switches", async () => {
     expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
     await page.getByRole("radio", { name: /赛博霓虹/ }).click();
     expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime"))).toBe("");
-    expect(await cssVar("--pf-lime")).toBe("#21f3ff");
+    expect(await cssVar("--pf-lime")).toBe("#4A7FC1");
     await page.getByRole("radio", { name: /浅色清爽/ }).click();
     expect(await page.evaluate(() => document.documentElement.style.getPropertyValue("--pf-lime").trim())).toBe("#00ffcc");
 });

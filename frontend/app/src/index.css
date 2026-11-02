@@ -1,6 +1,11 @@
 :root {
-  --pf-lime: #b6ff00;
-  --pf-lime-soft: #eefcc8;
+  /* Semantic brand tokens (scheme A): blue primary, lime accent-only */
+  --pf-primary: #4A7FC1;
+  --pf-primary-soft: #dee7f3;
+  --pf-accent: #b6ff00;
+  /* Transition: historical --pf-lime == primary (CTA). Concrete hex so getPropertyValue is stable. */
+  --pf-lime: #4A7FC1;
+  --pf-lime-soft: #dee7f3;
   --pf-ink: #111318;
   --pf-muted: #6b7280;
   --pf-bg: #f7f8fa;
@@ -15,7 +20,7 @@
   --ink: var(--pf-ink);
   --paper: var(--pf-bg);
   --paper-deep: #e8eaee;
-  --accent: var(--pf-lime);
+  --accent: var(--pf-primary);
   --teal: #2a6f7a;
   --crimson: #c43c2e;
   --moss: #2a6f7a;

@@ -1,4 +1,4 @@
-/* 获客短视频宣传页：亮色纸面 + PRINTFILM 酸橙点缀 */
+/* 获客短视频宣传页：亮色纸面 + ToIV 品牌蓝 */
 
 .pf-method {
   --m-bg: #f7f8fa;
@@ -8,15 +8,15 @@
   --m-txt: #111318;
   --m-soft: #4b5563;
   --m-muted: #6b7280;
-  --m-lime: #b6ff00;
-  --m-lime-ink: #111318;
-  --m-lime-deep: #5f8f00;
+  --m-lime: var(--pf-primary, #4A7FC1);
+  --m-lime-ink: #ffffff;
+  --m-lime-deep: #3a6aa8;
   --m-warn: #c67a12;
   min-height: 100vh;
   min-height: 100dvh;
   background:
-    radial-gradient(900px 420px at 8% -10%, rgba(182, 255, 0, 0.22), transparent 55%),
-    radial-gradient(640px 320px at 100% 0%, rgba(182, 255, 0, 0.12), transparent 50%),
+    radial-gradient(900px 420px at 8% -10%, rgba(74, 127, 193, 0.22), transparent 55%),
+    radial-gradient(640px 320px at 100% 0%, rgba(74, 127, 193, 0.12), transparent 50%),
     var(--m-bg);
   color: var(--m-txt);
   font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
@@ -130,7 +130,7 @@
 .pf-method-btn.is-lime {
   background: var(--m-lime);
   color: var(--m-lime-ink);
-  box-shadow: 0 8px 24px rgba(182, 255, 0, 0.18);
+  box-shadow: 0 8px 24px rgba(74, 127, 193, 0.18);
 }
 
 .pf-method-btn.is-ghost {
@@ -191,7 +191,7 @@
   font-style: normal;
   color: var(--m-txt);
   font-weight: 650;
-  box-shadow: inset 0 -0.42em 0 rgba(182, 255, 0, 0.28);
+  box-shadow: inset 0 -0.42em 0 rgba(74, 127, 193, 0.28);
 }
 
 .pf-method-notice,
@@ -430,7 +430,7 @@
   gap: 1.4rem;
   padding: 1.6rem 1.5rem;
   border-radius: 22px;
-  border: 1px solid rgba(182, 255, 0, 0.55);
+  border: 1px solid rgba(74, 127, 193, 0.55);
   background: linear-gradient(135deg, #f4ffd6 0%, #ffffff 70%);
 }
 

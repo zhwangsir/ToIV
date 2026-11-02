@@ -81,6 +81,8 @@
 .toiv-login { max-width: 360px; margin: 60px auto; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius); padding: 24px; background: var(--pf-card); }
 .toiv-login label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--pf-muted); }
 .toiv-login input { border: 1px solid var(--pf-line); border-radius: var(--pf-radius-sm); padding: 9px 12px; background: var(--pf-bg); color: var(--pf-ink); }
+.toiv-login input:focus-visible { outline: 2px solid var(--pf-primary, var(--pf-lime)); outline-offset: 2px; border-color: var(--pf-primary, var(--pf-lime)); }
+.toiv-login .pf-btn-lime:focus-visible { outline: 2px solid var(--pf-primary, var(--pf-lime)); outline-offset: 3px; }
 .toiv-login-error { color: var(--toiv-danger); font-size: 13px; }
 .toiv-wip { padding: 80px 0; text-align: center; }
 
@@ -230,13 +232,16 @@
 :root,
 [data-theme="light"] {
     color-scheme: light;
+    --pf-primary: #4A7FC1;
+    --pf-primary-soft: #dee7f3;
+    --pf-accent: #b6ff00;
     --pf-bg: #f7f8fa;
     --pf-card: #ffffff;
     --pf-ink: #111318;
     --pf-muted: #5b6778;
     --pf-line: rgba(17, 19, 24, 0.1);
-    --pf-lime: #b6ff00;
-    --pf-lime-soft: #eefcc8;
+    --pf-lime: #4A7FC1;
+    --pf-lime-soft: #dee7f3;
     --pf-shadow: 0 8px 28px rgba(17, 19, 24, 0.06);
     --text-secondary: #4b5563;
     --bg-canvas: #eef0f3;
@@ -248,39 +253,47 @@
     --toiv-info: #1d4ed8;
     --toiv-scrim: rgba(17, 19, 24, 0.5);
     --toiv-shadow-float: 0 18px 48px rgba(17, 19, 24, 0.18);
+    --accent: var(--pf-primary);
 }
 
 [data-theme="aurora"] {
     color-scheme: dark;
+    --pf-primary: #4A7FC1;
+    --pf-primary-soft: #182843;
+    --pf-accent: #b6ff00;
     --pf-bg: #0b1020;
     --pf-card: #121a2b;
     --pf-ink: #e8eef2;
     --pf-muted: #9fb0c4;
     --pf-line: rgba(148, 163, 184, 0.2);
-    --pf-lime: #b6ff00;
-    --pf-lime-soft: #26371a;
+    --pf-lime: #4A7FC1;
+    --pf-lime-soft: #182843;
     --pf-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
     --text-secondary: #a9b8c9;
     --bg-canvas: #070b16;
     --grid-color: rgba(148, 163, 184, 0.16);
-    --node-border-selected: #b6ff00;
+    --node-border-selected: #4A7FC1;
     --toiv-danger: #ff8a8a;
     --toiv-success: #4ade80;
     --toiv-warning: #fbbf24;
     --toiv-info: #60a5fa;
     --toiv-scrim: rgba(2, 6, 23, 0.68);
     --toiv-shadow-float: 0 18px 48px rgba(0, 0, 0, 0.55);
+    --accent: var(--pf-primary);
 }
 
 [data-theme="black"] {
     color-scheme: dark;
+    --pf-primary: #4A7FC1;
+    --pf-primary-soft: #1a2838;
+    --pf-accent: #b6ff00;
     --pf-bg: #000000;
     --pf-card: #0b0b0b;
     --pf-ink: #f5f5f5;
     --pf-muted: #a3a3a3;
     --pf-line: rgba(255, 255, 255, 0.14);
-    --pf-lime: #d4ff4d;
-    --pf-lime-soft: #232b0d;
+    --pf-lime: #4A7FC1;
+    --pf-lime-soft: #1a2838;
     --pf-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
     --text-secondary: #bdbdbd;
     --bg-canvas: #000000;
@@ -292,17 +305,21 @@
     --toiv-info: #93c5fd;
     --toiv-scrim: rgba(0, 0, 0, 0.72);
     --toiv-shadow-float: 0 18px 48px rgba(0, 0, 0, 0.7);
+    --accent: var(--pf-primary);
 }
 
 [data-theme="cyber"] {
     color-scheme: dark;
+    --pf-primary: #4A7FC1;
+    --pf-primary-soft: #182843;
+    --pf-accent: #b6ff00;
     --pf-bg: #070312;
     --pf-card: #120824;
     --pf-ink: #f2e9ff;
     --pf-muted: #b3a0d6;
     --pf-line: rgba(180, 120, 255, 0.24);
-    --pf-lime: #21f3ff;
-    --pf-lime-soft: #123043;
+    --pf-lime: #4A7FC1;
+    --pf-lime-soft: #182843;
     --pf-shadow: 0 8px 32px rgba(33, 243, 255, 0.12);
     --text-secondary: #c9b6e8;
     --bg-canvas: #05010d;
@@ -314,12 +331,13 @@
     --toiv-info: #21f3ff;
     --toiv-scrim: rgba(3, 0, 12, 0.72);
     --toiv-shadow-float: 0 18px 48px rgba(255, 43, 214, 0.22);
+    --accent: var(--pf-primary);
 }
 
 html,
 body { background: var(--pf-bg); color: var(--pf-ink); }
 
-/* Bright accents keep a dark glyph in every palette. */
+/* Brand blue CTAs keep dark glyphs so lockup/mark clears WCAG 4.5:1. */
 .pf-btn-lime,
 .pf-page-btn.active,
 .toiv-lockup .mark,

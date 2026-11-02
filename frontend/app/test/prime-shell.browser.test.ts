@@ -364,7 +364,7 @@ test("the mobile drawer is a modal dialog that contains focus and restores it on
 test("the shell restores vendor accent and keeps mobile cards within the viewport", async () => {
     await sources();
     await visit();
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--pf-lime").trim())).toBe("#b6ff00");
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--pf-lime").trim())).toBe("#4A7FC1");
     expect(await page.locator(".pf-nav-right").isVisible()).toBe(true);
     await page.setViewportSize({ width: 390, height: 850 });
     await page.locator(".pf-project-card").first().waitFor();

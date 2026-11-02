@@ -1094,7 +1094,7 @@
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: #b6ff00;
+  background: var(--pf-primary, #4A7FC1);
   color: #111318;
   font-size: 13px;
   font-weight: 650;

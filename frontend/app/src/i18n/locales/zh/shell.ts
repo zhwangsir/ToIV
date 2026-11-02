@@ -2,8 +2,8 @@
 
 export const zhShell = {
   meta: {
-    title: 'PRINTFILM · AI短视频平台',
-    description: 'PRINTFILM：AI 漫剧从剧本到分集成片，AI短视频从卖点到分镜成片。',
+    title: 'ToIV · AI短视频平台',
+    description: 'ToIV：AI 漫剧从剧本到分集成片，AI短视频从卖点到分镜成片。',
   },
   common: {
     comingSoon: '即将推出',
@@ -77,7 +77,7 @@ export const zhShell = {
   wechatGroup: {
     short: '加群',
     open: '加入微信用户群',
-    title: 'printfilm 用户群',
+    title: 'ToIV 用户群',
     lead: '学习短剧 · 部署答疑 · 模板交流',
     idLabel: '微信号',
     copy: '复制',
@@ -89,7 +89,7 @@ export const zhShell = {
     registerTitle: '创建创作者账号',
     forgotTitle: '找回密码',
     resetTitle: '设置新密码',
-    lede: 'PRINTFILM · AI 漫剧与 AI短视频创作平台',
+    lede: 'ToIV · AI 漫剧与 AI短视频创作平台',
     nickname: '昵称',
     email: '邮箱',
     password: '密码',

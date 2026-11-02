@@ -79,8 +79,8 @@
 }
 
 .btn.primary {
-  background: var(--pf-lime);
-  border-color: var(--pf-lime);
+  background: var(--pf-primary, var(--pf-lime));
+  border-color: var(--pf-primary, var(--pf-lime));
   color: var(--pf-ink);
 }
 

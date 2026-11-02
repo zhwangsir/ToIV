@@ -7,15 +7,15 @@
   "files": [
     {
       "path": "index.html",
-      "sha256": "2ce570ba1418ab1a506f668e582e83fcd125ddc8c39b3de06dcea9f84e99cd6d"
+      "sha256": "0949448346765e80fb80aef07cfd04d4c992045fa855db384b1b260f2a506f16"
     },
     {
       "path": "src/App.css",
-      "sha256": "bd69a58f4d90d433259e03bfa27fc869393e6b8a98c2606e4b60692e182d241a"
+      "sha256": "59f16881050bf86ae564b84d15fd70b37481cfee2f25f59493c30bcba5f77b51"
     },
     {
       "path": "src/App.tsx",
-      "sha256": "f8b755e1054e5207f8698163d0aadc1f124d5a4d525c4778a9a9eb80ed7526e1"
+      "sha256": "3323bfa0eb487004a9e3f5da47135800e6fd9a8b45b0b08f8fd4723d6392443c"
     },
     {
       "path": "src/api.ts",
@@ -55,7 +55,7 @@
     },
     {
       "path": "src/components/BrandMark.tsx",
-      "sha256": "fbaaa385508f4c00874125bafb9ff58299f66901d86dfc31c685beb1e1906ec1"
+      "sha256": "a8a803e749799d8b5b906d37db68e5cbbe245fd46234c5f610dbfa126ce817c9"
     },
     {
       "path": "src/components/UserAvatar.tsx",
@@ -147,7 +147,7 @@
     },
     {
       "path": "src/components/layout/AppShell.tsx",
-      "sha256": "37665b6b0b465376c87b01e19037b441a21fa1be2160d05b0687906ae6dffb94"
+      "sha256": "8842ab8c33a18114633d9a6cd701895fb27dc644044e2e4ada4def4f3f0a6279"
     },
     {
       "path": "src/components/layout/LanguageSwitch.tsx",
@@ -163,7 +163,7 @@
     },
     {
       "path": "src/components/ui/Button.tsx",
-      "sha256": "e9297a0184fb29a8c524f1e4cfce7f027c4ff4eb457faa75c6148e074cf44580"
+      "sha256": "28bd56bd810dc901f9af8459dbc74c9aa96615b5c71e9b7dc26bf406ee97ad5b"
     },
     {
       "path": "src/components/ui/ComingSoon.tsx",
@@ -251,7 +251,7 @@
     },
     {
       "path": "src/i18n/locales/en/shell.ts",
-      "sha256": "cb8807653ee4454553c9da4ab1cdf02b4c68ebc66ee8205dcdd2b033054c42a3"
+      "sha256": "6e9be8e9d60ad01d81940c539b2bae0e3eb24b186cefc2b8b217dadb499710c6"
     },
     {
       "path": "src/i18n/locales/zh.ts",
@@ -263,7 +263,7 @@
     },
     {
       "path": "src/i18n/locales/zh/shell.ts",
-      "sha256": "206db96ea0f7481d18741423461539957340ab2e693ecc4676c70d3bd2173b6e"
+      "sha256": "a55d43880c7c300edde27ac94d2f5ae7141332a1971fe052deec306d9016818f"
     },
     {
       "path": "src/i18n/lookup.ts",
@@ -275,7 +275,7 @@
     },
     {
       "path": "src/index.css",
-      "sha256": "8c24d60484d7102bc87d8864f290bae48190f07d77abcb6f06509a3ba0acd009"
+      "sha256": "73ec12a6028e7a1f8e2f5f1fc868b1e2d69bda532f9deeb5cf27255f0109f7b7"
     },
     {
       "path": "src/lib/agentSkillSelection.ts",
@@ -447,7 +447,7 @@
     },
     {
       "path": "src/lib/methodLanding.ts",
-      "sha256": "263427c23f0b0863a2d4f1f73b176304ba1b1bbe6e56ffb9236df86781c1a343"
+      "sha256": "82c05cfd8a55301f0b96185a6c6a1dbc08d05981d1b665c1716e7244c1273f93"
     },
     {
       "path": "src/lib/pagination.ts",
@@ -479,11 +479,11 @@
     },
     {
       "path": "src/main.tsx",
-      "sha256": "e95c6e5200355721151e30c3e14a78f8c39baf855f0d25285b05a718e8497bad"
+      "sha256": "1108893dd52bd80d0a1f9bef519c8f91a0c00b3463327c7b36f7ad6859312354"
     },
     {
       "path": "src/pages/AuthPage.tsx",
-      "sha256": "ce2831c2a969850300b069dcc2c34bfaf9d3e82ffb9b7aef941bc4f4b2967c15"
+      "sha256": "ccbee180b37e7c2c711d080985d7f9ae327ec645ebddc17c0fe464acce391315"
     },
     {
       "path": "src/pages/ContactPage.tsx",
@@ -499,7 +499,7 @@
     },
     {
       "path": "src/pages/HomePage.tsx",
-      "sha256": "131e8798622c274f28d9840def883811385bb8f086535390fdc396b8090adc76"
+      "sha256": "1700ea14481bd6e83d0229e16ce615886168d0b5cef5b304e1bc3f2053c05d48"
     },
     {
       "path": "src/pages/LegalDocPage.tsx",
@@ -507,11 +507,11 @@
     },
     {
       "path": "src/pages/MethodPage.tsx",
-      "sha256": "0f1b084624d305c1a551ed97e1c844798f8bca06ef190907451d01e50c9a28a6"
+      "sha256": "aabebd9f709a821572506dc481b63d8ce1dca96ea7f96822ba59b3e59678aacf"
     },
     {
       "path": "src/pages/PricingPage.tsx",
-      "sha256": "3b37e80fcb1beebce3ec2e5a69ff727ff9f803fdd41de0ee190bfc3a980fb83b"
+      "sha256": "a26800da733da9cf66c4b111c3a5348bcc275fb5777e7d5be90b1ce37f78c941"
     },
     {
       "path": "src/pages/SettingsPage.tsx",
@@ -711,7 +711,7 @@
     },
     {
       "path": "src/pages/drama/canvas/canvas.css",
-      "sha256": "6475665e422d4d1b9f6d0e0518443ba1199d085cee0b844224f7eb0b679e8fd3"
+      "sha256": "4fcb61d0df9cbee05b7096e19e9de61bb5a6453d17941c1a49486ec80b4b0ac9"
     },
     {
       "path": "src/pages/drama/canvas/canvasHistory.ts",
@@ -767,7 +767,7 @@
     },
     {
       "path": "src/pages/drama/drama.css",
-      "sha256": "f6671aeb083d3e9f4851f58b4c84426748ddcc4dba3a6d6f5639b69a92c391de"
+      "sha256": "7a9c2424fffd4f2ffee4dc6acd9b62998baf1b7a292a02e055463ae8a6ab87f2"
     },
     {
       "path": "src/pages/drama/dramaEpisodeEditUtils.ts",
@@ -803,7 +803,7 @@
     },
     {
       "path": "src/pages/method/method.css",
-      "sha256": "ccddf63f071f464f3f28ed0d4583d2f710f61c97727aafbe1b04f0a01c3f9354"
+      "sha256": "66501ad5626c9d26ada28dcf64ac771b9ba5c5a7938226c8ef8f1b3e74b6a634"
     },
     {
       "path": "src/pages/settings/AccountProfileCard.tsx",
@@ -839,7 +839,7 @@
     },
     {
       "path": "src/styles/printfilm.css",
-      "sha256": "94c23becb78f2e1bc680cf692e7e8cd268a369e5d0c59b8fbc142caca056f9c0"
+      "sha256": "02c520258c316e46236d4ef4953fc325a934b8f6dd2db2a687c0a88198cb245b"
     },
     {
       "path": "src/vite-env.d.ts",
