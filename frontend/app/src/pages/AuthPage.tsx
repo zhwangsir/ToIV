@@ -25,6 +25,11 @@ function modeFromParams(params: URLSearchParams): AuthMode {
   return 'login'
 }
 
+/**
+ * @deprecated PRINTFILM 遗留登录页。现网唯一登录为 `ToivLoginPage`（`src/toiv/auth/session.tsx`），
+ * 由 `src/toiv/bootstrap.tsx` 挂到 `/auth`；`main.tsx` 只挂 `ToivBootstrap`，本文件无运行时入口。
+ * 本波仅文档退役，勿再挂新路由；物理删除另波。
+ */
 export default function AuthPage() {
   const nav = useNavigate()
   const { t } = useI18n()

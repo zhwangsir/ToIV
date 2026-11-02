@@ -30,6 +30,10 @@ import EpisodeStoryboardPage from './pages/drama/episodeCanvas/EpisodeStoryboard
 import './styles/printfilm.css'
 import './App.css'
 
+/**
+ * @deprecated PRINTFILM 遗留应用壳（含 `/auth`→`AuthPage`）。现网入口为 `src/main.tsx` → `ToivBootstrap`
+ *（`src/toiv/bootstrap.tsx`）；登录请用 `ToivLoginPage`。本文件当前未被 main 挂载；本波仅文档退役，勿再挂新入口。
+ */
 export default function App() {
   return (
     <BrowserRouter>
