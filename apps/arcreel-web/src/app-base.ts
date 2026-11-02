@@ -38,3 +38,12 @@ export function loginDocumentPath(fromAppPath?: string | null): string {
   }
   return path;
 }
+
+/**
+ * URL for a static file shipped under Vite `public/`.
+ * BASE_URL keeps a trailing slash (`/arcreel/` in prod, `/` in dev).
+ */
+export function publicUrl(assetPath: string): string {
+  const base = import.meta.env.BASE_URL || "/";
+  return `${base}${assetPath.replace(/^\//, "")}`;
+}

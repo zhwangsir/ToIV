@@ -4,6 +4,7 @@ import { Bot, ChevronDown, FileArchive, Library, Loader2, Plus, Search, Settings
 import { useTranslation } from "react-i18next";
 import { cn } from "cn";
 import { ROUTE_APP_ASSETS, ROUTE_APP_SETTINGS, settingsSectionPath } from "@/app-routes";
+import { publicUrl } from "@/app-base";
 import { BRAND } from "@/branding";
 import { PageHeader } from "@/components/shared/page-shell/PageHeader";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -111,8 +112,8 @@ export function LobbyHeader({ query, onQueryChange, onCreate, onImport, importin
       }
     >
       <div className="flex shrink-0 items-center gap-2 pl-1">
-        <img src="/logo-light.svg" alt="" className="size-7 dark:hidden" />
-        <img src="/logo.svg" alt="" className="hidden size-7 dark:block" />
+        <img src={publicUrl("logo-light.svg")} alt="" className="size-7 dark:hidden" />
+        <img src={publicUrl("logo.svg")} alt="" className="hidden size-7 dark:block" />
         <span className="text-base font-medium">{BRAND.name}</span>
       </div>
       <InputGroup className="ml-3 max-w-80">

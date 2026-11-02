@@ -5,6 +5,7 @@ import { errMsg, voidPromise } from "@/utils/async";
 import { useLocation, useSearch } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
+import { publicUrl } from "@/app-base";
 import { safeReturnPath } from "@/utils/safe-url";
 import { BRAND } from "@/branding";
 import type { LoginResponse, ErrorResponse } from "@/api";
@@ -67,12 +68,12 @@ export function LoginPage() {
         <div className="flex flex-col items-center gap-1.5 text-center">
           <h1 className="flex items-center gap-2 font-editorial text-3xl tracking-tight">
             <picture className="dark:hidden">
-              <source media="(prefers-reduced-motion: reduce)" srcSet="/logo-light.svg" />
-              <img src="/logo-animated-light.svg" alt="" aria-hidden className="block size-7" />
+              <source media="(prefers-reduced-motion: reduce)" srcSet={publicUrl("logo-light.svg")} />
+              <img src={publicUrl("logo-animated-light.svg")} alt="" aria-hidden className="block size-7" />
             </picture>
             <picture className="hidden dark:block">
-              <source media="(prefers-reduced-motion: reduce)" srcSet="/logo.svg" />
-              <img src="/logo-animated.svg" alt="" aria-hidden className="block size-7" />
+              <source media="(prefers-reduced-motion: reduce)" srcSet={publicUrl("logo.svg")} />
+              <img src={publicUrl("logo-animated.svg")} alt="" aria-hidden className="block size-7" />
             </picture>
             <span>{BRAND.name}</span>
           </h1>
