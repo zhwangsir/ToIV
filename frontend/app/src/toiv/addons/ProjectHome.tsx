@@ -96,7 +96,7 @@ export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace })
                         <p>{currentFace === "edit" ? "选择 Studio 项目，继续剪辑与时间线编辑。" : "从剧本到画布，继续你的创作。"}</p>
                     </div>
                     <div className="pf-history-head-actions">
-                        <Button variant="lime" icon to="/"><IconPlus size={16} />打开 ArcReel</Button>
+                        <Button variant="lime" icon to="/"><IconPlus size={16} />打开 ToIV</Button>
                     </div>
                 </div>
                 <div className="toiv-workbar" role="toolbar" aria-label="ToIV 工作面">
@@ -168,7 +168,7 @@ export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace })
                                             <h2>还没有项目</h2>
                                             <p>从一个设定、一段剧本或一张参考图开始。Prime 会带你拆镜、渲染、配音，一路合成成片。</p>
                                             <div className="toiv-empty-actions">
-                                                <Button variant="lime" to="/">打开 ArcReel</Button>
+                                                <Button variant="lime" to="/">打开 ToIV</Button>
                                                 <Button variant="ghost" to="/tools">打开工具中心</Button>
                                             </div>
                                         </div>

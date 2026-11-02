@@ -78,7 +78,7 @@ export default function ToivShell({ children, flush = false }: { children: React
                 <nav className="pf-nav-center" aria-label="主导航">{centerLinks}</nav>
                 <div className="pf-nav-right">
                     <NsfwPreferenceToggle />
-                    <Button variant="lime" size="sm" to="/" onClick={closeMenu}>打开 ArcReel</Button>
+                    <Button variant="lime" size="sm" to="/" onClick={closeMenu}>打开 ToIV</Button>
                     <button ref={burger} type="button" className="pf-nav-burger"
                         aria-label={menuOpen ? "关闭菜单" : "打开菜单"} aria-expanded={menuOpen} aria-controls={menuId}
                         onClick={() => setMenuOpen((value) => !value)}>

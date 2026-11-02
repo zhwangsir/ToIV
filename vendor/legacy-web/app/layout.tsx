@@ -49,7 +49,7 @@ const notoSansSC = Noto_Sans_SC({
 
 export const metadata: Metadata = {
   title: "ToIV — AI 创作平台",
-  description: "Film Atelier · AI 驱动的影视创作工作台",
+  description: "ToIV · AI 驱动的影视创作工作台",
 };
 
 export const viewport: Viewport = {

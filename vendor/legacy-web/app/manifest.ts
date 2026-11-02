@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ToIV",
     short_name: "ToIV",
-    description: "Film Atelier · AI 驱动的影视创作工作台",
+    description: "ToIV · AI 驱动的影视创作工作台",
     start_url: "/",
     display: "standalone",
     background_color: "#FFFFFF",

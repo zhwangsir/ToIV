@@ -5,3 +5,4 @@
 - No BE this wave; API failures must be honest
 - Keep About «Powered by ArcReel»
 - Forbidden: cross-import freezone-web / vendor/canvas; no Ant Design rewrite this wave
+- Display brand: ToIV via `branding.ts` default + `.env.production` (`VITE_BRAND_*`)

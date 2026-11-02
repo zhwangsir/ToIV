@@ -16,10 +16,10 @@ export default function ToivArcReelRootMount() {
         overflow: "hidden",
         background: "#0b0b0f",
       }}
-      aria-label="ArcReel 产品主壳"
+      aria-label="ToIV 产品主壳"
     >
       <iframe
-        title="ArcReel"
+        title="ToIV"
         src="/arcreel/"
         style={{ border: 0, width: "100%", height: "100%", display: "block" }}
         allow="clipboard-read; clipboard-write; fullscreen"

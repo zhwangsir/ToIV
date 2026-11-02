@@ -4,8 +4,8 @@
 //
 // Source code references BRAND.name (or the [[brand]] placeholder in i18n
 // resources) so the displayed product name is not hardcoded across files.
-// Defaults preserve the upstream brand; downstream distributions can override
-// via frontend/.env without code changes.
+// Default display name for this ToIV distribution is ToIV; override further
+// via frontend/.env (VITE_BRAND_*). AGPL About「Powered by ArcReel」stays hardcoded.
 
 const env = import.meta.env as Record<string, string | undefined>;
 
@@ -18,7 +18,7 @@ function fallback(value: string | undefined, defaultValue: string): string {
 }
 
 export const BRAND = {
-  name: fallback(env.VITE_BRAND_NAME, "ArcReel"),
+  name: fallback(env.VITE_BRAND_NAME, "ToIV"),
   tagline: fallback(env.VITE_BRAND_TAGLINE, "Agent 驱动的 AI 视频创作工作台"),
   description: fallback(
     env.VITE_BRAND_DESCRIPTION,

@@ -75,11 +75,11 @@ export default function CanvasHub() {
                 <div className="pf-history-head">
                     <div>
                         <h1>画布（次级）</h1>
-                        <p>产品主壳已迁至 ArcReel（根路径 `/`）。此处仅保留历史画布/Freezone 深链，不再作为默认创作入口。</p>
+                        <p>产品主壳已迁至 ToIV（根路径 `/`）。此处仅保留历史画布/Freezone 深链，不再作为默认创作入口。</p>
                     </div>
                     <div className="pf-history-head-actions">
                         <Button variant="lime" icon to="/">
-                            <IconPlus size={16} />打开 ArcReel
+                            <IconPlus size={16} />打开 ToIV
                         </Button>
                         <Button variant="ghost" disabled={creating} onClick={() => void enterFreeCanvas()}>
                             {creating ? "创建中…" : "旧自由画布深链"}
@@ -115,9 +115,9 @@ export default function CanvasHub() {
                                         <div className="pf-history-empty toiv-empty-brand">
                                             <span className="toiv-empty-mark" aria-hidden="true"><IconClapper size={24} /></span>
                                             <h2>没有历史画布深链</h2>
-                                            <p>主创作请用 ArcReel（`/`）。Freezone 深链 `/drama/projects/:id/freezone` 暂留，不再作为主入口。</p>
+                                            <p>主创作请用 ToIV（`/`）。Freezone 深链 `/drama/projects/:id/freezone` 暂留，不再作为主入口。</p>
                                             <div className="toiv-empty-actions">
-                                                <Button variant="lime" to="/">打开 ArcReel</Button>
+                                                <Button variant="lime" to="/">打开 ToIV</Button>
                                                 <Button variant="ghost" disabled={creating} onClick={() => void enterFreeCanvas()}>
                                                     {creating ? "创建中…" : "仍建旧自由画布"}
                                                 </Button>
