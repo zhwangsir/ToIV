@@ -25,6 +25,7 @@ describe("prime bootstrap routes", () => {
         expect(PRIME_ROUTES).toContain("/tools");
         expect(PRIME_ROUTES).toContain("/tools/:id");
         expect(PRIME_ROUTES).toContain("/legacy/canvas/:id");
+        expect(PRIME_ROUTES).toContain("/drama/projects/:projectId/freezone");
         expect(PRIME_ROUTES).not.toContain("/pricing");
     });
 });

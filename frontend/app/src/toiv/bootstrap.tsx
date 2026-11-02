@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { TaskCenterProvider } from "./addons/TaskCenterProvider";
 import { RequireSession, ToivLoginPage, storeToken } from "../toiv/auth/session";
@@ -8,7 +8,6 @@ const CanvasHub = lazy(() => import("./pages/CanvasHub"));
 const AssetsHub = lazy(() => import("./pages/AssetsHub"));
 const PrimeStoryboard = lazy(() => import("./pages/PrimeStoryboard"));
 const PrimeEditor = lazy(() => import("./pages/PrimeEditor"));
-const PrimeCanvas = lazy(() => import("./pages/PrimeCanvas"));
 const PrimeAssets = lazy(() => import("./pages/PrimeAssets"));
 const PrimeLibrary = lazy(() => import("./pages/PrimeLibrary"));
 const PrimeTasks = lazy(() => import("./pages/PrimeTasks"));
@@ -18,7 +17,17 @@ const PrimeSettings = lazy(() => import("./pages/PrimeSettings"));
 const PrimeTools = lazy(() => import("./pages/PrimeTools"));
 const PrimeToolRun = lazy(() => import("./pages/PrimeToolRun"));
 const PrimeLegacyCanvas = lazy(() => import("./pages/PrimeLegacyCanvas"));
+const ToivFreezoneMount = lazy(() => import("./pages/ToivFreezoneMount"));
 
+
+
+/** K2: 旧书签 /drama/projects/:id/canvas → Freezone（保留 query）。PrimeCanvas 已卸路由，文件下波物理删。 */
+function CanvasToFreezoneRedirect() {
+    const { projectId = "" } = useParams<{ projectId: string }>();
+    const [search] = useSearchParams();
+    const q = search.toString();
+    return <Navigate to={`/drama/projects/${projectId}/freezone${q ? `?${q}` : ""}`} replace />;
+}
 
 /** W6：旧 /create → Prime 首页 /（公网 /studio）；保留 query，勿默认 /studio/new。 */
 function CreateToStudioRedirect() {
@@ -33,7 +42,7 @@ export function routerBasename(base: string | undefined): string {
 
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
-    "/drama", "/drama/assets", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
+    "/drama", "/drama/assets", "/drama/projects/:projectId/freezone", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
     "/tools", "/tools/:id", "/tasks", "/library", "/history", "/settings", "/auth", "/create", "/legacy/canvas/:id",
 ];
 
@@ -67,7 +76,8 @@ export default function ToivBootstrap() {
                 <Route path="/studio/:id/editor" element={<RequireSession><PrimeEditor /></RequireSession>} />
                 <Route path="/studio/:id" element={<RequireSession><PrimeStoryboard /></RequireSession>} />
                 <Route path="/drama" element={<RequireSession><CanvasHub /></RequireSession>} />
-                <Route path="/drama/projects/:projectId/canvas" element={<RequireSession><PrimeCanvas /></RequireSession>} />
+                <Route path="/drama/projects/:projectId/freezone" element={<RequireSession><ToivFreezoneMount /></RequireSession>} />
+                <Route path="/drama/projects/:projectId/canvas" element={<CanvasToFreezoneRedirect />} />
                 <Route path="/drama/assets" element={<RequireSession><AssetsHub /></RequireSession>} />
                 <Route path="/drama/projects/:projectId/assets" element={<RequireSession><PrimeAssets /></RequireSession>} />
                 <Route path="/legacy/canvas/:id" element={<RequireSession><PrimeLegacyCanvas /></RequireSession>} />

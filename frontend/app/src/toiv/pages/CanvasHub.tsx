@@ -19,9 +19,9 @@ function cardCover(card: PrimeProjectCard) {
     return card.coverKind === "video" ? `${src}#t=0.1` : src;
 }
 
-/** 选项目进真画布；空态可创建自由画布（与 DramaListPage 同入口）。 */
+/** K1: Studio 源进 Freezone；canvas 源仅深链 legacy（旧画布徽）。 */
 function canvasHref(card: PrimeProjectCard) {
-    return card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/canvas`;
+    return card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/freezone`;
 }
 
 export default function CanvasHub() {
@@ -61,7 +61,7 @@ export default function CanvasHub() {
                 title: "自由画布项目",
                 workflow: "canvas",
             });
-            navigate(`/drama/projects/${project.id}/canvas`);
+            navigate(`/drama/projects/${project.id}/freezone`);
         } catch (cause) {
             setCreateError(cause instanceof Error ? cause.message : "创建画布项目失败");
         } finally {
@@ -75,7 +75,7 @@ export default function CanvasHub() {
                 <div className="pf-history-head">
                     <div>
                         <h1>画布</h1>
-                        <p>选一个项目打开画布节点台；也可直接开一张自由画布。</p>
+                        <p>选一个项目打开 Freezone 自由画布；也可直接开一张新画布。</p>
                     </div>
                     <div className="pf-history-head-actions">
                         <Button variant="lime" icon disabled={creating} onClick={() => void enterFreeCanvas()}>
@@ -112,7 +112,7 @@ export default function CanvasHub() {
                                         <div className="pf-history-empty toiv-empty-brand">
                                             <span className="toiv-empty-mark" aria-hidden="true"><IconClapper size={24} /></span>
                                             <h2>还没有可打开的画布</h2>
-                                            <p>选一个已有项目进入节点台，或先开一张自由画布（创建后进入现网 `/drama/projects/:id/canvas`）。</p>
+                                            <p>选一个已有项目进入 Freezone，或先开一张自由画布（创建后进入 Freezone `/drama/projects/:id/freezone`）。</p>
                                             <div className="toiv-empty-actions">
                                                 <Button variant="lime" disabled={creating} onClick={() => void enterFreeCanvas()}>
                                                     {creating ? "创建中…" : "进入自由画布"}
@@ -144,7 +144,7 @@ export default function CanvasHub() {
                                             <div className="pf-project-info">
                                                 <h3>{card.title}</h3>
                                                 <div className="pf-project-meta">
-                                                    <span className="pf-badge">{card.source === "canvas" ? "画布" : "Studio"}</span>
+                                                    <span className="pf-badge">{card.source === "canvas" ? "旧画布" : "Studio"}</span>
                                                     {updated ? <span className="pf-muted">更新于 {updated}</span> : null}
                                                 </div>
                                             </div>

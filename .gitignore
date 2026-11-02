@@ -107,3 +107,7 @@ third_party/reference-repos/
 # Wave2 local absorb scratch (do not commit upstream trees)
 .wave2-absorb-src/
 deploy/backups/
+
+# freezone-web local install/build
+apps/freezone-web/node_modules/
+apps/freezone-web/dist/

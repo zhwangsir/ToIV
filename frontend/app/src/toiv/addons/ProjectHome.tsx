@@ -45,10 +45,11 @@ function cardCover(card: PrimeProjectCard) {
     return card.coverKind === "video" ? `${src}#t=0.1` : src;
 }
 
+/** K1: 工作面「画布」进 Freezone；canvas 源仅深链 legacy +「旧画布」徽。 */
 function openHrefDefault(card: { source: "studio" | "canvas"; id: string }, face: PrimeFace) {
     if (card.source === "canvas") return `/legacy/canvas/${card.id}`;
     if (face === "edit") return `/studio/${card.id}/editor`;
-    return face === "canvas" ? `/drama/projects/${card.id}/canvas` : `/studio/${card.id}`;
+    return face === "canvas" ? `/drama/projects/${card.id}/freezone` : `/studio/${card.id}`;
 }
 
 /** 项目库专用：顶栏「画布/资产库」已拆到 CanvasHub / AssetsHub，不再用 face/openHref 伪装多面。 */
@@ -199,7 +200,7 @@ export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace })
                                             <div className="pf-project-info">
                                                 <h3>{card.title}</h3>
                                                 <div className="pf-project-meta">
-                                                    <span className="pf-badge">{card.source === "canvas" ? "画布" : "Studio"}</span>
+                                                    <span className="pf-badge">{card.source === "canvas" ? "旧画布" : "Studio"}</span>
                                                     {card.source === "studio" ? <span className="pf-badge">{STATUS_LABELS[card.status.toLowerCase()] || card.status}</span> : null}
                                                     {card.source === "studio" && card.shotsKnown ? <span className="pf-muted">{card.shotCount} 镜头</span> : null}
                                                     {nextStep ? <span className="pf-muted">{nextStep.label}{nextStep.todo > 0 ? ` · ${nextStep.todo}` : ""}</span> : null}

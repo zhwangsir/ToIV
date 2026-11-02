@@ -298,7 +298,7 @@ test("the primary navigation offers exactly the six first-class entries", async 
 
 for (const [path, current] of [
     ["/", "项目"], ["/studio/s1", "项目"], ["/studio/s1/editor", "项目"],
-    ["/drama", "画布"], ["/drama/projects/s1/canvas", "画布"], ["/legacy/canvas/c1", "画布"],
+    ["/drama", "画布"], ["/drama/projects/s1/freezone", "画布"], ["/drama/projects/s1/canvas", "画布"], ["/legacy/canvas/c1", "画布"],
     ["/drama/assets", "资产库"], ["/drama/projects/s1/assets", "资产库"],
     ["/tools", "工具"], ["/tools/t2i", "工具"], ["/tools/image", "工具"],
     ["/tasks", "任务"], ["/library", "任务"], ["/settings", "设置"],

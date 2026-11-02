@@ -1,0 +1,11 @@
+packages:
+  - "."
+
+allowBuilds:
+  canvas: false
+  esbuild: false
+  msw: false
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
+  workerd: false

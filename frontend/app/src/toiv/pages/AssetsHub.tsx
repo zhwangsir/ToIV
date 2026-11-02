@@ -112,7 +112,7 @@ export default function AssetsHub() {
                                             <div className="pf-project-info">
                                                 <h3>{card.title}</h3>
                                                 <div className="pf-project-meta">
-                                                    <span className="pf-badge">{card.source === "canvas" ? "画布" : "Studio"}</span>
+                                                    <span className="pf-badge">{card.source === "canvas" ? "旧画布" : "Studio"}</span>
                                                     {updated ? <span className="pf-muted">更新于 {updated}</span> : null}
                                                 </div>
                                             </div>
