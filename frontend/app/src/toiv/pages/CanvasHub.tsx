@@ -19,7 +19,7 @@ function cardCover(card: PrimeProjectCard) {
     return card.coverKind === "video" ? `${src}#t=0.1` : src;
 }
 
-/** K1: Studio 源进 Freezone；canvas 源仅深链 legacy（旧画布徽）。 */
+/** 深链暂留：Studio 源仍可进 Freezone；canvas 源仅 legacy。主产品入口已迁 ArcReel `/`。 */
 function canvasHref(card: PrimeProjectCard) {
     return card.source === "canvas" ? `/legacy/canvas/${card.id}` : `/drama/projects/${card.id}/freezone`;
 }
@@ -74,12 +74,15 @@ export default function CanvasHub() {
             <section className="toiv-home toiv-canvas-hub">
                 <div className="pf-history-head">
                     <div>
-                        <h1>画布</h1>
-                        <p>选一个项目打开 Freezone 自由画布；也可直接开一张新画布。</p>
+                        <h1>画布（次级）</h1>
+                        <p>产品主壳已迁至 ArcReel（根路径 `/`）。此处仅保留历史画布/Freezone 深链，不再作为默认创作入口。</p>
                     </div>
                     <div className="pf-history-head-actions">
-                        <Button variant="lime" icon disabled={creating} onClick={() => void enterFreeCanvas()}>
-                            <IconPlus size={16} />{creating ? "创建中…" : "自由画布"}
+                        <Button variant="lime" icon to="/">
+                            <IconPlus size={16} />打开 ArcReel
+                        </Button>
+                        <Button variant="ghost" disabled={creating} onClick={() => void enterFreeCanvas()}>
+                            {creating ? "创建中…" : "旧自由画布深链"}
                         </Button>
                     </div>
                 </div>
@@ -111,13 +114,13 @@ export default function CanvasHub() {
                                     ) : (
                                         <div className="pf-history-empty toiv-empty-brand">
                                             <span className="toiv-empty-mark" aria-hidden="true"><IconClapper size={24} /></span>
-                                            <h2>还没有可打开的画布</h2>
-                                            <p>选一个已有项目进入 Freezone，或先开一张自由画布（创建后进入 Freezone `/drama/projects/:id/freezone`）。</p>
+                                            <h2>没有历史画布深链</h2>
+                                            <p>主创作请用 ArcReel（`/`）。Freezone 深链 `/drama/projects/:id/freezone` 暂留，不再作为主入口。</p>
                                             <div className="toiv-empty-actions">
-                                                <Button variant="lime" disabled={creating} onClick={() => void enterFreeCanvas()}>
-                                                    {creating ? "创建中…" : "进入自由画布"}
+                                                <Button variant="lime" to="/">打开 ArcReel</Button>
+                                                <Button variant="ghost" disabled={creating} onClick={() => void enterFreeCanvas()}>
+                                                    {creating ? "创建中…" : "仍建旧自由画布"}
                                                 </Button>
-                                                <Button variant="ghost" to="/studio">去项目库</Button>
                                             </div>
                                         </div>
                                     )

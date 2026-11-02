@@ -5,8 +5,8 @@ import { NsfwPreferenceToggle } from "../addons/NsfwPreferenceToggle";
 import { containTab, focusFirst } from "../a11y/focus";
 
 const NAV = [
-    { to: "/studio", label: "项目" },
-    { to: "/drama", label: "画布" },
+    { to: "/", label: "项目" }, // ArcReel 主壳；/studio 已 308→/
+    { to: "/drama", label: "画布" }, // 次级/深链；非产品主入口
     { to: "/drama/assets", label: "资产库" },
     { to: "/tools", label: "工具" },
     { to: "/tasks", label: "任务" },
@@ -16,7 +16,7 @@ const NAV = [
 function currentSection(pathname: string) {
     if (/^\/drama\/(?:assets(?:\/|$)|projects\/[^/]+\/assets(?:\/|$))/.test(pathname)) return "/drama/assets";
     if (/^\/(?:drama|legacy\/canvas)(?:\/|$)/.test(pathname)) return "/drama";
-    if (pathname === "/" || /^\/studio(?:\/|$)/.test(pathname)) return "/studio";
+    if (pathname === "/" || /^\/studio(?:\/|$)/.test(pathname)) return "/";
     if (pathname === "/library") return "/tasks";
     return NAV.find((item) => matchPath({ path: item.to, end: false }, pathname))?.to;
 }
@@ -78,7 +78,7 @@ export default function ToivShell({ children, flush = false }: { children: React
                 <nav className="pf-nav-center" aria-label="主导航">{centerLinks}</nav>
                 <div className="pf-nav-right">
                     <NsfwPreferenceToggle />
-                    <Button variant="lime" size="sm" to="/studio/new" onClick={closeMenu}>新建项目</Button>
+                    <Button variant="lime" size="sm" to="/" onClick={closeMenu}>打开 ArcReel</Button>
                     <button ref={burger} type="button" className="pf-nav-burger"
                         aria-label={menuOpen ? "关闭菜单" : "打开菜单"} aria-expanded={menuOpen} aria-controls={menuId}
                         onClick={() => setMenuOpen((value) => !value)}>

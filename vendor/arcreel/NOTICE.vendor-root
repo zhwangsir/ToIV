@@ -1,0 +1,6 @@
+ArcReel vendor snapshot for ToIV root whole-mount
+tip: edbfbac (edbfbac50aa064f94da4af381ca603bc5f17ba93)
+upstream: https://github.com/ArcReel/ArcReel
+purpose: ToIV mounts ArcReel FE as product root shell (/ → /arcreel/)
+date: 2026-11-02 (Asia/Shanghai)
+license: AGPL-3.0 — see LICENSE and NOTICE in this directory

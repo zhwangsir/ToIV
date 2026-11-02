@@ -3,16 +3,8 @@ import { decideStudioAccess, extractStudioToken, introspectStudioUser, isStudioG
 import { buildCanvasRequestHeaders, STUDIO_INTERNAL_HEADERS, studioMultiTenantEnabled } from "@/lib/studioIdentity";
 
 /**
- * 官网落地页（2026-10 ToIV 官网）。
- *
- * 登录凭证只存在浏览器 localStorage["toiv_token"]（lib/api.ts TOKEN_KEY），没有 cookie，
- * 中间件无法判断登录态。因此只把「裸 /」（无查询串、GET/HEAD、非 RSC/预取请求）
- * rewrite 到静态官网 public/site/index.html；官网 <head> 内联脚本发现 toiv_token 时
- * 首帧前隐藏页面并 location.replace("/?view=home")，已登录用户不会看到官网。
- *
- * 登录表单入口统一为 "/?view=home"（/login、401、未登录守卫都跳这里），不经过本中间件。
- * 不受影响：任何带查询串的 /（?view=…、?t=…、?testkey=…、_rsc 客户端导航）、
- * 其他所有路径、/api（matcher 只匹配 "/" 与 /studio 管理员闸）。
+ * ArcReel 根主壳（2026-11）：裸 / 由 app/page.tsx iframe→/arcreel/，不再 rewrite 旧官网。
+ * /studio*（非 auth/entry/api/static）308→/；旧孤面 RETIRED_FACE_REDIRECTS→/。
  */
 /**
  * /studio 管理员闸(2026-10-08):用户隔离落地前只放行 role=admin(详见 lib/studioGuard.ts)。
@@ -69,34 +61,29 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-/** W6 旧壳退役: 退役面/孤面深链 308 → Prime（/studio 唯一创作入口）。
- *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create、禁止再指 /studio/create。
- *  #8 library 字面路径 → /studio/library（PrimeLibrary）；勿并到 /drama/assets。
- *  target 可含 ?query；`$1`/`$2` 替换捕获组。hash 不达服务端，无法保留。 */
+/** ArcReel 根主壳：退役面/孤面深链 308 → /（不再以 /studio 为产品入口）。
+ *  /studio 本身由下方 studio 308 处理；此处把旧孤面一并收到根。
+ *  /drama/assets 语义本波不删（不在此表）。hash 不达服务端无法保留。 */
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
-  // #1: 裸 /create → /studio（保留 inbound query；勿默认 /studio/new）
-  [/^\/create(?:\/.*)?$/, "/studio"],
-  // #5: 旧六段工作区 / 助手 / runs → Prime /studio（先于 /toiv 通配）
-  [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/studio?project=$1&section=$2"],
-  [/^\/toiv\/agent(?:\/.*)?$/, "/studio"],
-  [/^\/toiv\/library(\/.*)?$/, "/studio/library$1"],
-  [/^\/toiv\/tasks(\/.*)?$/, "/studio/tasks$1"],
-  [/^\/toiv\/market(\/.*)?$/, "/studio/tools"],
-  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/tools"],
-  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/tools"],
-  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/tools"],
-  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/tools"],
-  [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio?run=$1"],
-  [/^\/toiv\/runs\/?$/, "/studio"],
-  // #4 Cosmos Desktop 种子默认不可达 → Prime
-  [/^\/desktop(?:\/.*)?$/, "/studio"],
-  // #8 字面 /library* → Prime 作品库（禁止收成 /drama/assets）
-  [/^\/library(\/.*)?$/, "/studio/library$1"],
-  // #11 / #9
-  [/^\/market(\/.*)?$/, "/studio/tools"],
-  [/^\/tasks(\/.*)?$/, "/studio/tasks$1"],
-  // 挂账深链：其余 /toiv/* 仍进 /studio/toiv/*（Prime catch-all → 首页；另波映 /drama）
-  [/^\/toiv(\/.*)?$/, "/studio/toiv$1"],
+  [/^\/create(?:\/.*)?$/, "/"],
+  [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/"],
+  [/^\/toiv\/agent(?:\/.*)?$/, "/"],
+  [/^\/toiv\/library(\/.*)?$/, "/"],
+  [/^\/toiv\/tasks(\/.*)?$/, "/"],
+  [/^\/toiv\/market(\/.*)?$/, "/"],
+  [/^\/toiv\/audio(?:\/.*)?$/, "/"],
+  [/^\/toiv\/image-tools(?:\/.*)?$/, "/"],
+  [/^\/toiv\/video-tools(?:\/.*)?$/, "/"],
+  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/"],
+  [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/"],
+  [/^\/toiv\/runs\/?$/, "/"],
+  [/^\/desktop(?:\/.*)?$/, "/"],
+  [/^\/library(\/.*)?$/, "/"],
+  [/^\/market(\/.*)?$/, "/"],
+  [/^\/tasks(\/.*)?$/, "/"],
+  [/^\/toiv(\/.*)?$/, "/"],
+  // CanvasHub 主入口退役；深链 /drama/projects/*/freezone 与 /drama/assets 不匹配此条
+  [/^\/drama\/?$/, "/"],
 ];
 
 function applyRetiredRedirect(url: URL, target: string, match: RegExpExecArray, inboundSearch: string) {
@@ -127,28 +114,23 @@ function redirectPreserveSearch(req: NextRequest, pathname: string): NextRespons
   return res;
 }
 
+function isStudioInfraPath(pathname: string): boolean {
+  // 保留 auth / entry / api / 静态资源；其余 /studio* 308→/
+  if (pathname === "/studio/entry.json") return true;
+  if (pathname.startsWith("/studio/auth/")) return true;
+  if (pathname.startsWith("/studio/api/")) return true;
+  if (isStudioStaticFile(pathname)) return true;
+  return false;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  // W6：/studio 下旧壳入口在 SPA hydrate 前 308→Prime，避免闪 BeefTV 皮
-  if (/^\/studio\/create(?:\/.*)?$/.test(pathname)) {
-    return redirectPreserveSearch(req, "/studio");
+
+  // ArcReel 根主壳：/studio 与 SPA 深链 308→/（保留 query）；基础设施路径豁免
+  if (isStudioPath(pathname) && !isStudioInfraPath(pathname)) {
+    return redirectPreserveSearch(req, "/");
   }
-  if (/^\/studio\/desktop(?:\/.*)?$/.test(pathname)) {
-    return redirectPreserveSearch(req, "/studio");
-  }
-  if (/^\/studio\/toiv\/market(?:\/.*)?$/.test(pathname)) {
-    return redirectPreserveSearch(req, "/studio/tools");
-  }
-  if (/^\/studio\/toiv\/tasks(?:\/.*)?$/.test(pathname)) {
-    return redirectPreserveSearch(req, "/studio/tasks");
-  }
-  if (/^\/studio\/toiv\/library(\/.*)?$/.test(pathname)) {
-    const rest = pathname.replace(/^\/studio\/toiv\/library/, "") || "";
-    return redirectPreserveSearch(req, `/studio/library${rest}`);
-  }
-  if (/^\/studio\/toiv\/agent(?:\/.*)?$/.test(pathname)) {
-    return redirectPreserveSearch(req, "/studio");
-  }
+
   for (const [re, target] of RETIRED_FACE_REDIRECTS) {
     const m = re.exec(pathname);
     if (m) {
@@ -159,13 +141,12 @@ export async function middleware(req: NextRequest) {
       return res;
     }
   }
+
+  // 豁免的 /studio/auth|entry|api|static 仍走原管理员闸（api 身份头）
   if (isStudioPath(pathname)) return guardStudio(req);
-  if (pathname !== "/" || search) return NextResponse.next();
-  if (req.method !== "GET" && req.method !== "HEAD") return NextResponse.next();
-  if (req.headers.get("rsc") || req.headers.get("next-router-prefetch")) return NextResponse.next();
-  const url = req.nextUrl.clone();
-  url.pathname = "/site/index.html";
-  return NextResponse.rewrite(url);
+
+  // 根路径改由 app/page.tsx（ToivArcReelRootMount iframe→/arcreel/），不再 rewrite 旧官网
+  return NextResponse.next();
 }
 
 export const config = { matcher: ["/", "/studio", "/studio/:path*", "/create", "/create/:path*", "/desktop", "/desktop/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };

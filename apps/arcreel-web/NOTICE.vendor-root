@@ -1,0 +1,5 @@
+ToIV apps/arcreel-web — independent Vite sub-app mounting ArcReel FE.
+Vendor tip: edbfbac (edbfbac50aa064f94da4af381ca603bc5f17ba93)
+Synced from vendor/arcreel/frontend; AGPL-3.0 — see LICENSE and NOTICE.
+Host mounts built assets under /arcreel/ (iframe from /). Do not import freezone-web or vendor/canvas.
+Date: 2026-11-02 (Asia/Shanghai)

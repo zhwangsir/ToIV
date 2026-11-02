@@ -45,7 +45,7 @@ function cardCover(card: PrimeProjectCard) {
     return card.coverKind === "video" ? `${src}#t=0.1` : src;
 }
 
-/** K1: 工作面「画布」进 Freezone；canvas 源仅深链 legacy +「旧画布」徽。 */
+/** 深链暂留：工作面「画布」仍可进 Freezone；主产品入口已迁 ArcReel `/`。canvas 源仅 legacy。 */
 function openHrefDefault(card: { source: "studio" | "canvas"; id: string }, face: PrimeFace) {
     if (card.source === "canvas") return `/legacy/canvas/${card.id}`;
     if (face === "edit") return `/studio/${card.id}/editor`;
@@ -96,7 +96,7 @@ export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace })
                         <p>{currentFace === "edit" ? "选择 Studio 项目，继续剪辑与时间线编辑。" : "从剧本到画布，继续你的创作。"}</p>
                     </div>
                     <div className="pf-history-head-actions">
-                        <Button variant="lime" icon to="/studio/new"><IconPlus size={16} />新建项目</Button>
+                        <Button variant="lime" icon to="/"><IconPlus size={16} />打开 ArcReel</Button>
                     </div>
                 </div>
                 <div className="toiv-workbar" role="toolbar" aria-label="ToIV 工作面">
@@ -168,7 +168,7 @@ export default function ProjectHome({ face = "pipeline" }: { face?: PrimeFace })
                                             <h2>还没有项目</h2>
                                             <p>从一个设定、一段剧本或一张参考图开始。Prime 会带你拆镜、渲染、配音，一路合成成片。</p>
                                             <div className="toiv-empty-actions">
-                                                <Button variant="lime" to="/studio/new">新建项目</Button>
+                                                <Button variant="lime" to="/">打开 ArcReel</Button>
                                                 <Button variant="ghost" to="/tools">打开工具中心</Button>
                                             </div>
                                         </div>

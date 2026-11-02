@@ -111,3 +111,6 @@ deploy/backups/
 # freezone-web local install/build
 apps/freezone-web/node_modules/
 apps/freezone-web/dist/
+
+apps/arcreel-web/node_modules/
+apps/arcreel-web/dist/
