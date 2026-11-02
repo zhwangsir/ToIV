@@ -4,6 +4,7 @@
  */
 
 import { getToken, clearToken } from "@/utils/auth";
+import { loginDocumentPath, toAppPath } from "@/app-base";
 import type { SseStreamError } from "@/utils/sse-stream";
 import { isDemoProject } from "@/onboarding/demo-project";
 import i18n from "@/i18n";
@@ -53,12 +54,10 @@ export function handleUnauthorized(response: Response): void {
 
 function redirectToLogin(): void {
   clearToken();
-  // 携带当前所在的站内地址，登录成功后回跳；仅对 /app/ 下的页面附加 from，
-  // 避免把登录页自身等非应用路径写进回跳参数。
+  // 携带当前所在的站内地址（去挂载前缀），登录成功后回跳；仅对 /app/ 附加 from。
+  // 硬跳必须带 APP_BASE，否则会逃出 Vite 挂载落到宿主 /login（#app-root 空）。
   const current = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`;
-  globalThis.location.href = current.startsWith("/app/")
-    ? `/login?from=${encodeURIComponent(current)}`
-    : "/login";
+  globalThis.location.href = loginDocumentPath(toAppPath(current));
 }
 
 let apiReadOnly = false;

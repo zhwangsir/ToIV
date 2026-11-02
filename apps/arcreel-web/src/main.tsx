@@ -6,11 +6,10 @@ import { i18nReady } from "@/i18n";
 import { BRAND, BRAND_DOCUMENT_TITLE } from "@/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initTheme } from "@/theme";
+import { APP_BASE } from "@/app-base";
 
-// Vite `base` keeps a trailing slash (`/arcreel/`); wouter `base` must NOT —
-// with a trailing slash, `/arcreel/app/...` fails relativePath and every route 404s.
-// Dev base `/` → empty string (default). Build base `/arcreel/` → `/arcreel`.
-const ROUTER_BASE = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+// wouter Router base = Vite BASE_URL without trailing slash (see app-base.ts).
+const ROUTER_BASE = APP_BASE;
 
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";

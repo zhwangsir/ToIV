@@ -24,6 +24,7 @@ import { useProjectsStore } from "@/stores/projects-store";
 import { useAppStore } from "@/stores/app-store";
 import { useAssistantStore } from "@/stores/assistant-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { loginRedirectTarget, toAppPath } from "@/app-base";
 import { useConfigStatusStore } from "@/stores/config-status-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { errMsg } from "@/utils/async";
@@ -113,13 +114,14 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    // 用 `~` 前缀跳到顶层 /login：AuthGuard 可能渲染在 nest 嵌套路由内
-    // （/app/projects/:projectName），此时相对路径会被拼到嵌套 base 之后，
-    // 必须用绝对路径才能落到真正的 /login。
-    // 带上完整原始 URL（取 window.location，nest 内 useLocation 只是相对路径），
-    // 登录成功后据此回跳。
-    const from = window.location.pathname + window.location.search + window.location.hash;
-    return <Redirect to={`~/login?from=${encodeURIComponent(from)}`} />;
+    // AuthGuard 可能渲染在 nest 路由内：相对 `/login` 会被拼到嵌套 base 后。
+    // wouter 的 `~` 会逃出 nest，但也丢掉 Router base（见 absolutePath），
+    // 所以必须 `~${APP_BASE}/login`，生产才落到 /arcreel/login 而非宿主 /login。
+    // from 用去前缀后的站内路径，供 safeReturnPath / setLocation 使用。
+    const from = toAppPath(
+      window.location.pathname + window.location.search + window.location.hash,
+    );
+    return <Redirect to={loginRedirectTarget(from)} />;
   }
 
   return <>{children}</>;

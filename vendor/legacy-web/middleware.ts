@@ -109,9 +109,11 @@ function applyRetiredRedirect(url: URL, target: string, match: RegExpExecArray, 
 }
 
 function redirectPreserveSearch(req: NextRequest, pathname: string): NextResponse {
-  const url = req.nextUrl.clone();
-  url.pathname = pathname;
-  const res = NextResponse.redirect(url, 308);
+  // NextURL.href → formatPathname() strips trailing slash when trailingSlash:false.
+  // That turned `/arcreel/` into `/arcreel` and caused a 308 self-loop. Use URL.
+  const dest = new URL(req.url);
+  dest.pathname = pathname;
+  const res = NextResponse.redirect(dest, 308);
   res.headers.set("cache-control", "no-store");
   return res;
 }
@@ -127,6 +129,17 @@ function isStudioInfraPath(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  // Safety net: SPA must keep login under /arcreel/login. If a stale bundle
+  // still hard-navs to host /login with an arcreel from/referer, fold it back.
+  // Do NOT fold plain /login (Prime host login page → /?view=home).
+  if (pathname === "/login") {
+    const from = req.nextUrl.searchParams.get("from") ?? "";
+    const referer = req.headers.get("referer") ?? "";
+    if (from.startsWith("/arcreel") || /\/arcreel(\/|\?|#|$)/.test(referer)) {
+      return redirectPreserveSearch(req, "/arcreel/login");
+    }
+  }
 
   // 尾斜杠策略（配合 next.config skipTrailingSlashRedirect）：
   // · 挂载根必须带尾斜杠，供 Vite base=/arcreel/ 与 iframe src 对齐
