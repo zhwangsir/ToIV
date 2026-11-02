@@ -1,6 +1,6 @@
 /** 获客短视频宣传页（/method）文案：对标交付方法论结构，不承诺效果 */
 
-export const METHOD_START_URL = 'https://www.printfilm.com/studio/new'
+export const METHOD_START_URL = 'https://toiv.wineryz.top/studio/new'
 export const METHOD_GEO_URL = 'https://www.geohao.com/'
 
 export type MethodTocItem = { href: string; label: string }

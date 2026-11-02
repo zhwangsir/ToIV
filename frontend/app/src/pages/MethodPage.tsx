@@ -11,7 +11,7 @@ import {
 } from '../lib/methodLanding'
 import './method/method.css'
 
-const PAGE_URL = 'https://www.printfilm.com/method'
+const PAGE_URL = 'https://toiv.wineryz.top/method'
 
 // 注入本页 title / description；延迟一拍以免被 I18nProvider 的默认 meta 覆盖
 function useMethodMeta(copy: MethodLandingCopy) {

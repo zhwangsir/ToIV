@@ -4,7 +4,11 @@ export type Locale = 'zh' | 'en'
 
 export const LOCALES: Locale[] = ['zh', 'en']
 
-export const LOCALE_STORAGE_KEY = 'printfilm.locale'
+/** 现行语言偏好 key */
+export const LOCALE_STORAGE_KEY = 'toiv.locale'
+
+/** 旧品牌 key；读时回退，写后清除，避免丢偏好 */
+export const LOCALE_STORAGE_KEY_LEGACY = 'printfilm.locale'
 
 export const LOCALE_HTML: Record<Locale, string> = {
   zh: 'zh-CN',
@@ -33,7 +37,9 @@ export function localeFromBrowser(lang?: string): Locale {
 // 读取用户手动选择；无记录则返回 null（跟随浏览器）
 export function readStoredLocale(): Locale | null {
   try {
-    const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
+    const raw =
+      localStorage.getItem(LOCALE_STORAGE_KEY) ??
+      localStorage.getItem(LOCALE_STORAGE_KEY_LEGACY)
     return isLocale(raw) ? raw : null
   } catch {
     return null
@@ -59,6 +65,7 @@ export function applyLocale(locale: Locale, persist: boolean): void {
   if (persist) {
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+      localStorage.removeItem(LOCALE_STORAGE_KEY_LEGACY)
     } catch {
       /* ignore quota / private mode */
     }

@@ -161,7 +161,8 @@ export const enPages = {
     introLink: 'help center',
     introSuffix: ' first.',
     formTitle: 'Send feedback',
-    formLead: 'Submit opens your mail client with a draft to support@printfilm.com. Please send it after you review.',
+    formLead: 'Submit opens your mail client with a draft to ToIV support. Please send it after you review.',
+    supportLabel: 'ToIV support',
     topic: 'Topic',
     email: 'Your email',
     emailPlaceholder: 'So we can reply',
@@ -182,7 +183,7 @@ export const enPages = {
         title: 'Email support',
         desc: 'We usually reply in 1–2 business days. Please include your account email and order ID if you have one.',
         href: 'mailto:support@printfilm.com',
-        actionLabel: 'support@printfilm.com',
+        actionLabel: 'ToIV support',
       },
       {
         title: 'Help center',
@@ -193,14 +194,14 @@ export const enPages = {
       {
         title: 'Enterprise / wire transfer',
         desc: 'For bulk credits, API partnerships, or invoices, email your company name and request.',
-        href: 'mailto:support@printfilm.com?subject=PRINTFILM%20Enterprise',
+        href: 'mailto:support@printfilm.com?subject=ToIV%20Enterprise',
         actionLabel: 'Email partnerships',
       },
       {
         title: 'Open source',
         desc: 'Source, issues, and deployment docs are on GitHub. Stars, issues, and PRs welcome.',
-        href: 'https://github.com/yi1108/printfilm',
-        actionLabel: 'github.com/yi1108/printfilm',
+        href: 'https://github.com/zhwangsir/ToIV',
+        actionLabel: 'github.com/zhwangsir/ToIV',
       },
     ],
     topics: [

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { HelpCircle, Mail, Building2, GitBranch } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
 import { useI18n } from '../i18n'
-import { GITHUB_REPO_URL } from '../lib/siteLinks'
+import { GITHUB_REPO_URL, SUPPORT_MAILTO } from '../lib/siteLinks'
 
 const CHANNEL_ICONS = [Mail, HelpCircle, Building2, GitBranch] as const
 
@@ -29,8 +29,8 @@ export default function ContactPage() {
       '',
       message.trim() || t('contact.mailEmpty'),
     ].join('\n')
-    const href = `mailto:support@printfilm.com?subject=${encodeURIComponent(
-      `[PRINTFILM] ${topic}`,
+    const href = `${SUPPORT_MAILTO}?subject=${encodeURIComponent(
+      `[ToIV] ${topic}`,
     )}&body=${encodeURIComponent(body)}`
     window.location.href = href
     setSent(true)
@@ -126,7 +126,7 @@ export default function ContactPage() {
             {sent ? (
               <p className="pf-contact-sent pf-muted">
                 {t('contact.sentPrefix')}{' '}
-                <a href="mailto:support@printfilm.com">support@printfilm.com</a>
+                <a href={SUPPORT_MAILTO}>{t('contact.supportLabel')}</a>
               </p>
             ) : null}
           </form>
