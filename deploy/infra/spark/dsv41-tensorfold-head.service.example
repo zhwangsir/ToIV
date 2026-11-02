@@ -1,0 +1,26 @@
+# OPTIONAL ALTERNATIVE (upstream Mia recipe) — DRAFT COPY for reference.
+# Source on spark02:
+#   ~/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks/systemd/dsv41-tensorfold.service
+# Head-only unit: ./start.sh launches rank1 over SSH then rank0 locally.
+# Prefer this if you want one supervisor instead of split rank units.
+# Still DO NOT enable in this wave.
+
+[Unit]
+Description=DeepSeek V4.1 Flash TensorFold on two Sparks (head launcher)
+StartLimitIntervalSec=30min
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dgmt-spark/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks
+Environment=FOREGROUND=1 PREPARE=0
+ExecStart=/usr/bin/bash ./start.sh
+ExecStop=/usr/bin/bash ./stop.sh
+Restart=on-failure
+RestartSec=60s
+TimeoutStopSec=120s
+# Add explicitly for ToIV cold-start policy (upstream template omits it):
+TimeoutStartSec=0
+
+[Install]
+WantedBy=default.target

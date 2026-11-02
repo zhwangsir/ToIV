@@ -1,0 +1,24 @@
+# ToIV — Mia TensorFold head launcher (user or system unit)
+# spark02 only. ./start.sh starts rank1 over SSH then rank0 :8888.
+[Unit]
+Description=ToIV TensorFold DSv4.1 head (start.sh TP2 :8888)
+Documentation=file:///home/dgmt-spark/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks/docs/systemd.md
+After=docker.service network-online.target
+Wants=docker.service
+StartLimitIntervalSec=30min
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dgmt-spark/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks
+Environment=FOREGROUND=1
+Environment=PREPARE=0
+ExecStart=/usr/bin/bash ./start.sh
+ExecStop=/usr/bin/bash ./stop.sh
+Restart=on-failure
+RestartSec=60s
+TimeoutStartSec=0
+TimeoutStopSec=180
+
+[Install]
+WantedBy=default.target

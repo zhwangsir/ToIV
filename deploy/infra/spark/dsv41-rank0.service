@@ -1,0 +1,31 @@
+# DRAFT ONLY — install path intended: deploy/infra/spark/ (repo) or
+#   ~/.config/systemd/user/ on spark02 (dgmt-spark@192.168.71.84)
+# Target: live TensorFold head API dsv41-1017-exl3-tf on :8888 (NOT :8000 / dsv4_60)
+# DO NOT systemctl enable/start in this wave.
+#
+# Start ONLY after spark01 rank1 is up (see RUNBOOK.md). systemd Cannot Requires= a peer host.
+
+[Unit]
+Description=ToIV TensorFold DSv4.1 rank0 head API :8888 (spark02, dsv41-1017-exl3-tf)
+Documentation=file:///home/dgmt-spark/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks/docs/systemd.md
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+StartLimitIntervalSec=30min
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=dgmt-spark
+Group=dgmt-spark
+TimeoutStartSec=0
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=60s
+# Optional readiness gate (uncomment after copying wait helper):
+ExecStartPre=/home/dgmt-spark/bin/dsv41-wait-rank1.sh
+ExecStart=/home/dgmt-spark/bin/dsv41-rank0-docker.sh
+ExecStop=/usr/bin/docker stop -t 60 dsv41-1017-exl3-tf
+ExecStopPost=-/usr/bin/docker rm -f dsv41-1017-exl3-tf
+
+[Install]
+WantedBy=multi-user.target

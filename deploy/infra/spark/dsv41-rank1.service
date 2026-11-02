@@ -1,0 +1,31 @@
+# DRAFT ONLY — install path intended: deploy/infra/spark/ (repo) or
+#   ~/.config/systemd/user/ on spark01 (dgmt-spark@192.168.71.82)
+# Target: live TensorFold worker dsv41-1017-exl3-tf (NOT dsv4_60 / dsv4-serve.sh)
+# DO NOT systemctl enable/start in this wave.
+#
+# Place companion script at ExecStart path below (adjust absolute path after copy).
+
+[Unit]
+Description=ToIV TensorFold DSv4.1 rank1 worker (spark01, dsv41-1017-exl3-tf)
+Documentation=file:///home/dgmt-spark/DeepSeek-v4.1-Flash-1017-2x-DGX-Sparks/docs/systemd.md
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+StartLimitIntervalSec=30min
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=dgmt-spark
+Group=dgmt-spark
+# Cold start / NVMe fault-in + weight load can take 10–45 min — never use a short TimeoutStartSec.
+TimeoutStartSec=0
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=60s
+# Absolute path after copying draft script onto spark01:
+ExecStart=/home/dgmt-spark/bin/dsv41-rank1-docker.sh
+ExecStop=/usr/bin/docker stop -t 60 dsv41-1017-exl3-tf
+ExecStopPost=-/usr/bin/docker rm -f dsv41-1017-exl3-tf
+
+[Install]
+WantedBy=multi-user.target
