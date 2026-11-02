@@ -46,6 +46,10 @@ const BUILD_FINGERPRINT = resolveBuildFingerprint();
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  // ArcReel (and Freezone) SPA mounts need a trailing slash on the mount root
+  // (`/arcreel/`). Default Next trailingSlash:false would 308 `/arcreel/` →
+  // `/arcreel`; we take over trailing-slash policy in middleware instead.
+  skipTrailingSlashRedirect: true,
   // Next 原生 BUILD_ID 采用我们的构建指纹(模块级常量,同次构建内与下方 env 烘焙值一致)
   generateBuildId: async () => BUILD_FINGERPRINT,
   // 烘焙进客户端 bundle,运行时代码经 process.env.NEXT_PUBLIC_BUILD_ID 读取

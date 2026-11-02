@@ -5,6 +5,8 @@ import { buildCanvasRequestHeaders, STUDIO_INTERNAL_HEADERS, studioMultiTenantEn
 /**
  * ArcReel 根主壳（2026-11）：裸 / 由 app/page.tsx iframe→/arcreel/，不再 rewrite 旧官网。
  * /studio*（非 auth/entry/api/static）308→/；旧孤面 RETIRED_FACE_REDIRECTS→/。
+ * skipTrailingSlashRedirect：中间件接管尾斜杠——保留 `/arcreel/`（及 `/freezone/`），
+ * 其余路径维持 Next 默认「去尾斜杠」；裸 `/arcreel` 308→`/arcreel/`。
  */
 /**
  * /studio 管理员闸(2026-10-08):用户隔离落地前只放行 role=admin(详见 lib/studioGuard.ts)。
@@ -126,6 +128,21 @@ function isStudioInfraPath(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
+  // 尾斜杠策略（配合 next.config skipTrailingSlashRedirect）：
+  // · 挂载根必须带尾斜杠，供 Vite base=/arcreel/ 与 iframe src 对齐
+  // · 裸 /arcreel、/freezone → 308 补斜杠；其它路径仍去尾斜杠（旧默认）
+  if (pathname === "/arcreel") {
+    return redirectPreserveSearch(req, "/arcreel/");
+  }
+  if (pathname === "/freezone") {
+    return redirectPreserveSearch(req, "/freezone/");
+  }
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    if (pathname !== "/arcreel/" && pathname !== "/freezone/") {
+      return redirectPreserveSearch(req, pathname.replace(/\/+$/, "") || "/");
+    }
+  }
+
   // ArcReel 根主壳：/studio 与 SPA 深链 308→/（保留 query）；基础设施路径豁免
   if (isStudioPath(pathname) && !isStudioInfraPath(pathname)) {
     return redirectPreserveSearch(req, "/");
@@ -149,4 +166,7 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/", "/studio", "/studio/:path*", "/create", "/create/:path*", "/desktop", "/desktop/:path*", "/library", "/library/:path*", "/market", "/market/:path*", "/tasks", "/tasks/:path*", "/toiv", "/toiv/:path*"] };
+export const config = {
+  // 覆盖全站 HTML 路由以接管尾斜杠；静态资源（带扩展名）与 _next 排除。
+  matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
+};

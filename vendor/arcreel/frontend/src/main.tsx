@@ -1,10 +1,16 @@
 import { createRoot } from "react-dom/client";
+import { Router } from "wouter";
 import { AppRoutes } from "./router";
 import { useAuthStore } from "@/stores/auth-store";
 import { i18nReady } from "@/i18n";
 import { BRAND, BRAND_DOCUMENT_TITLE } from "@/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initTheme } from "@/theme";
+
+// Vite `base` keeps a trailing slash (`/arcreel/`); wouter `base` must NOT —
+// with a trailing slash, `/arcreel/app/...` fails relativePath and every route 404s.
+// Dev base `/` → empty string (default). Build base `/arcreel/` → `/arcreel`.
+const ROUTER_BASE = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
 
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
@@ -37,9 +43,11 @@ if (root) {
   // 但失败必须可观测——所以显式记 error 而不是用 finally 把成功/失败合流静默。
   const render = () =>
     createRoot(root).render(
-      <TooltipProvider>
-        <AppRoutes />
-      </TooltipProvider>,
+      <Router base={ROUTER_BASE}>
+        <TooltipProvider>
+          <AppRoutes />
+        </TooltipProvider>
+      </Router>,
     );
   i18nReady.then(render, (err) => {
     console.error("i18n initialization failed", err);
