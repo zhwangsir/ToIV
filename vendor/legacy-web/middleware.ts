@@ -69,29 +69,33 @@ async function guardStudio(req: NextRequest): Promise<NextResponse> {
   return res;
 }
 
-/** F12 + R11/R12 Strangler: 退役面/孤面深链 308 到 canvas；助手 → /studio/create；工具孤面 → /studio/toiv/market。
- *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create。
+/** W6 旧壳退役: 退役面/孤面深链 308 → Prime（/studio 唯一创作入口）。
+ *  更具体规则必须写在 /toiv 通配之前。对外目标禁止裸 /create、禁止再指 /studio/create。
+ *  #8 library 字面路径 → /studio/library（PrimeLibrary）；勿并到 /drama/assets。
  *  target 可含 ?query；`$1`/`$2` 替换捕获组。hash 不达服务端，无法保留。 */
 const RETIRED_FACE_REDIRECTS: ReadonlyArray<[RegExp, string]> = [
-  // R12: /create 与 /create/* 一律到正式创作台（不留 /studio/create/foo）
-  [/^\/create(?:\/.*)?$/, "/studio/create"],
-  // R11: 旧六段工作区保留项目与段落，进入单一创作台（先于 /toiv 通配）
-  [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/studio/create?project=$1&section=$2"],
-  // R11: 助手 / 引擎工具孤面 → 创作台（先于 /toiv 通配）
-  [/^\/toiv\/agent(?:\/.*)?$/, "/studio/create"],
-  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/toiv/market"],
-  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/toiv/market"],
-  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/toiv/market"],
-  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/toiv/market"],
-  // R12①: runs 保留 id → ?run=
-  [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio/create?run=$1"],
-  [/^\/toiv\/runs\/?$/, "/studio/create"],
-  // W6 F12：Cosmos Desktop 种子默认不可达
-  [/^\/desktop(?:\/.*)?$/, "/studio/create"],
+  // #1: 裸 /create → /studio（保留 inbound query；勿默认 /studio/new）
+  [/^\/create(?:\/.*)?$/, "/studio"],
+  // #5: 旧六段工作区 / 助手 / runs → Prime /studio（先于 /toiv 通配）
+  [/^\/toiv\/ws(?:\/([^/]+))?(?:\/([^/]+))?\/?$/, "/studio?project=$1&section=$2"],
+  [/^\/toiv\/agent(?:\/.*)?$/, "/studio"],
+  [/^\/toiv\/library(\/.*)?$/, "/studio/library$1"],
+  [/^\/toiv\/tasks(\/.*)?$/, "/studio/tasks$1"],
+  [/^\/toiv\/market(\/.*)?$/, "/studio/tools"],
+  [/^\/toiv\/audio(?:\/.*)?$/, "/studio/tools"],
+  [/^\/toiv\/image-tools(?:\/.*)?$/, "/studio/tools"],
+  [/^\/toiv\/video-tools(?:\/.*)?$/, "/studio/tools"],
+  [/^\/toiv\/dub-tools(?:\/.*)?$/, "/studio/tools"],
+  [/^\/toiv\/runs\/([^/]+)(?:\/.*)?$/, "/studio?run=$1"],
+  [/^\/toiv\/runs\/?$/, "/studio"],
+  // #4 Cosmos Desktop 种子默认不可达 → Prime
+  [/^\/desktop(?:\/.*)?$/, "/studio"],
+  // #8 字面 /library* → Prime 作品库（禁止收成 /drama/assets）
   [/^\/library(\/.*)?$/, "/studio/library$1"],
-  [/^\/market(\/.*)?$/, "/studio/toiv/market$1"],
-  [/^\/tasks(\/.*)?$/, "/studio/toiv/tasks$1"],
-  // Wave P1 / G4: 公网裸 /toiv/* → /studio/toiv/*（含 /toiv/tasks 深链）
+  // #11 / #9
+  [/^\/market(\/.*)?$/, "/studio/tools"],
+  [/^\/tasks(\/.*)?$/, "/studio/tasks$1"],
+  // 挂账深链：其余 /toiv/* 仍进 /studio/toiv/*（Prime catch-all → 首页；另波映 /drama）
   [/^\/toiv(\/.*)?$/, "/studio/toiv$1"],
 ];
 
@@ -115,15 +119,35 @@ function applyRetiredRedirect(url: URL, target: string, match: RegExpExecArray, 
   url.search = qs ? `?${qs}` : "";
 }
 
+function redirectPreserveSearch(req: NextRequest, pathname: string): NextResponse {
+  const url = req.nextUrl.clone();
+  url.pathname = pathname;
+  const res = NextResponse.redirect(url, 308);
+  res.headers.set("cache-control", "no-store");
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  // W7：/studio/desktop* 在 SPA hydrate 前 308→create，避免闪页（与 canvas Navigate 对齐）
+  // W6：/studio 下旧壳入口在 SPA hydrate 前 308→Prime，避免闪 BeefTV 皮
+  if (/^\/studio\/create(?:\/.*)?$/.test(pathname)) {
+    return redirectPreserveSearch(req, "/studio");
+  }
   if (/^\/studio\/desktop(?:\/.*)?$/.test(pathname)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/studio/create";
-    const res = NextResponse.redirect(url, 308);
-    res.headers.set("cache-control", "no-store");
-    return res;
+    return redirectPreserveSearch(req, "/studio");
+  }
+  if (/^\/studio\/toiv\/market(?:\/.*)?$/.test(pathname)) {
+    return redirectPreserveSearch(req, "/studio/tools");
+  }
+  if (/^\/studio\/toiv\/tasks(?:\/.*)?$/.test(pathname)) {
+    return redirectPreserveSearch(req, "/studio/tasks");
+  }
+  if (/^\/studio\/toiv\/library(\/.*)?$/.test(pathname)) {
+    const rest = pathname.replace(/^\/studio\/toiv\/library/, "") || "";
+    return redirectPreserveSearch(req, `/studio/library${rest}`);
+  }
+  if (/^\/studio\/toiv\/agent(?:\/.*)?$/.test(pathname)) {
+    return redirectPreserveSearch(req, "/studio");
   }
   for (const [re, target] of RETIRED_FACE_REDIRECTS) {
     const m = re.exec(pathname);

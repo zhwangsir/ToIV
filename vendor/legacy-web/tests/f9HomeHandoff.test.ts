@@ -4,7 +4,7 @@
  * ②fail-safe:studio 关闭/无 token/非管理员 exchange 403/网络失败 → 回落经典 home;
  * ③逃生口:?classic=1、EXTERNAL 深链;R18 **不再**绕过 handoff(成人只走 canvas);
  * ④未登录保持 LandingPage;
- * ⑤ F12:经典壳无 R18/引擎台;image/video/create 深链 EXTERNAL → /studio/create。
+ * ⑤ F12:经典壳无 R18/引擎台;image/video/create 深链 EXTERNAL → /studio（Prime）。
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -40,7 +40,7 @@ test("F9 fail-safe:exchange 403/studio 关闭/无 token/网络失败都回落经
   assert.match(src, /const \[studioHandoffFailed, setStudioHandoffFailed\] = useState\(false\)/);
   const failures = src.split("setStudioHandoffFailed(true)").length - 1;
   assert.ok(failures >= 4, `失败出口应 ≥4 处(entry 关闭/无 token/exchange 403/catch),实际 ${failures}`);
-  assert.match(src, /if \(r\.ok\) window\.location\.replace\("\/studio\/[^"]*"\);\s*else setStudioHandoffFailed\(true\)/, "仅交换成功才跳;403 必须回落(零回退纪律)");
+  assert.match(src, /if \(r\.ok\) window\.location\.replace\("\/studio(?:\/[^"]*)?"\);\s*else setStudioHandoffFailed\(true\)/, "仅交换成功才跳;403 必须回落(零回退纪律)");
   const gate = src.slice(src.indexOf("const homeHandoffPending ="), src.indexOf("if (homeHandoffPending)"));
   assert.match(gate, /!studioHandoffFailed/, "闸门未消费失败标记(失败后会卡在跳转壳)");
 });
@@ -73,9 +73,9 @@ test("F12+D-U1=B:经典壳无引擎台;image/video 深链进 canvas create", () 
   assert.doesNotMatch(src, /EngineStudioView/, "经典壳 R18/引擎台必须撤出 page");
   assert.doesNotMatch(src, /view === "image"/);
   assert.doesNotMatch(src, /view === "video"/);
-  assert.match(src, /image:\s*"\/studio\/create"/, "image 深链须进 canvas create");
-  assert.match(src, /video:\s*"\/studio\/create"/, "video 深链须进 canvas create");
-  assert.match(src, /create:\s*"\/studio\/create"/);
+  assert.match(src, /image:\s*"\/studio"/, "image 深链须进 Prime /studio");
+  assert.match(src, /video:\s*"\/studio"/, "video 深链须进 Prime /studio");
+  assert.match(src, /create:\s*"\/studio"/);
   assert.match(src, /\/studio\/auth\/exchange/, "EXTERNAL 深链须先 exchange 再进 /studio");
   assert.match(src, /auth === \"loading\"/, "EXTERNAL 须等 auth 定论再跳");
   assert.match(src, /经典模式\(薄壳\)/, "handoff 失败/?classic=1 应落经典回落面板");

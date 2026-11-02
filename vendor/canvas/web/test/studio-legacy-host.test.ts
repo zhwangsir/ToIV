@@ -16,7 +16,9 @@ describe("legacy host strangler", () => {
         for (const path of ["/library", "/tasks", "/settings", "/toiv/drama", "/toiv/market", "/agents", "/toiv/kpi", "/plugins", "/plugins/eagle"]) {
             expect(router).toContain(`{ path: "${path}", element: deferred(<Studio`);
         }
-        expect(router).toContain('{ path: "/home", element: <Navigate to="/create" replace /> }');
+        expect(router).toContain('{ path: "/home", element: deferred(<HomePage />) }');
+        expect(router).toContain("RetireCreateToPrime");
+        expect(router).toContain('{ path: "/create", element: <RetireCreateToPrime /> }');
     });
     test("plugin pages stay behind their feature gate", () => {
         expect(legacyHost).toContain('<RequireFeature feature="pluginCenterEnabled">');
@@ -38,7 +40,9 @@ describe("face fallback removal", () => {
         }
         expect(read("src/studio/flags.ts")).not.toContain("studioFaceEnabled");
     });
-    test("/create without project bridges to the legacy composer instead of dead-ending", () => {
+    test("/create user-face retires to Prime; create-route source kept as seed", () => {
+        expect(router).toContain("RetireCreateToPrime");
+        expect(router).toContain("window.location.replace");
         expect(createRoute).toContain("if (!projectId) return <StudioCreateHomeRoute />;");
         expect(legacyHost).toContain("export function StudioCreateHomeRoute()");
         expect(legacyHost).toContain('import("@/pages/create/creation-workbench")');

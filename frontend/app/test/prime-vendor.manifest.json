@@ -14,10 +14,6 @@
       "sha256": "59f16881050bf86ae564b84d15fd70b37481cfee2f25f59493c30bcba5f77b51"
     },
     {
-      "path": "src/App.tsx",
-      "sha256": "3323bfa0eb487004a9e3f5da47135800e6fd9a8b45b0b08f8fd4723d6392443c"
-    },
-    {
       "path": "src/api.ts",
       "sha256": "5c3b9246d92b0da35a4ea77280586766ff36f844f13d87d9d6623516db25cd62"
     },
@@ -480,10 +476,6 @@
     {
       "path": "src/main.tsx",
       "sha256": "1108893dd52bd80d0a1f9bef519c8f91a0c00b3463327c7b36f7ad6859312354"
-    },
-    {
-      "path": "src/pages/AuthPage.tsx",
-      "sha256": "ccbee180b37e7c2c711d080985d7f9ae327ec645ebddc17c0fe464acce391315"
     },
     {
       "path": "src/pages/ContactPage.tsx",

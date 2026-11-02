@@ -15,7 +15,7 @@ type AuthState = "loading" | "in" | "out";
 /** F12 薄壳 + D-U1=B 选项 A(2026-10-20):web 只保留 ①未登录落地/登录 ②F9 首页跳转壳
  *  ③?classic=1 / handoff 失败回落面板 ④数字人下架说明。
  *  R18/NSFW 引擎台已撤——成人内容只走 canvas(/studio) R18 门控 + X-NSFW;
- *  ?view=image|video|create|… 整页跳 /studio/create。 */
+ *  ?view=image|video|create|… 整页跳 /studio（Prime）。 */
 type View = "home" | "avatartalk";
 
 /** M1 三大板块拆分遗留:旧 key 按语义归位(不 404)。 */
@@ -33,15 +33,15 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   studio: "/studio/toiv/drama",
   // F3(2026-10-11):animatic 退役——AI 解析入口=canvas 短剧列表「从图片创建」(StudioProject 域)
   animatic: "/studio/toiv/drama",
-  // R11 Strangler: 引擎工具孤面收敛创作台（对外 /studio/create）
-  audio: "/studio/create",
-  imageEdit: "/studio/create",
-  "image-edit": "/studio/create",
-  videoEdit: "/studio/create",
-  "video-edit": "/studio/create",
-  dub: "/studio/create",
-  // R11/R12③: 助手孤面唯一收敛轨 → /studio/create（无 LEGACY 双跳）
-  assistant: "/studio/create",
+  // W6: 引擎工具孤面 → Prime /studio/tools；助手 → /studio
+  audio: "/studio/tools",
+  imageEdit: "/studio/tools",
+  "image-edit": "/studio/tools",
+  videoEdit: "/studio/tools",
+  "video-edit": "/studio/tools",
+  dub: "/studio/tools",
+  // W6: 助手孤面 → Prime /studio
+  assistant: "/studio",
   entities: "/studio/toiv/drama",
   resources: "/studio/settings?section=channels",
   dramaStudio: "/studio/toiv/drama",
@@ -50,19 +50,19 @@ const EXTERNAL_VIEW_REDIRECTS: Record<string, string> = {
   models: "/studio/settings?section=channels",
   train: "/studio/settings?section=channels",
   backlot: "/studio/settings?section=channels",
-  // F8/F11:市场与作品库面已删(分页市场=canvas market-page;作品/回收站/检索=library-works)
-  market: "/studio/toiv/market",
-  skills: "/studio/toiv/market",
-  apps: "/studio/toiv/market",
-  library: "/studio/toiv/library",
-  // F2/F12:任务中心面已删(运行台=canvas /toiv/tasks)
-  tasks: "/studio/toiv/tasks",
-  // D-U1=B 选项 A(2026-10-20):经典壳 R18/引擎台撤干净——图/视频引擎深链进 canvas
-  image: "/studio/create",
-  video: "/studio/create",
-  create: "/studio/create",
-  generate: "/studio/create",
-  ltxstudio: "/studio/create",
+  // W6: 市场/技能 → Prime /tools；作品库 → /library（勿并资产库）
+  market: "/studio/tools",
+  skills: "/studio/tools",
+  apps: "/studio/tools",
+  library: "/studio/library",
+  // W6: 任务 → Prime /tasks
+  tasks: "/studio/tasks",
+  // W6: 图/视频/创作深链 → Prime /studio（唯一创作入口）
+  image: "/studio",
+  video: "/studio",
+  create: "/studio",
+  generate: "/studio",
+  ltxstudio: "/studio",
 };
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -110,7 +110,7 @@ function HomeContent() {
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const raw = searchParams.get("view");
-    // R12③: assistant 只走 EXTERNAL_VIEW → /studio/create，不进经典壳双轨
+    // R12③/W6: assistant 只走 EXTERNAL_VIEW → /studio，不进经典壳双轨
     if (raw && EXTERNAL_VIEW_REDIRECTS[raw]) return "home"; // 占位；effect 立刻 location.replace
     return resolveView(raw) ?? "home";
   });
@@ -149,7 +149,7 @@ function HomeContent() {
           return;
         }
         return fetch("/studio/auth/exchange", { method: "POST", headers: { authorization: `Bearer ${t}` } }).then((r) => {
-          if (r.ok) window.location.replace("/studio/create");
+          if (r.ok) window.location.replace("/studio");
           else setStudioHandoffFailed(true); // 非管理员 403 → 回落经典,零回退
         });
       })
@@ -324,13 +324,13 @@ function HomeContent() {
                     R18/成人内容请在工作室设置开启门控后使用(不再提供经典壳引擎台)。
                   </p>
                   <p className="thin-shell-links">
-                    <a href="/studio/create">创作/引擎台(canvas)</a>
-                    <a href="/studio/settings">设置·R18 门控(canvas)</a>
-                    <a href="/studio/toiv/library">作品库(canvas)</a>
-                    <a href="/studio/toiv/market">工具箱(canvas)</a>
-                    <a href="/studio/toiv/tasks">任务(canvas)</a>
+                    <a href="/studio">创作工作台(Prime)</a>
+                    <a href="/studio/settings">设置</a>
+                    <a href="/studio/library">作品库</a>
+                    <a href="/studio/tools">工具</a>
+                    <a href="/studio/tasks">任务</a>
                     {!studioHandoffFailed && (
-                      <button type="button" onClick={() => window.location.replace("/studio/create")}>
+                      <button type="button" onClick={() => window.location.replace("/studio")}>
                         进入创作工作室
                       </button>
                     )}

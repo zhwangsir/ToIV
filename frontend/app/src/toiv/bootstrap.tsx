@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ProjectHome from "../toiv/addons/ProjectHome";
 import { TaskCenterProvider } from "./addons/TaskCenterProvider";
 import { RequireSession, ToivLoginPage, storeToken } from "../toiv/auth/session";
@@ -19,6 +19,13 @@ const PrimeTools = lazy(() => import("./pages/PrimeTools"));
 const PrimeToolRun = lazy(() => import("./pages/PrimeToolRun"));
 const PrimeLegacyCanvas = lazy(() => import("./pages/PrimeLegacyCanvas"));
 
+
+/** W6：旧 /create → Prime 首页 /（公网 /studio）；保留 query，勿默认 /studio/new。 */
+function CreateToStudioRedirect() {
+    const { search } = useLocation();
+    return <Navigate to={{ pathname: "/", search }} replace />;
+}
+
 // 远端 Next 兜底把 /studio/ 重定向成 /studio，带尾斜杠的 basename 会整页不渲染
 export function routerBasename(base: string | undefined): string {
     return (base || "").replace(/\/+$/, "") || "/";
@@ -27,7 +34,7 @@ export function routerBasename(base: string | undefined): string {
 export const PRIME_ROUTES = [
     "/", "/studio", "/studio/new", "/studio/:id", "/studio/:id/style", "/studio/:id/editor",
     "/drama", "/drama/assets", "/drama/projects/:projectId/canvas", "/drama/projects/:projectId/assets",
-    "/tools", "/tools/:id", "/tasks", "/library", "/history", "/settings", "/auth", "/legacy/canvas/:id",
+    "/tools", "/tools/:id", "/tasks", "/library", "/history", "/settings", "/auth", "/create", "/legacy/canvas/:id",
 ];
 
 export default function ToivBootstrap() {
@@ -53,6 +60,8 @@ export default function ToivBootstrap() {
                 <Route path="/" element={<RequireSession><ProjectHome /></RequireSession>} />
                 <Route path="/studio" element={<RequireSession><ProjectHome /></RequireSession>} />
                 <Route path="/auth" element={<ToivLoginPage />} />
+                <Route path="/create" element={<CreateToStudioRedirect />} />
+                <Route path="/create/*" element={<CreateToStudioRedirect />} />
                 <Route path="/studio/new" element={<RequireSession><PrimeCreate /></RequireSession>} />
                 <Route path="/studio/:id/style" element={<RequireSession><PrimeStyle /></RequireSession>} />
                 <Route path="/studio/:id/editor" element={<RequireSession><PrimeEditor /></RequireSession>} />

@@ -20,6 +20,9 @@ describe("prime vendor freeze", () => {
     });
     test("manifest covers the vendor source tree", () => {
         expect(manifest.files.length).toBeGreaterThan(100);
-        expect(manifest.files.some((file) => file.path === "src/App.tsx")).toBe(true);
+        // W6 #14: AuthPage + 未挂载 App.tsx 旧树已物理删；只认 ToivLoginPage / main→ToivBootstrap
+        expect(manifest.files.some((file) => file.path === "src/App.tsx")).toBe(false);
+        expect(manifest.files.some((file) => file.path === "src/pages/AuthPage.tsx")).toBe(false);
+        expect(manifest.files.some((file) => file.path === "src/main.tsx")).toBe(true);
     });
 });

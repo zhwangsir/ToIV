@@ -153,10 +153,14 @@ test("中间件真实入口:/studio/api/* 与 /studio 页面按 admin 拦截", a
   assert.equal(r.status, 302);
   assert.equal(loc(r), CLASSIC_HOME);
 
-  // P0:无 cookie 的 SPA(含 /studio/create)放行壳,禁止再 302→/?view=home
+  // P0:无 cookie 的 SPA 放行壳,禁止再 302→/?view=home
   r = await middleware(req("/studio/canvas/abc"));
   assert.equal(r.headers.get("x-middleware-next"), "1");
+  // W6：/studio/create 在闸前 308→/studio（Prime 唯一创作入口）
   r = await middleware(req("/studio/create"));
+  assert.equal(r.status, 308);
+  assert.equal(loc(r), "/studio");
+  r = await middleware(req("/studio"));
   assert.equal(r.headers.get("x-middleware-next"), "1");
 
   const before = calls.length;

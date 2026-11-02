@@ -48,13 +48,14 @@ describe("W6 canvas demote + Cosmos cut + project gate", () => {
         expect(primary).not.toContain('"/desktop');
     });
 
-    test("router：/desktop* → /create；源码种子仍在", () => {
+    test("router：/desktop* → RetireCreateToPrime；源码种子仍在", () => {
         const router = read("src/router.tsx");
         expect(router).toContain('path: "/desktop"');
         expect(router).toContain('path: "/desktop/store"');
         expect(router).toContain('path: "/desktop/legacy-home"');
         expect(router).toContain('path: "/desktop/*"');
-        expect(router).toMatch(/path:\s*"\/desktop"[\s\S]*?Navigate to="\/create"/);
+        expect(router).toMatch(/path:\s*"\/desktop"[\s\S]*?RetireCreateToPrime/);
+        expect(router).toContain("location.replace");
         expect(router).not.toContain("DesktopHomePage");
         expect(router).not.toContain("DesktopAppStorePage");
         expect(existsSync(join(root, "src/pages/desktop/desktop-home-page.tsx"))).toBe(true);

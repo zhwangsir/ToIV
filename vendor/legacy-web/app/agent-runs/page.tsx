@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// F12(2026-10-15):Agent 任务中心已迁 canvas(F2,/toiv/tasks)——旧路由整页重定向不 404
+// F12 / W6：Agent 任务中心 → Prime /tasks
 export default function AgentRunsPage() {
-  redirect("/studio/toiv/tasks");
+  redirect("/studio/tasks");
 }

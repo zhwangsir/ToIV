@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Navigate, Outlet, useLocation, useParams, useSearchParams } from "react-router";
 
 import { createWorkspaceRouter } from "@/lib/app-routing";
@@ -14,7 +14,7 @@ const MediaLibraryPage = lazy(() => import("@/pages/library/media-library-page")
 const HomePage = lazy(loadHomePage);
 /** COSMOS_SEED：Desktop 页源码保留（pages/desktop、components/desktop）；W6 默认路由不可达，见 docs/COSMOS_APP_SHELL_SEED.md */
 const StudioCanvasRoute = lazy(() => import("@/studio/routes/studio-canvas-route"));
-const StudioCreateRoute = lazy(() => import("@/studio/routes/studio-create-route"));
+/** COSMOS/W6：creation 路由源码保留（studio-create-route）；用户面已 RetireCreateToPrime */
 const StudioEditRoute = lazy(() => import("@/studio/routes/studio-edit-route"));
 const StudioCanvasProjectRoute = lazy(() => import("@/studio/routes/studio-canvas-project-route"));
 
@@ -74,43 +74,45 @@ function ToivLibraryDetailRedirect() {
     return <Navigate to={`/library/works/${id ?? ""}`} replace />;
 }
 
-/** W2 F2: classic /toiv/drama/:id → /create?project=:id（保留 query；丢弃 classic=1） */
+/** W6：旧创作入口整页收口到公网 Prime `/studio`（保留/合并 query；勿用 basename 内 Navigate）。 */
+function RetireCreateToPrime({ extra }: { extra?: Record<string, string | undefined> } = {}) {
+    const [searchParams] = useSearchParams();
+    const next = new URLSearchParams(searchParams);
+    if (extra) {
+        for (const [k, v] of Object.entries(extra)) {
+            if (v) next.set(k, v);
+        }
+    }
+    next.delete("classic");
+    const qs = next.toString();
+    const href = `/studio${qs ? `?${qs}` : ""}`;
+    useEffect(() => {
+        window.location.replace(href);
+    }, [href]);
+    return <FullScreenLoader label="正在进入工作台" detail="旧创作入口已收口到 Prime" />;
+}
+
+/** W2 F2 / W6: classic /toiv/drama/:id → Prime /studio?project=:id */
 function ToivDramaDetailToCreateRedirect() {
     const { id } = useParams();
-    const [searchParams] = useSearchParams();
-    const next = new URLSearchParams(searchParams);
-    next.delete("classic");
-    if (id) next.set("project", id);
-    const qs = next.toString();
-    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+    return <RetireCreateToPrime extra={{ project: id }} />;
 }
 
-/** R11: 孤面 → 内链 /create（对外等价 /studio/create，由 studio 壳承载） */
+/** R11 / W6: 孤面 → Prime /studio */
 function ToivWsToCreateRedirect() {
     const { id, section } = useParams();
-    const [searchParams] = useSearchParams();
-    const next = new URLSearchParams(searchParams);
-    if (id) next.set("project", id);
-    if (section) next.set("section", section);
-    const qs = next.toString();
-    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+    return <RetireCreateToPrime extra={{ project: id, section }} />;
 }
 
-/** R12①: /toiv/runs/:id → /create?run=:id（保留既有 query） */
+/** R12① / W6: /toiv/runs/:id → Prime /studio?run=:id */
 function ToivRunToCreateRedirect() {
     const { id } = useParams();
-    const [searchParams] = useSearchParams();
-    const next = new URLSearchParams(searchParams);
-    if (id) next.set("run", id);
-    const qs = next.toString();
-    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+    return <RetireCreateToPrime extra={{ run: id }} />;
 }
 
-/** R12②: /create/* 子路径漏网 → /create（保留 query） */
+/** R12② / W6: /create/* → Prime /studio */
 function CreateSubpathRedirect() {
-    const [searchParams] = useSearchParams();
-    const qs = searchParams.toString();
-    return <Navigate to={`/create${qs ? `?${qs}` : ""}`} replace />;
+    return <RetireCreateToPrime />;
 }
 
 
@@ -139,7 +141,8 @@ function devRoutes() {
 export const router = createWorkspaceRouter([
     ...(import.meta.env.DEV ? devRoutes() : []),
     // studio 新壳三面：不套旧 WorkspaceLayout chrome（strangler 外层）
-    { path: "/create", element: deferred(<StudioCreateRoute />) },
+    // W6：/create 用户面收口 Prime（StudioCreateRoute 源码保留，禁接回默认）
+    { path: "/create", element: <RetireCreateToPrime /> },
     { path: "/edit", element: deferred(<StudioEditRoute />) },
     { path: "/canvas", element: deferred(<StudioCanvasRoute />) },
     { path: "/projects", element: deferred(<StudioCanvasRoute />) },
@@ -148,7 +151,7 @@ export const router = createWorkspaceRouter([
     { path: "/library", element: deferred(<StudioLibraryRoute />) },
     { path: "/tasks", element: deferred(<StudioTasksRoute />) },
     { path: "/settings", element: deferred(<StudioSettingsRoute />) },
-    { path: "/home", element: <Navigate to="/create" replace /> },
+    { path: "/home", element: deferred(<HomePage />) },
     { path: "/toiv/drama", element: deferred(<StudioDramaRoute />) },
     { path: "/toiv/market", element: deferred(<StudioMarketRoute />) },
     { path: "/agents", element: deferred(<StudioAgentsRoute />) },
@@ -159,23 +162,23 @@ export const router = createWorkspaceRouter([
         element: <WorkspaceLayout />,
         errorElement: <RouteErrorPage />,
         children: [
-            // W1 F1：登录后 /studio/ 默认落地密台创作（Home 降级 /home，非默认）
-            { path: "/", element: <Navigate to="/create" replace /> },
-            // W6 F12：/desktop* 默认不可达 → /create（源码保留作 Cosmos 种子，禁接回默认交付）
-            { path: "/desktop", element: <Navigate to="/create" replace /> },
-            { path: "/desktop/store", element: <Navigate to="/create" replace /> },
-            { path: "/desktop/legacy-home", element: <Navigate to="/create" replace /> },
-            { path: "/desktop/*", element: <Navigate to="/create" replace /> },
+            // W6：默认落地降级 Home（勿 Retire→/studio，避免 canvas 自环）；/create* 才整页收口 Prime
+            { path: "/", element: deferred(<HomePage />) },
+            // W6 F12/退役：/desktop* 默认不可达 → Prime /studio（源码保留作 Cosmos 种子，禁接回默认交付）
+            { path: "/desktop", element: <RetireCreateToPrime /> },
+            { path: "/desktop/store", element: <RetireCreateToPrime /> },
+            { path: "/desktop/legacy-home", element: <RetireCreateToPrime /> },
+            { path: "/desktop/*", element: <RetireCreateToPrime /> },
             { path: "/create/*", element: <CreateSubpathRedirect /> },
             { path: "/library/works/:id", element: deferred(<ToivLibraryDetailPage />) },
             { path: "/assets", element: <AssetsLegacyRedirect /> },
             { path: "/toiv/library", element: <Navigate to="/library?source=works" replace /> },
             { path: "/toiv/library/:id", element: <ToivLibraryDetailRedirect /> },
-            { path: "/skills", element: <Navigate to="/create" replace /> },
-            { path: "/skill", element: <Navigate to="/create" replace /> },
-            { path: "/skills/reference", element: <Navigate to="/create" replace /> },
+            { path: "/skills", element: <RetireCreateToPrime /> },
+            { path: "/skill", element: <RetireCreateToPrime /> },
+            { path: "/skills/reference", element: <RetireCreateToPrime /> },
             { path: "/toiv/tasks", element: <Navigate to="/tasks" replace /> },
-            { path: "/toiv/agent", element: <Navigate to="/create" replace /> },
+            { path: "/toiv/agent", element: <RetireCreateToPrime /> },
             { path: "/toiv/runs/:id", element: <ToivRunToCreateRedirect /> },
             { path: "/toiv/audio", element: <Navigate to="/toiv/market" replace /> },
             { path: "/toiv/image-tools", element: <Navigate to="/toiv/market" replace /> },
