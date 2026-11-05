@@ -408,7 +408,7 @@ test("U5: sortAppsVerifiedFirst 未测沉底,pass 置前且稳定", () => {
       output_kind: "image",
       params_schema: [],
       bindings: {},
-      required_nodes: [],
+      workflow_json: null,
       is_public: true,
       is_builtin: true,
       is_nsfw: false,
@@ -416,7 +416,7 @@ test("U5: sortAppsVerifiedFirst 未测沉底,pass 置前且稳定", () => {
       usage_count: 0,
       sort: 100,
       smoke_status,
-    }) as AppItem;
+    });
   const list = [mk("u1"), mk("p1", "pass"), mk("f1", "fail"), mk("u2"), mk("p2", "pass")];
   const sorted = sortAppsVerifiedFirst(list);
   assert.deepEqual(
