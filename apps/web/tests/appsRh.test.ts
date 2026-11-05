@@ -25,6 +25,7 @@ import {
   sortAppsVerifiedFirst,
   formatSmokeVerifiedAt,
   summarizeWorkflowNodes,
+  type AppItem,
   type AppParam,
 } from "../lib/apps";
 
