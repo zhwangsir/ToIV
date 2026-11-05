@@ -13,7 +13,7 @@ import {
   parseSpeedTier,
   speedTierToH3Accel,
   SPEED_TIER_STORAGE_KEY,
-} from "../lib/speedTier.ts";
+} from "../lib/speedTier";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
