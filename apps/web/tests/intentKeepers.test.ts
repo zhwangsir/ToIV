@@ -9,7 +9,7 @@ import {
   intentMarketPath,
   intentMarketQuery,
   resolveIntentAppId,
-} from "../lib/intentKeepers.ts";
+} from "../lib/intentKeepers";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 

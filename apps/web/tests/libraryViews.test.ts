@@ -33,6 +33,7 @@ import {
   makeSeqGate,
   persistDensity,
   type LibraryQuery,
+  type SavedView,
 } from "../lib/libraryQuery";
 import type { JobItem } from "../lib/types";
 import { LibraryEmptyState, LibraryView } from "../components/library/LibraryView";
@@ -540,7 +541,7 @@ test("来源筛选:applyLibraryQuery source 维度(引擎族/应用)", () => {
     mk("d", "app_video", "rh-x"),
     mk("e", "app_image", "rh-x"),
   ];
-  const base = { filter: "all", contentFilter: "all", search: "", sort: "newest" } as never;
+  const base: LibraryQuery = { filter: "all", contentFilter: "all", search: "", sort: "newest" };
   assert.equal(q(jobs, { ...base, source: "" }).length, 5);
   assert.deepEqual(
     q(jobs, { ...base, source: "engine:h3_t2v" }).map((j) => j.id), ["b", "c"]);
@@ -698,7 +699,7 @@ test("Saved Views:持久化往返 + 坏数据容错 + 应用语义", async () =>
   assert.deepEqual(loadViews(), []);
   window.localStorage.setItem("toiv_library_views", "[{\"bad\":1}]");
   assert.deepEqual(loadViews(), []);
-  const views = [
+  const views: SavedView[] = [
     {
       id: "v1", name: "H3 视频",
       query: { filter: "video", contentFilter: "all", source: "engine:h3_t2v", search: "", favOnly: false },
